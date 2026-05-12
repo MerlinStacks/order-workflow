@@ -80,6 +80,52 @@ class CK_OWS_Plugin {
 			flex-direction: row !important;
 			flex-wrap: wrap !important;
 			gap: 10px !important;
+			margin: 0 !important;
+			padding: 12px 0 !important;
+			list-style: none !important;
+		}
+		.woocommerce-account ul.account-nav.nav-vertical > li,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li {
+			display: inline-flex !important;
+			width: auto !important;
+			margin: 0 !important;
+			border: 0 !important;
+		}
+		.woocommerce-account ul.account-nav.nav-vertical > li::before,
+		.woocommerce-account ul.account-nav.nav-vertical > li::after,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li::before,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li::after {
+			display: none !important;
+			content: none !important;
+		}
+		.woocommerce-account ul.account-nav.nav-vertical > li > a,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li > a {
+			display: inline-flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			width: auto !important;
+			min-height: 38px !important;
+			padding: 8px 18px !important;
+			border: 1px solid var(--ck-ows-border) !important;
+			border-radius: 999px !important;
+			background: #fff !important;
+			color: var(--ck-ows-text) !important;
+			text-transform: uppercase !important;
+			letter-spacing: 0.02em !important;
+			font-weight: 600 !important;
+			line-height: 1.2 !important;
+		}
+		.woocommerce-account ul.account-nav.nav-vertical > li.active > a,
+		.woocommerce-account ul.account-nav.nav-vertical > li.is-active > a,
+		.woocommerce-account ul.account-nav.nav-vertical > li.current-menu-item > a,
+		.woocommerce-account ul.account-nav.nav-vertical > li > a:hover,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li.active > a,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li.is-active > a,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li.current-menu-item > a,
+		.woocommerce-account ul.account-nav.nav-line.nav-vertical > li > a:hover {
+			background: #121212 !important;
+			border-color: #121212 !important;
+			color: #fff !important;
 		}
 		.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation,
 		.woocommerce-account #customer_login ~ .woocommerce .woocommerce-MyAccount-navigation {
