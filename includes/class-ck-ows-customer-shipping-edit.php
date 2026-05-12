@@ -39,13 +39,24 @@ class CK_OWS_Customer_Shipping_Edit {
 		}
 
 		$action_url = admin_url( 'admin-post.php' );
+		$fallback_notice = $this->get_fallback_notice();
 
 		echo '<section class="ck-ows-shipping-edit">';
+
+		if ( null !== $fallback_notice ) {
+			echo '<div class="woocommerce-notices-wrapper">';
+			echo '<ul class="woocommerce-' . esc_attr( $fallback_notice['type'] ) . '" role="alert">';
+			echo '<li>' . esc_html( $fallback_notice['message'] ) . '</li>';
+			echo '</ul>';
+			echo '</div>';
+		}
+
 		echo '<h2>' . esc_html__( 'Update Shipping Address', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<p>' . esc_html__( 'You can update your delivery details while this order is still processing.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<form method="post" action="' . esc_url( $action_url ) . '">';
 		echo '<input type="hidden" name="action" value="ck_ows_update_shipping_address">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
+		echo '<input type="hidden" name="order_version" value="' . esc_attr( (string) $this->get_order_version( $order ) ) . '">';
 		wp_nonce_field( 'ck_ows_update_shipping_' . $order->get_id() );
 
 		$this->render_input( 'shipping_first_name', __( 'First name', 'ck-order-workflow-suite' ), (string) $order->get_shipping_first_name(), true );
@@ -82,9 +93,14 @@ class CK_OWS_Customer_Shipping_Edit {
 		}
 
 		if ( 'processing' !== $order->get_status() ) {
-			wc_add_notice( __( 'Shipping address can only be updated while the order is processing.', 'ck-order-workflow-suite' ), 'error' );
-			wp_safe_redirect( $order->get_view_order_url() );
-			exit;
+			$this->redirect_with_notice( $order, __( 'Shipping address can only be updated while the order is processing.', 'ck-order-workflow-suite' ), 'error' );
+		}
+
+		$expected_version = isset( $_POST['order_version'] ) ? absint( wp_unslash( $_POST['order_version'] ) ) : 0;
+		$current_version  = $this->get_order_version( $order );
+
+		if ( $expected_version <= 0 || $expected_version !== $current_version ) {
+			$this->redirect_with_notice( $order, __( 'This order was updated before your address change was saved. Please refresh and try again.', 'ck-order-workflow-suite' ), 'error' );
 		}
 
 		$address = array(
@@ -100,18 +116,85 @@ class CK_OWS_Customer_Shipping_Edit {
 		);
 
 		if ( '' === $address['first_name'] || '' === $address['last_name'] || '' === $address['address_1'] || '' === $address['city'] || '' === $address['postcode'] || '' === $address['country'] ) {
-			wc_add_notice( __( 'Please complete all required shipping fields.', 'ck-order-workflow-suite' ), 'error' );
+			$this->redirect_with_notice( $order, __( 'Please complete all required shipping fields.', 'ck-order-workflow-suite' ), 'error' );
+		}
+
+		$latest_order = wc_get_order( $order_id );
+
+		if ( ! $latest_order ) {
+			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
+		}
+
+		if ( (int) $latest_order->get_user_id() !== get_current_user_id() ) {
+			wp_die( esc_html__( 'You do not have permission to edit this order.', 'ck-order-workflow-suite' ) );
+		}
+
+		if ( 'processing' !== $latest_order->get_status() || $this->get_order_version( $latest_order ) !== $expected_version ) {
+			$this->redirect_with_notice( $latest_order, __( 'This order was updated before your address change was saved. Please refresh and try again.', 'ck-order-workflow-suite' ), 'error' );
+		}
+
+		$latest_order->set_address( $address, 'shipping' );
+		$latest_order->add_order_note( __( 'Customer updated shipping address from My Account.', 'ck-order-workflow-suite' ) );
+		$latest_order->save();
+
+		$this->redirect_with_notice( $latest_order, __( 'Shipping address updated successfully.', 'ck-order-workflow-suite' ), 'success' );
+	}
+
+	private function get_order_version( WC_Order $order ): int {
+		$modified = $order->get_date_modified();
+
+		if ( $modified ) {
+			return $modified->getTimestamp();
+		}
+
+		$created = $order->get_date_created();
+
+		if ( $created ) {
+			return $created->getTimestamp();
+		}
+
+		return 0;
+	}
+
+	private function redirect_with_notice( WC_Order $order, string $message, string $type ): void {
+		if ( function_exists( 'wc_add_notice' ) ) {
+			wc_add_notice( $message, $type );
 			wp_safe_redirect( $order->get_view_order_url() );
 			exit;
 		}
 
-		$order->set_address( $address, 'shipping' );
-		$order->add_order_note( __( 'Customer updated shipping address from My Account.', 'ck-order-workflow-suite' ) );
-		$order->save();
+		$notice_url = add_query_arg(
+			array(
+				'ck_ows_notice'      => $message,
+				'ck_ows_notice_type' => $type,
+			),
+			$order->get_view_order_url()
+		);
 
-		wc_add_notice( __( 'Shipping address updated successfully.', 'ck-order-workflow-suite' ), 'success' );
-		wp_safe_redirect( $order->get_view_order_url() );
+		wp_safe_redirect( $notice_url );
 		exit;
+	}
+
+	private function get_fallback_notice(): ?array {
+		if ( ! isset( $_GET['ck_ows_notice'] ) || ! isset( $_GET['ck_ows_notice_type'] ) ) {
+			return null;
+		}
+
+		$message = sanitize_text_field( wp_unslash( $_GET['ck_ows_notice'] ) );
+		$type    = sanitize_key( wp_unslash( $_GET['ck_ows_notice_type'] ) );
+
+		if ( '' === $message ) {
+			return null;
+		}
+
+		if ( ! in_array( $type, array( 'error', 'success', 'notice' ), true ) ) {
+			$type = 'notice';
+		}
+
+		return array(
+			'message' => $message,
+			'type'    => $type,
+		);
 	}
 
 	private function clean_post( string $key ): string {

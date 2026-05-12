@@ -10,6 +10,7 @@ defined( 'ABSPATH' ) || exit;
 class CK_OWS_Artwork_Proof {
 	public const META_PROOF_ID                = '_ck_ows_artwork_proof_id';
 	public const META_PROOF_URL               = '_ck_ows_artwork_proof_url';
+	public const META_PROOF_REVISIONS         = '_ck_ows_artwork_proof_revisions';
 	public const META_APPROVAL_STATE          = '_ck_ows_artwork_approval_state';
 	public const META_APPROVED_AT             = '_ck_ows_artwork_approved_at';
 	public const META_APPROVED_BY             = '_ck_ows_artwork_approved_by';
@@ -39,6 +40,7 @@ class CK_OWS_Artwork_Proof {
 		add_action( 'post_edit_form_tag', array( $this, 'add_multipart_encoding' ) );
 		add_action( 'woocommerce_process_shop_order_meta', array( $this, 'save_order_meta' ), 20, 2 );
 		add_action( 'admin_post_ck_ows_artwork_upload', array( $this, 'handle_staff_upload' ) );
+		add_action( 'admin_post_ck_ows_artwork_delete', array( $this, 'handle_staff_delete_revision' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 
 		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_customer_panel' ), 30 );
@@ -91,6 +93,11 @@ class CK_OWS_Artwork_Proof {
 	}
 
 	public static function order_has_artwork_proof( WC_Order $order ): bool {
+		$revisions = self::get_proof_revisions( $order );
+		if ( ! empty( $revisions ) ) {
+			return true;
+		}
+
 		$proof_id  = absint( $order->get_meta( self::META_PROOF_ID, true ) );
 		$proof_url = (string) $order->get_meta( self::META_PROOF_URL, true );
 
@@ -148,17 +155,72 @@ class CK_OWS_Artwork_Proof {
 		echo '<div class="ck-ows-artwork-admin">';
 		echo '<p><strong>' . esc_html__( 'Upload Proof PDF', 'ck-order-workflow-suite' ) . '</strong></p>';
 		echo '<p style="margin-top:0;">' . esc_html__( 'Upload a PDF proof that the customer can review and approve from their order details page.', 'ck-order-workflow-suite' ) . '</p>';
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" enctype="multipart/form-data">';
 		echo '<input type="hidden" name="action" value="ck_ows_artwork_upload">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
 		wp_nonce_field( 'ck_ows_artwork_upload_' . $order->get_id() );
 		echo '<p><input type="file" id="ck_ows_artwork_pdf" name="ck_ows_artwork_pdf" accept="application/pdf" style="width:100%;"></p>';
-		echo '<p><button type="submit" class="button button-primary" style="width:100%;justify-content:center;">' . esc_html__( 'Upload proof PDF', 'ck-order-workflow-suite' ) . '</button></p>';
-		echo '</form>';
+		echo '<p><button type="submit" formmethod="post" formenctype="multipart/form-data" formaction="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="button button-primary" style="width:100%;justify-content:center;">' . esc_html__( 'Upload proof PDF', 'ck-order-workflow-suite' ) . '</button></p>';
 
+		$revisions = self::get_proof_revisions( $order );
 		if ( $proof_link ) {
+			$latest_label = 'v1';
+			if ( ! empty( $revisions ) ) {
+				$latest_label = $this->get_revision_label( count( $revisions ) - 1 );
+			}
+
+			echo '<p><strong>' . esc_html( sprintf( __( 'Current proof (%s)', 'ck-order-workflow-suite' ), $latest_label ) ) . '</strong></p>';
 			echo '<p><a href="' . esc_url( $proof_link ) . '" target="_blank" rel="noopener">' . esc_html__( 'View current proof', 'ck-order-workflow-suite' ) . '</a></p>';
-			echo '<p><label><input type="checkbox" name="ck_ows_remove_artwork_proof" value="1"> ' . esc_html__( 'Remove current proof', 'ck-order-workflow-suite' ) . '</label></p>';
+		}
+
+		if ( ! empty( $revisions ) ) {
+			echo '<p><strong>' . esc_html__( 'Delete versions', 'ck-order-workflow-suite' ) . '</strong></p>';
+			echo '<ul style="margin:0 0 12px 18px;list-style:disc;">';
+			for ( $index = count( $revisions ) - 1; $index >= 0; $index-- ) {
+				$revision     = $revisions[ $index ];
+				$url          = isset( $revision['url'] ) ? (string) $revision['url'] : '';
+				$uploaded_at  = isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : 0;
+				$version      = $this->get_revision_label( $index );
+				$version_text = $uploaded_at > 0 ? sprintf( '%s (%s)', $version, wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $uploaded_at ) ) : $version;
+				$delete_url   = wp_nonce_url(
+					add_query_arg(
+						array(
+							'action'   => 'ck_ows_artwork_delete',
+							'order_id' => $order->get_id(),
+							'rev'      => $index,
+						),
+						admin_url( 'admin-post.php' )
+					),
+					'ck_ows_artwork_delete_' . $order->get_id() . '_' . $index
+				);
+
+				echo '<li>';
+				if ( '' !== $url ) {
+					echo '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $version_text ) . '</a> ';
+				} else {
+					echo esc_html( $version_text ) . ' ';
+				}
+				echo '<a href="' . esc_url( $delete_url ) . '" class="button-link-delete" onclick="return confirm(\'' . esc_js( __( 'Delete this artwork proof version?', 'ck-order-workflow-suite' ) ) . '\');">' . esc_html__( 'Delete', 'ck-order-workflow-suite' ) . '</a>';
+				echo '</li>';
+			}
+			echo '</ul>';
+		}
+
+		if ( count( $revisions ) > 1 ) {
+			echo '<p><strong>' . esc_html__( 'Previous versions', 'ck-order-workflow-suite' ) . '</strong></p>';
+			echo '<ul style="margin:0 0 12px 18px;list-style:disc;">';
+			for ( $index = count( $revisions ) - 2; $index >= 0; $index-- ) {
+				$revision = $revisions[ $index ];
+				$url      = isset( $revision['url'] ) ? (string) $revision['url'] : '';
+				if ( '' === $url ) {
+					continue;
+				}
+
+				$uploaded_at = isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : 0;
+				$label       = $uploaded_at > 0 ? sprintf( __( '%1$s from %2$s', 'ck-order-workflow-suite' ), $this->get_revision_label( $index ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $uploaded_at ) ) : $this->get_revision_label( $index );
+
+				echo '<li><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $label ) . '</a></li>';
+			}
+			echo '</ul>';
 		}
 
 		echo '<p><strong>' . esc_html__( 'Approval state:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_state_label( $state ) ) . '</p>';
@@ -211,6 +273,55 @@ class CK_OWS_Artwork_Proof {
 		exit;
 	}
 
+	public function handle_staff_delete_revision(): void {
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		$order_id = isset( $_GET['order_id'] ) ? absint( wp_unslash( $_GET['order_id'] ) ) : 0;
+		$rev      = isset( $_GET['rev'] ) ? absint( wp_unslash( $_GET['rev'] ) ) : -1;
+		$order    = wc_get_order( $order_id );
+
+		if ( ! $order ) {
+			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( 'ck_ows_artwork_delete_' . $order_id . '_' . $rev );
+
+		$revisions = self::get_proof_revisions( $order );
+		if ( ! isset( $revisions[ $rev ] ) ) {
+			$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
+			$redirect = add_query_arg( 'ck_ows_artwork_delete_error', 1, $redirect );
+			wp_safe_redirect( $redirect );
+			exit;
+		}
+
+		$deleted_version = $this->get_revision_label( $rev );
+		unset( $revisions[ $rev ] );
+		$revisions = array_values( $revisions );
+
+		if ( empty( $revisions ) ) {
+			$order->delete_meta_data( self::META_PROOF_ID );
+			$order->delete_meta_data( self::META_PROOF_URL );
+			$order->delete_meta_data( self::META_PROOF_REVISIONS );
+			$order->delete_meta_data( self::META_APPROVAL_STATE );
+		} else {
+			$latest = $revisions[ count( $revisions ) - 1 ];
+			$order->update_meta_data( self::META_PROOF_REVISIONS, $revisions );
+			$order->update_meta_data( self::META_PROOF_ID, isset( $latest['attachment_id'] ) ? absint( $latest['attachment_id'] ) : 0 );
+			$order->update_meta_data( self::META_PROOF_URL, isset( $latest['url'] ) ? esc_url_raw( (string) $latest['url'] ) : '' );
+			$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_PENDING );
+		}
+
+		$order->save();
+		$order->add_order_note( sprintf( __( 'Artwork proof %s deleted by staff.', 'ck-order-workflow-suite' ), $deleted_version ) );
+
+		$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
+		$redirect = add_query_arg( 'ck_ows_artwork_delete_success', 1, $redirect );
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
 	public function save_order_meta( int $order_id, $post ): void {
 		if ( ! isset( $_POST['ck_ows_artwork_meta_nonce'] ) ) {
 			return;
@@ -228,15 +339,6 @@ class CK_OWS_Artwork_Proof {
 			return;
 		}
 
-		if ( isset( $_POST['ck_ows_remove_artwork_proof'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['ck_ows_remove_artwork_proof'] ) ) ) {
-			$order->delete_meta_data( self::META_PROOF_ID );
-			$order->delete_meta_data( self::META_PROOF_URL );
-			$order->delete_meta_data( self::META_APPROVAL_STATE );
-			$order->save();
-			$order->add_order_note( __( 'Artwork proof removed by staff.', 'ck-order-workflow-suite' ) );
-			return;
-		}
-
 		if ( empty( $_FILES['ck_ows_artwork_pdf']['name'] ) ) {
 			return;
 		}
@@ -245,6 +347,7 @@ class CK_OWS_Artwork_Proof {
 	}
 
 	private function upload_artwork_file_for_order( WC_Order $order ): void {
+		$order_id = $order->get_id();
 
 		if ( ! function_exists( 'wp_handle_upload' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -295,6 +398,15 @@ class CK_OWS_Artwork_Proof {
 
 		$order->update_meta_data( self::META_PROOF_ID, $attachment_id );
 		$order->update_meta_data( self::META_PROOF_URL, esc_url_raw( (string) $uploaded['url'] ) );
+		$this->append_proof_revision(
+			$order,
+			array(
+				'attachment_id' => $attachment_id,
+				'url'           => esc_url_raw( (string) $uploaded['url'] ),
+				'uploaded_at'   => time(),
+				'uploaded_by'   => get_current_user_id(),
+			)
+		);
 		$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_PENDING );
 		$order->save();
 
@@ -318,8 +430,9 @@ class CK_OWS_Artwork_Proof {
 			return;
 		}
 
-		$proof_url = $this->get_proof_url( $order );
-		$state     = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
+		$proof_url  = $this->get_proof_url( $order );
+		$revisions  = self::get_proof_revisions( $order );
+		$state      = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
 
 		echo '<section class="ck-ows-artwork-proof">';
 		echo '<h2>' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
@@ -327,6 +440,24 @@ class CK_OWS_Artwork_Proof {
 
 		if ( $proof_url ) {
 			echo '<p><a class="button" href="' . esc_url( $proof_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'View proof PDF', 'ck-order-workflow-suite' ) . '</a></p>';
+		}
+
+		if ( count( $revisions ) > 1 ) {
+			echo '<p><strong>' . esc_html__( 'Previous versions', 'ck-order-workflow-suite' ) . '</strong></p>';
+			echo '<ul class="ck-ows-artwork-proof__versions">';
+			for ( $index = count( $revisions ) - 2; $index >= 0; $index-- ) {
+				$revision = $revisions[ $index ];
+				$url      = isset( $revision['url'] ) ? (string) $revision['url'] : '';
+				if ( '' === $url ) {
+					continue;
+				}
+
+				$uploaded_at = isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : 0;
+				$label       = $uploaded_at > 0 ? sprintf( __( '%1$s from %2$s', 'ck-order-workflow-suite' ), $this->get_revision_label( $index ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $uploaded_at ) ) : $this->get_revision_label( $index );
+
+				echo '<li><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $label ) . '</a></li>';
+			}
+			echo '</ul>';
 		}
 
 		echo '<p><strong>' . esc_html__( 'Current state:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_state_label( $state ) ) . '</p>';
@@ -492,9 +623,29 @@ class CK_OWS_Artwork_Proof {
 		if ( isset( $_GET['ck_ows_artwork_upload_success'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Artwork proof uploaded successfully.', 'ck-order-workflow-suite' ) . '</p></div>';
 		}
+
+		if ( isset( $_GET['ck_ows_artwork_delete_success'] ) ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Artwork proof version deleted successfully.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_artwork_delete_error'] ) ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Could not delete artwork proof version.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+	}
+
+	private function get_revision_label( int $index ): string {
+		return 'v' . (string) ( $index + 1 );
 	}
 
 	private function get_proof_url( WC_Order $order ): string {
+		$revisions = self::get_proof_revisions( $order );
+		if ( ! empty( $revisions ) ) {
+			$latest = $revisions[ count( $revisions ) - 1 ];
+			if ( isset( $latest['url'] ) && '' !== (string) $latest['url'] ) {
+				return (string) $latest['url'];
+			}
+		}
+
 		$proof_id = absint( $order->get_meta( self::META_PROOF_ID, true ) );
 
 		if ( $proof_id > 0 ) {
@@ -505,6 +656,47 @@ class CK_OWS_Artwork_Proof {
 		}
 
 		return (string) $order->get_meta( self::META_PROOF_URL, true );
+	}
+
+	private static function get_proof_revisions( WC_Order $order ): array {
+		$stored = $order->get_meta( self::META_PROOF_REVISIONS, true );
+
+		if ( ! is_array( $stored ) ) {
+			return array();
+		}
+
+		$revisions = array();
+		foreach ( $stored as $revision ) {
+			if ( ! is_array( $revision ) ) {
+				continue;
+			}
+
+			$url = isset( $revision['url'] ) ? esc_url_raw( (string) $revision['url'] ) : '';
+			if ( '' === $url ) {
+				continue;
+			}
+
+			$revisions[] = array(
+				'attachment_id' => isset( $revision['attachment_id'] ) ? absint( $revision['attachment_id'] ) : 0,
+				'url'           => $url,
+				'uploaded_at'   => isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : 0,
+				'uploaded_by'   => isset( $revision['uploaded_by'] ) ? absint( $revision['uploaded_by'] ) : 0,
+			);
+		}
+
+		return $revisions;
+	}
+
+	private function append_proof_revision( WC_Order $order, array $revision ): void {
+		$revisions   = self::get_proof_revisions( $order );
+		$revisions[] = array(
+			'attachment_id' => isset( $revision['attachment_id'] ) ? absint( $revision['attachment_id'] ) : 0,
+			'url'           => isset( $revision['url'] ) ? esc_url_raw( (string) $revision['url'] ) : '',
+			'uploaded_at'   => isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : time(),
+			'uploaded_by'   => isset( $revision['uploaded_by'] ) ? absint( $revision['uploaded_by'] ) : 0,
+		);
+
+		$order->update_meta_data( self::META_PROOF_REVISIONS, $revisions );
 	}
 
 	private function format_state_label( string $state ): string {
