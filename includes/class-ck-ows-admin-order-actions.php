@@ -62,7 +62,7 @@ class CK_OWS_Admin_Order_Actions {
 				continue;
 			}
 
-			if ( 'awaiting-artwork-approval' === $status && ! $this->order_has_artwork_proof( $order ) ) {
+			if ( 'awaiting-artwork' === $status && ! $this->order_has_artwork_proof( $order ) ) {
 				continue;
 			}
 
@@ -94,9 +94,9 @@ class CK_OWS_Admin_Order_Actions {
 
 		$current_status = $order->get_status();
 
-		if ( 'awaiting-artwork-approval' !== $current_status && $this->order_has_artwork_proof( $order ) ) {
+		if ( 'awaiting-artwork' !== $current_status && $this->order_has_artwork_proof( $order ) ) {
 			$actions['ck_ows_awaiting_artwork'] = array(
-				'url'    => $this->build_row_action_url( $order->get_id(), 'awaiting-artwork-approval' ),
+				'url'    => $this->build_row_action_url( $order->get_id(), 'awaiting-artwork' ),
 				'name'   => __( 'Awaiting Artwork Approval', 'ck-order-workflow-suite' ),
 				'action' => 'ck-ows-awaiting-artwork',
 			);
@@ -137,14 +137,14 @@ class CK_OWS_Admin_Order_Actions {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		if ( 'awaiting-artwork-approval' === $status && ! $this->order_has_artwork_proof( $order ) ) {
+		if ( 'awaiting-artwork' === $status && ! $this->order_has_artwork_proof( $order ) ) {
 			$redirect = $this->get_redirect_url();
 			$redirect = add_query_arg( 'ck_ows_missing_artwork', 1, $redirect );
 			wp_safe_redirect( $redirect );
 			exit;
 		}
 
-		if ( ! in_array( $status, array( 'awaiting-artwork-approval', 'in-production', 'in-dispatch' ), true ) ) {
+		if ( ! in_array( $status, array( 'awaiting-artwork', 'in-production', 'in-dispatch' ), true ) ) {
 			wp_die( esc_html__( 'Invalid status transition.', 'ck-order-workflow-suite' ) );
 		}
 
@@ -192,7 +192,7 @@ class CK_OWS_Admin_Order_Actions {
 
 	private function action_to_status( string $action ): string {
 		$map = array(
-			self::ACTION_SET_AWAITING_ARTWORK => 'awaiting-artwork-approval',
+			self::ACTION_SET_AWAITING_ARTWORK => 'awaiting-artwork',
 			self::ACTION_SET_IN_PRODUCTION    => 'in-production',
 			self::ACTION_SET_IN_DISPATCH      => 'in-dispatch',
 		);

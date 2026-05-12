@@ -66,7 +66,7 @@ class CK_OWS_Tracking {
 				'limit'   => 50,
 				'orderby' => 'date',
 				'order'   => 'DESC',
-				'status'  => array( 'processing', 'awaiting-artwork-approval', 'in-production', 'in-dispatch', 'completed' ),
+				'status'  => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
 			)
 		);
 

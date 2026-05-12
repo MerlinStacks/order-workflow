@@ -1,1 +1,198 @@
-/* Account UI styles will be added in feature milestones. */
+:root {
+  --ck-ows-surface: #ffffff;
+  --ck-ows-surface-soft: #f8f8f8;
+  --ck-ows-border: #e9e9e9;
+  --ck-ows-border-strong: #d9d9d9;
+  --ck-ows-text: #141414;
+  --ck-ows-text-soft: #5f5f5f;
+  --ck-ows-accent: #fec610;
+  --ck-ows-accent-text: #141414;
+  --ck-ows-radius: 12px;
+  --ck-ows-shadow: 0 8px 24px rgba(20, 20, 20, 0.06);
+}
+
+.woocommerce-account .woocommerce {
+  display: grid;
+  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.woocommerce-account .woocommerce-MyAccount-navigation,
+.woocommerce-account .woocommerce-MyAccount-content {
+  float: none;
+  width: auto;
+}
+
+.woocommerce-account .woocommerce-MyAccount-navigation {
+  background: var(--ck-ows-surface);
+  border: 1px solid var(--ck-ows-border);
+  border-radius: var(--ck-ows-radius);
+  box-shadow: var(--ck-ows-shadow);
+  overflow: hidden;
+}
+
+.woocommerce-account .woocommerce-MyAccount-navigation ul {
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+}
+
+.woocommerce-account .woocommerce-MyAccount-navigation ul li {
+  margin: 0;
+}
+
+.woocommerce-account .woocommerce-MyAccount-navigation ul li a {
+  display: block;
+  padding: 11px 12px;
+  border-radius: 9px;
+  color: var(--ck-ows-text-soft);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.woocommerce-account .woocommerce-MyAccount-navigation ul li a:hover {
+  background: #f3f3f3;
+  color: var(--ck-ows-text);
+}
+
+.woocommerce-account .woocommerce-MyAccount-navigation-link.is-active a {
+  background: var(--ck-ows-accent);
+  color: var(--ck-ows-accent-text);
+}
+
+.woocommerce-account .woocommerce-MyAccount-content {
+  background: var(--ck-ows-surface);
+  border: 1px solid var(--ck-ows-border);
+  border-radius: var(--ck-ows-radius);
+  box-shadow: var(--ck-ows-shadow);
+  padding: 20px;
+  color: var(--ck-ows-text);
+}
+
+.woocommerce-account .woocommerce-MyAccount-content h2,
+.woocommerce-account .woocommerce-MyAccount-content h3,
+.woocommerce-account .woocommerce-MyAccount-content legend {
+  color: var(--ck-ows-text);
+  margin-top: 0;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content .woocommerce-message,
+.woocommerce-account .woocommerce-MyAccount-content .woocommerce-error,
+.woocommerce-account .woocommerce-MyAccount-content .woocommerce-info {
+  border-radius: 10px;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content .woocommerce-Addresses {
+  gap: 14px;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content .woocommerce-Address {
+  background: var(--ck-ows-surface-soft);
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content table.shop_table,
+.woocommerce-account .woocommerce-MyAccount-content table.woocommerce-orders-table {
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content table.shop_table th,
+.woocommerce-account .woocommerce-MyAccount-content table.shop_table td,
+.woocommerce-account .woocommerce-MyAccount-content table.woocommerce-orders-table th,
+.woocommerce-account .woocommerce-MyAccount-content table.woocommerce-orders-table td {
+  border-color: var(--ck-ows-border);
+}
+
+.woocommerce-account .woocommerce-MyAccount-content .form-row input.input-text,
+.woocommerce-account .woocommerce-MyAccount-content .form-row textarea,
+.woocommerce-account .woocommerce-MyAccount-content .form-row select,
+.woocommerce-account .woocommerce-MyAccount-content input.input-text,
+.woocommerce-account .woocommerce-MyAccount-content textarea,
+.woocommerce-account .woocommerce-MyAccount-content select {
+  border: 1px solid var(--ck-ows-border-strong);
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content .form-row textarea,
+.woocommerce-account .woocommerce-MyAccount-content textarea {
+  min-height: 110px;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content button,
+.woocommerce-account .woocommerce-MyAccount-content .button,
+.woocommerce-account .woocommerce-MyAccount-content .woocommerce-Button {
+  border-radius: 999px;
+  padding: 10px 16px;
+  border: 1px solid #141414;
+  background: #141414;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content button:hover,
+.woocommerce-account .woocommerce-MyAccount-content .button:hover,
+.woocommerce-account .woocommerce-MyAccount-content .woocommerce-Button:hover {
+  border-color: var(--ck-ows-accent);
+  background: var(--ck-ows-accent);
+  color: var(--ck-ows-accent-text);
+}
+
+.woocommerce-account .ck-ows-orders-cards__title,
+.woocommerce-account .ck-invoices__title {
+  margin-top: 0;
+}
+
+.woocommerce-account .ck-ows-security__card,
+.woocommerce-account .ck-ows-order-card,
+.woocommerce-account .ck-invoices__row {
+  background: var(--ck-ows-surface-soft);
+  border-color: var(--ck-ows-border);
+}
+
+.woocommerce-account .ck-ows-artwork-proof {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fffdf6 0%, #ffffff 100%);
+}
+
+.woocommerce-account .ck-ows-artwork-proof h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.woocommerce-account .ck-ows-artwork-proof p {
+  margin: 0 0 12px;
+}
+
+.woocommerce-account .ck-ows-artwork-proof a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.woocommerce-account .ck-ows-artwork-proof textarea {
+  min-height: 112px;
+}
+
+@media (max-width: 849px) {
+  .woocommerce-account .woocommerce {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .woocommerce-account .woocommerce-MyAccount-content {
+    padding: 16px;
+  }
+}

@@ -10,7 +10,7 @@ defined( 'ABSPATH' ) || exit;
 class CK_OWS_Statuses {
 	public const STATUS_IN_PRODUCTION       = 'wc-in-production';
 	public const STATUS_IN_DISPATCH         = 'wc-in-dispatch';
-	public const STATUS_AWAITING_ARTWORK    = 'wc-awaiting-artwork-approval';
+	public const STATUS_AWAITING_ARTWORK    = 'wc-awaiting-artwork';
 
 	private static ?CK_OWS_Statuses $instance = null;
 

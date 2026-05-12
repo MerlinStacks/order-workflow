@@ -12,6 +12,8 @@ class CK_OWS_Settings {
 
 	private static ?CK_OWS_Settings $instance = null;
 
+	private string $settings_page_hook = '';
+
 	public static function instance(): CK_OWS_Settings {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
@@ -23,6 +25,7 @@ class CK_OWS_Settings {
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_admin_page' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_post_ck_ows_run_tracking_sync', array( $this, 'run_tracking_sync_now' ) );
 	}
 
@@ -37,13 +40,27 @@ class CK_OWS_Settings {
 	}
 
 	public function register_admin_page(): void {
-		add_submenu_page(
-			'woocommerce',
+		$this->settings_page_hook = (string) add_menu_page(
 			esc_html__( 'CK Order Workflow Settings', 'ck-order-workflow-suite' ),
 			esc_html__( 'CK Workflow', 'ck-order-workflow-suite' ),
 			'manage_woocommerce',
 			'ck-ows-settings',
-			array( $this, 'render_settings_page' )
+			array( $this, 'render_settings_page' ),
+			$this->get_menu_icon(),
+			56
+		);
+	}
+
+	public function enqueue_admin_assets( string $hook_suffix ): void {
+		if ( '' === $this->settings_page_hook || $hook_suffix !== $this->settings_page_hook ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'ck-ows-admin-ui',
+			CK_OWS_URL . 'assets/css/admin-ui.css',
+			array(),
+			CK_OWS_VERSION
 		);
 	}
 
@@ -86,15 +103,23 @@ class CK_OWS_Settings {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'ck-order-workflow-suite' ) );
 		}
 
-		echo '<div class="wrap">';
+		echo '<div class="wrap ck-ows-admin">';
+
+		echo '<div class="ck-ows-hero">';
 		echo '<h1>' . esc_html__( 'CK Workflow Settings', 'ck-order-workflow-suite' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Manage tracking integrations and workflow automation from one dedicated admin area.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '</div>';
+
+		echo '<div class="ck-ows-card">';
+		echo '<h2>' . esc_html__( 'Tracking Configuration', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<form method="post" action="options.php">';
 		settings_fields( 'ck_ows_settings_group' );
 		do_settings_sections( 'ck-ows-settings' );
-		submit_button();
+		submit_button( __( 'Save settings', 'ck-order-workflow-suite' ) );
 		echo '</form>';
+		echo '</div>';
 
-		echo '<hr>';
+		echo '<div class="ck-ows-card">';
 		echo '<h2>' . esc_html__( 'Manual Actions', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<p>' . esc_html__( 'Use this to run an immediate tracking sync without waiting for the scheduled cron.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
@@ -102,6 +127,7 @@ class CK_OWS_Settings {
 		wp_nonce_field( 'ck_ows_run_tracking_sync' );
 		submit_button( __( 'Run tracking sync now', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
 		echo '</form>';
+		echo '</div>';
 
 		if ( isset( $_GET['ck_ows_sync_ran'] ) ) {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Tracking sync completed. Check order tracking panels for latest data.', 'ck-order-workflow-suite' ) . '</p></div>';
@@ -164,5 +190,11 @@ class CK_OWS_Settings {
 		}
 
 		echo '<input type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="regular-text" autocomplete="off">';
+	}
+
+	private function get_menu_icon(): string {
+		$svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"><path d="M3 6.25h14M3 10h14M3 13.75h9" stroke="black" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.2" cy="13.75" r="2.2" fill="black"/></svg>';
+
+		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
 	}
 }

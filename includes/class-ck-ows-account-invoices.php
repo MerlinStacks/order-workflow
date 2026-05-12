@@ -61,6 +61,20 @@ class CK_OWS_Account_Invoices {
 			)
 		);
 
+		echo '<style>';
+		echo '.ck-invoices{font-family:-apple-system,sans-serif}';
+		echo '.ck-invoices__title{font-size:1.1rem;font-weight:700;color:#141414;margin:0 0 1rem}';
+		echo '.ck-invoices__list{display:flex;flex-direction:column;gap:0.5rem}';
+		echo '.ck-invoices__row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.75rem 1rem;background:#f8f8f8;border-radius:10px;border:1px solid #eee}';
+		echo '.ck-invoices__info{font-size:0.85rem;color:#2c2c2c}';
+		echo '.ck-invoices__info span{color:#999;font-size:0.78rem;margin-left:0.5rem}';
+		echo '.ck-invoices__dl{display:inline-flex;align-items:center;gap:0.4rem;padding:0.35rem 0.85rem;background:#141414;color:#fff;font-size:0.72rem;font-weight:600;border-radius:999px;text-decoration:none;transition:background 0.15s}';
+		echo '.ck-invoices__dl:hover{background:#fec610;color:#141414}';
+		echo '.ck-invoices__dl svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}';
+		echo '.ck-invoices__empty{text-align:center;padding:2rem;color:#999;font-size:0.88rem}';
+		echo '@media(max-width:640px){.ck-invoices__row{flex-direction:column;align-items:flex-start;gap:0.5rem}}';
+		echo '</style>';
+
 		echo '<div class="ck-invoices">';
 		echo '<h3 class="ck-invoices__title">' . esc_html__( 'Your Invoices', 'ck-order-workflow-suite' ) . '</h3>';
 
@@ -87,7 +101,7 @@ class CK_OWS_Account_Invoices {
 			echo '<div class="ck-invoices__row">';
 			echo '<div class="ck-invoices__info">';
 			echo '<strong>#' . esc_html( (string) $order_number ) . '</strong>';
-			echo '<span>' . esc_html( $order_date ) . ' - ' . wp_kses_post( $order_total ) . '</span>';
+			echo '<span>' . esc_html( $order_date ) . ' · ' . wp_kses_post( $order_total ) . '</span>';
 			echo '</div>';
 
 			if ( $has_pdf ) {
@@ -102,9 +116,12 @@ class CK_OWS_Account_Invoices {
 					admin_url( 'admin-ajax.php' )
 				);
 
-				echo '<a href="' . esc_url( $pdf_url ) . '" class="button" target="_blank" rel="noopener">' . esc_html__( 'Download PDF', 'ck-order-workflow-suite' ) . '</a>';
+				echo '<a href="' . esc_url( $pdf_url ) . '" class="ck-invoices__dl" target="_blank" rel="noopener">';
+				echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+				echo esc_html__( 'Download PDF', 'ck-order-workflow-suite' );
+				echo '</a>';
 			} else {
-				echo '<a href="' . esc_url( $order->get_view_order_url() ) . '" class="button">' . esc_html__( 'View Order', 'ck-order-workflow-suite' ) . '</a>';
+				echo '<a href="' . esc_url( $order->get_view_order_url() ) . '" class="ck-invoices__dl">' . esc_html__( 'View Order', 'ck-order-workflow-suite' ) . '</a>';
 			}
 
 			echo '</div>';

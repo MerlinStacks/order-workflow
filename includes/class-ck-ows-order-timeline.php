@@ -63,7 +63,7 @@ class CK_OWS_Order_Timeline {
 
 		if ( $has_artwork_stage ) {
 			$stages[] = array(
-				'key'   => 'awaiting-artwork-approval',
+				'key'   => 'awaiting-artwork',
 				'label' => __( 'Artwork Approval', 'ck-order-workflow-suite' ),
 				'ts'    => (int) $order->get_meta( self::META_TS_AWAITING_ARTWORK, true ),
 			);
@@ -126,7 +126,7 @@ class CK_OWS_Order_Timeline {
 	private function status_to_meta_key( string $status ): string {
 		$map = array(
 			'processing'                => self::META_TS_PROCESSING,
-			'awaiting-artwork-approval' => self::META_TS_AWAITING_ARTWORK,
+			'awaiting-artwork' => self::META_TS_AWAITING_ARTWORK,
 			'in-production'             => self::META_TS_IN_PRODUCTION,
 			'in-dispatch'               => self::META_TS_IN_DISPATCH,
 			'completed'                 => self::META_TS_DELIVERED,

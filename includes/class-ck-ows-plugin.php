@@ -37,7 +37,26 @@ class CK_OWS_Plugin {
 	 */
 	private function __construct() {
 		$this->load_dependencies();
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
 		$this->boot_modules();
+	}
+
+	/**
+	 * Enqueue frontend assets.
+	 *
+	 * @return void
+	 */
+	public function enqueue_frontend_assets(): void {
+		if ( ! function_exists( 'is_account_page' ) || ! is_account_page() ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'ck-ows-account-ui',
+			CK_OWS_URL . 'assets/css/account-ui.css',
+			array(),
+			CK_OWS_VERSION
+		);
 	}
 
 	/**
