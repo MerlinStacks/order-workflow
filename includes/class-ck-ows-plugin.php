@@ -59,6 +59,28 @@ class CK_OWS_Plugin {
 		);
 
 		$nav_inline_css = '
+		.woocommerce-account .row .large-3.col.col-border,
+		.woocommerce-account .row .large-9.col {
+			width: 100% !important;
+			max-width: 100% !important;
+			flex: 0 0 100% !important;
+		}
+		.woocommerce-account .row .large-3.col.col-border {
+			border-right: 0 !important;
+			padding-right: 0 !important;
+		}
+		.woocommerce-account .row .large-9.col {
+			padding-left: 0 !important;
+		}
+		.woocommerce-account .account-user {
+			display: none !important;
+		}
+		.woocommerce-account ul.account-nav.nav-vertical {
+			display: flex !important;
+			flex-direction: row !important;
+			flex-wrap: wrap !important;
+			gap: 10px !important;
+		}
 		.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation,
 		.woocommerce-account #customer_login ~ .woocommerce .woocommerce-MyAccount-navigation {
 			float: none !important;
