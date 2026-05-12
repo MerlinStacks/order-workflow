@@ -79,6 +79,7 @@ class CK_OWS_Plugin {
 			display: flex !important;
 			flex-direction: row !important;
 			flex-wrap: wrap !important;
+			justify-content: center !important;
 			gap: 10px !important;
 			margin: 0 !important;
 			padding: 12px 0 !important;

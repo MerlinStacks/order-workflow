@@ -32,6 +32,7 @@
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: wrap !important;
+  justify-content: center !important;
   gap: 10px !important;
   margin: 0 !important;
   padding: 12px 0 !important;
@@ -448,6 +449,75 @@
   color: var(--ck-ows-muted);
 }
 
+.woocommerce-view-order .ck-ows-shipping-edit {
+  margin: 20px 0 0;
+  padding: 14px;
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff 0%, #fbfcfe 100%);
+  box-shadow: 0 4px 16px rgba(18, 18, 18, 0.05);
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__title {
+  margin: 0;
+  font-size: 1.03rem;
+  letter-spacing: 0.01em;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__intro {
+  margin: 4px 0 12px;
+  color: var(--ck-ows-muted);
+  font-size: 0.85rem;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__field {
+  margin: 0;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__field label {
+  margin: 0 0 4px;
+  color: var(--ck-ows-text);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__field input.input-text {
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__field input#shipping_country {
+  text-transform: uppercase;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__field input.input-text:-webkit-autofill,
+.woocommerce-view-order .ck-ows-shipping-edit__field input.input-text:-webkit-autofill:hover,
+.woocommerce-view-order .ck-ows-shipping-edit__field input.input-text:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: var(--ck-ows-text);
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__field:not(.ck-ows-shipping-edit__field--half) {
+  grid-column: 1 / -1;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__actions {
+  margin: 12px 0 0;
+}
+
+.woocommerce-view-order .ck-ows-shipping-edit__actions .button {
+  min-height: 34px;
+  padding: 7px 14px;
+}
+
 @media (max-width: 849px) {
   .woocommerce-account .woocommerce .woocommerce-MyAccount-navigation ul {
     gap: 8px;
@@ -504,5 +574,18 @@
     margin: 0;
     width: 54px;
     height: 54px;
+  }
+
+  .woocommerce-view-order .ck-ows-shipping-edit {
+    padding: 14px;
+  }
+
+  .woocommerce-view-order .ck-ows-shipping-edit__grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .woocommerce-view-order .ck-ows-shipping-edit__field.ck-ows-shipping-edit__field--half {
+    grid-column: 1 / -1;
   }
 }

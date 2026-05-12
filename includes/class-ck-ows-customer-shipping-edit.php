@@ -51,25 +51,27 @@ class CK_OWS_Customer_Shipping_Edit {
 			echo '</div>';
 		}
 
-		echo '<h2>' . esc_html__( 'Update Shipping Address', 'ck-order-workflow-suite' ) . '</h2>';
-		echo '<p>' . esc_html__( 'You can update your delivery details while this order is still processing.', 'ck-order-workflow-suite' ) . '</p>';
-		echo '<form method="post" action="' . esc_url( $action_url ) . '">';
+		echo '<h2 class="ck-ows-shipping-edit__title">' . esc_html__( 'Update Shipping Address', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<p class="ck-ows-shipping-edit__intro">' . esc_html__( 'You can update your delivery details while this order is still processing.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<form method="post" action="' . esc_url( $action_url ) . '" class="ck-ows-shipping-edit__form" autocomplete="shipping">';
 		echo '<input type="hidden" name="action" value="ck_ows_update_shipping_address">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
 		echo '<input type="hidden" name="order_version" value="' . esc_attr( (string) $this->get_order_version( $order ) ) . '">';
 		wp_nonce_field( 'ck_ows_update_shipping_' . $order->get_id() );
 
-		$this->render_input( 'shipping_first_name', __( 'First name', 'ck-order-workflow-suite' ), (string) $order->get_shipping_first_name(), true );
-		$this->render_input( 'shipping_last_name', __( 'Last name', 'ck-order-workflow-suite' ), (string) $order->get_shipping_last_name(), true );
-		$this->render_input( 'shipping_company', __( 'Company', 'ck-order-workflow-suite' ), (string) $order->get_shipping_company(), false );
-		$this->render_input( 'shipping_address_1', __( 'Address line 1', 'ck-order-workflow-suite' ), (string) $order->get_shipping_address_1(), true );
-		$this->render_input( 'shipping_address_2', __( 'Address line 2', 'ck-order-workflow-suite' ), (string) $order->get_shipping_address_2(), false );
-		$this->render_input( 'shipping_city', __( 'Suburb/City', 'ck-order-workflow-suite' ), (string) $order->get_shipping_city(), true );
-		$this->render_input( 'shipping_state', __( 'State', 'ck-order-workflow-suite' ), (string) $order->get_shipping_state(), false );
-		$this->render_input( 'shipping_postcode', __( 'Postcode', 'ck-order-workflow-suite' ), (string) $order->get_shipping_postcode(), true );
-		$this->render_input( 'shipping_country', __( 'Country code', 'ck-order-workflow-suite' ), (string) $order->get_shipping_country(), true );
+		echo '<div class="ck-ows-shipping-edit__grid">';
+		$this->render_input( 'shipping_first_name', __( 'First name', 'ck-order-workflow-suite' ), (string) $order->get_shipping_first_name(), true, 'ck-ows-shipping-edit__field ck-ows-shipping-edit__field--half', array( 'autocomplete' => 'shipping given-name' ) );
+		$this->render_input( 'shipping_last_name', __( 'Last name', 'ck-order-workflow-suite' ), (string) $order->get_shipping_last_name(), true, 'ck-ows-shipping-edit__field ck-ows-shipping-edit__field--half', array( 'autocomplete' => 'shipping family-name' ) );
+		$this->render_input( 'shipping_company', __( 'Company', 'ck-order-workflow-suite' ), (string) $order->get_shipping_company(), false, 'ck-ows-shipping-edit__field', array( 'autocomplete' => 'shipping organization' ) );
+		$this->render_input( 'shipping_address_1', __( 'Address line 1', 'ck-order-workflow-suite' ), (string) $order->get_shipping_address_1(), true, 'ck-ows-shipping-edit__field', array( 'autocomplete' => 'shipping address-line1' ) );
+		$this->render_input( 'shipping_address_2', __( 'Address line 2', 'ck-order-workflow-suite' ), (string) $order->get_shipping_address_2(), false, 'ck-ows-shipping-edit__field', array( 'autocomplete' => 'shipping address-line2' ) );
+		$this->render_input( 'shipping_city', __( 'Suburb/City', 'ck-order-workflow-suite' ), (string) $order->get_shipping_city(), true, 'ck-ows-shipping-edit__field ck-ows-shipping-edit__field--half', array( 'autocomplete' => 'shipping address-level2' ) );
+		$this->render_input( 'shipping_state', __( 'State', 'ck-order-workflow-suite' ), (string) $order->get_shipping_state(), false, 'ck-ows-shipping-edit__field ck-ows-shipping-edit__field--half', array( 'autocomplete' => 'shipping address-level1' ) );
+		$this->render_input( 'shipping_postcode', __( 'Postcode', 'ck-order-workflow-suite' ), (string) $order->get_shipping_postcode(), true, 'ck-ows-shipping-edit__field ck-ows-shipping-edit__field--half', array( 'autocomplete' => 'shipping postal-code', 'inputmode' => 'text', 'pattern' => '^[A-Za-z0-9\\s-]{3,12}$', 'title' => __( 'Enter a valid postcode.', 'ck-order-workflow-suite' ) ) );
+		$this->render_input( 'shipping_country', __( 'Country code', 'ck-order-workflow-suite' ), (string) $order->get_shipping_country(), true, 'ck-ows-shipping-edit__field ck-ows-shipping-edit__field--half', array( 'autocomplete' => 'shipping country', 'maxlength' => '2', 'pattern' => '^[A-Za-z]{2}$', 'title' => __( 'Use a 2-letter country code (for example AU).', 'ck-order-workflow-suite' ), 'style' => 'text-transform:uppercase;' ) );
+		echo '</div>';
 
-		echo '<p><button type="submit" class="button">' . esc_html__( 'Save shipping address', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '<p class="ck-ows-shipping-edit__actions"><button type="submit" class="button">' . esc_html__( 'Save shipping address', 'ck-order-workflow-suite' ) . '</button></p>';
 		echo '</form>';
 		echo '</section>';
 	}
@@ -117,6 +119,10 @@ class CK_OWS_Customer_Shipping_Edit {
 
 		if ( '' === $address['first_name'] || '' === $address['last_name'] || '' === $address['address_1'] || '' === $address['city'] || '' === $address['postcode'] || '' === $address['country'] ) {
 			$this->redirect_with_notice( $order, __( 'Please complete all required shipping fields.', 'ck-order-workflow-suite' ), 'error' );
+		}
+
+		if ( ! $this->is_valid_address( $address ) ) {
+			$this->redirect_with_notice( $order, __( 'Please check your shipping details and try again.', 'ck-order-workflow-suite' ), 'error' );
 		}
 
 		$latest_order = wc_get_order( $order_id );
@@ -203,8 +209,21 @@ class CK_OWS_Customer_Shipping_Edit {
 		return sanitize_text_field( (string) $value );
 	}
 
-	private function render_input( string $name, string $label, string $value, bool $required ): void {
-		echo '<p class="form-row form-row-wide">';
+	private function render_input( string $name, string $label, string $value, bool $required, string $classes = 'form-row-wide', array $attrs = array() ): void {
+		$attrs['autocomplete'] = isset( $attrs['autocomplete'] ) ? (string) $attrs['autocomplete'] : 'off';
+
+		$allowed_attrs = array( 'autocomplete', 'inputmode', 'pattern', 'title', 'maxlength', 'style' );
+		$attr_html     = '';
+
+		foreach ( $allowed_attrs as $attr_key ) {
+			if ( ! isset( $attrs[ $attr_key ] ) || '' === (string) $attrs[ $attr_key ] ) {
+				continue;
+			}
+
+			$attr_html .= ' ' . $attr_key . '="' . esc_attr( (string) $attrs[ $attr_key ] ) . '"';
+		}
+
+		echo '<p class="form-row ' . esc_attr( $classes ) . '">';
 		echo '<label for="' . esc_attr( $name ) . '">' . esc_html( $label );
 
 		if ( $required ) {
@@ -212,7 +231,36 @@ class CK_OWS_Customer_Shipping_Edit {
 		}
 
 		echo '</label>';
-		echo '<input type="text" class="input-text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $name ) . '" value="' . esc_attr( $value ) . '" ' . ( $required ? 'required' : '' ) . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<input type="text" class="input-text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $name ) . '" value="' . esc_attr( $value ) . '" ' . ( $required ? 'required' : '' ) . $attr_html . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo '</p>';
+	}
+
+	private function is_valid_address( array $address ): bool {
+		$country = strtoupper( (string) ( $address['country'] ?? '' ) );
+
+		if ( 1 !== preg_match( '/^[A-Z]{2}$/', $country ) ) {
+			return false;
+		}
+
+		$postcode = (string) ( $address['postcode'] ?? '' );
+
+		if ( 1 !== preg_match( '/^[A-Za-z0-9\s-]{3,12}$/', $postcode ) ) {
+			return false;
+		}
+
+		$required_text = array(
+			(string) ( $address['first_name'] ?? '' ),
+			(string) ( $address['last_name'] ?? '' ),
+			(string) ( $address['address_1'] ?? '' ),
+			(string) ( $address['city'] ?? '' ),
+		);
+
+		foreach ( $required_text as $value ) {
+			if ( strlen( trim( $value ) ) < 2 ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 }
