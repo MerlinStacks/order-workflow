@@ -33,6 +33,9 @@
   - Applies postcode/suburb validation on My Account saves.
 - `CK_OWS_Account_Security`
   - Adds `security` endpoint and account activity panel.
+- `CK_OWS_Account_Email_Preferences`
+  - Adds `email-preferences` endpoint for customer subscription controls.
+  - Syncs preferences with OverSeek Email Preferences API.
 - `CK_OWS_Artwork_Proof`
   - Handles proof upload, customer approval/change request, and production gate.
 - `CK_OWS_Tracking`

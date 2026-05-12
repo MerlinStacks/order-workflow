@@ -22,6 +22,7 @@ Current feature set includes:
 - Staff override for artwork gate with mandatory reason and audit notes.
 - Customer shipping address edits on processing orders.
 - My Account upgrades: invoices tab, order timeline, order cards, security panel.
+- My Account email preferences endpoint backed by OverSeek API.
 - Registration guard anti-bot protections.
 - Shipment tracking display with AusPost live sync support.
 
@@ -42,6 +43,7 @@ For external automations, custom statuses and tracking update hooks are availabl
 - Card-based orders list with item previews, status badges, invoice and tracking actions.
 - Order progress timeline including conditional Artwork Approval stage.
 - `Security` endpoint with last login and password change activity.
+- `Email Preferences` endpoint with global/marketing flags and list memberships.
 
 == Artwork Approval Flow ==
 

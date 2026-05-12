@@ -129,6 +129,12 @@
   margin: 0;
 }
 
+.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation li::before,
+.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation li::after {
+  display: none !important;
+  content: none !important;
+}
+
 .woocommerce-account .woocommerce .woocommerce-MyAccount-navigation li a {
   display: inline-flex;
   align-items: center;

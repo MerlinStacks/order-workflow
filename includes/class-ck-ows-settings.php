@@ -63,6 +63,14 @@ class CK_OWS_Settings {
 			array(),
 			CK_OWS_VERSION
 		);
+
+		wp_enqueue_script(
+			'ck-ows-admin-settings',
+			CK_OWS_URL . 'assets/js/admin-settings.js',
+			array(),
+			CK_OWS_VERSION,
+			true
+		);
 	}
 
 	public function register_settings(): void {
@@ -85,6 +93,19 @@ class CK_OWS_Settings {
 		$this->register_field( 'auspost_account_number', __( 'AusPost Account Number (optional)', 'ck-order-workflow-suite' ), 'text' );
 		$this->register_field( 'tracking_sync_enabled', __( 'Enable tracking sync', 'ck-order-workflow-suite' ), 'checkbox' );
 		$this->register_field( 'tracking_sync_interval_hours', __( 'Sync interval (hours)', 'ck-order-workflow-suite' ), 'number' );
+
+		add_settings_section(
+			'ck_ows_email_preferences_section',
+			esc_html__( 'Email Preferences API', 'ck-order-workflow-suite' ),
+			static function (): void {
+				echo '<p>' . esc_html__( 'Configure the OverSeek API used by the My Account email preferences page.', 'ck-order-workflow-suite' ) . '</p>';
+			},
+			'ck-ows-settings'
+		);
+
+		$this->register_field( 'email_preferences_api_base_url', __( 'API Base URL', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
+		$this->register_field( 'email_preferences_account_id', __( 'Account ID', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
+		$this->register_field( 'email_preferences_webhook_secret', __( 'Webhook Secret (optional)', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
 
 		add_settings_section(
 			'ck_ows_account_menu_section',
@@ -112,17 +133,20 @@ class CK_OWS_Settings {
 
 		$current['auspost_api_key']             = isset( $input['auspost_api_key'] ) ? sanitize_text_field( (string) $input['auspost_api_key'] ) : '';
 		$current['auspost_account_number']      = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
-		$current['tracking_sync_enabled']       = isset( $input['tracking_sync_enabled'] ) ? 'yes' : 'no';
+		$current['tracking_sync_enabled']       = $this->is_enabled_input( $input, 'tracking_sync_enabled' ) ? 'yes' : 'no';
 		$current['tracking_sync_interval_hours'] = isset( $input['tracking_sync_interval_hours'] ) ? max( 1, min( 24, absint( $input['tracking_sync_interval_hours'] ) ) ) : 6;
-		$current['hide_account_dashboard_tab']  = isset( $input['hide_account_dashboard_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_orders_tab']     = isset( $input['hide_account_orders_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_downloads_tab']  = isset( $input['hide_account_downloads_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_addresses_tab']  = isset( $input['hide_account_addresses_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_details_tab']    = isset( $input['hide_account_details_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_invoices_tab']   = isset( $input['hide_account_invoices_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_security_tab']   = isset( $input['hide_account_security_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_email_preferences_tab'] = isset( $input['hide_account_email_preferences_tab'] ) ? 'yes' : 'no';
-		$current['hide_account_logout_tab']     = isset( $input['hide_account_logout_tab'] ) ? 'yes' : 'no';
+		$current['email_preferences_api_base_url'] = isset( $input['email_preferences_api_base_url'] ) ? esc_url_raw( trim( (string) $input['email_preferences_api_base_url'] ) ) : '';
+		$current['email_preferences_account_id'] = isset( $input['email_preferences_account_id'] ) ? sanitize_text_field( (string) $input['email_preferences_account_id'] ) : '';
+		$current['email_preferences_webhook_secret'] = isset( $input['email_preferences_webhook_secret'] ) ? sanitize_text_field( (string) $input['email_preferences_webhook_secret'] ) : '';
+		$current['hide_account_dashboard_tab']  = $this->is_enabled_input( $input, 'hide_account_dashboard_tab' ) ? 'yes' : 'no';
+		$current['hide_account_orders_tab']     = $this->is_enabled_input( $input, 'hide_account_orders_tab' ) ? 'yes' : 'no';
+		$current['hide_account_downloads_tab']  = $this->is_enabled_input( $input, 'hide_account_downloads_tab' ) ? 'yes' : 'no';
+		$current['hide_account_addresses_tab']  = $this->is_enabled_input( $input, 'hide_account_addresses_tab' ) ? 'yes' : 'no';
+		$current['hide_account_details_tab']    = $this->is_enabled_input( $input, 'hide_account_details_tab' ) ? 'yes' : 'no';
+		$current['hide_account_invoices_tab']   = $this->is_enabled_input( $input, 'hide_account_invoices_tab' ) ? 'yes' : 'no';
+		$current['hide_account_security_tab']   = $this->is_enabled_input( $input, 'hide_account_security_tab' ) ? 'yes' : 'no';
+		$current['hide_account_email_preferences_tab'] = $this->is_enabled_input( $input, 'hide_account_email_preferences_tab' ) ? 'yes' : 'no';
+		$current['hide_account_logout_tab']     = $this->is_enabled_input( $input, 'hide_account_logout_tab' ) ? 'yes' : 'no';
 
 		return $current;
 	}
@@ -140,10 +164,37 @@ class CK_OWS_Settings {
 		echo '</div>';
 
 		echo '<div class="ck-ows-card">';
-		echo '<h2>' . esc_html__( 'Tracking Configuration', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<h2>' . esc_html__( 'Configuration', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<form method="post" action="options.php">';
 		settings_fields( 'ck_ows_settings_group' );
-		do_settings_sections( 'ck-ows-settings' );
+
+		echo '<h2 class="nav-tab-wrapper ck-ows-tabs" role="tablist" aria-label="' . esc_attr__( 'Settings sections', 'ck-order-workflow-suite' ) . '">';
+		echo '<button type="button" class="nav-tab nav-tab-active ck-ows-tab" role="tab" id="ck-ows-tab-tracking" aria-controls="ck-ows-panel-tracking" aria-selected="true" data-target="tracking">' . esc_html__( 'Tracking', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-email-preferences" aria-controls="ck-ows-panel-email-preferences" aria-selected="false" tabindex="-1" data-target="email-preferences">' . esc_html__( 'Email Preferences', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-account-tabs" aria-controls="ck-ows-panel-account-tabs" aria-selected="false" tabindex="-1" data-target="account-tabs">' . esc_html__( 'My Account Tabs', 'ck-order-workflow-suite' ) . '</button>';
+		echo '</h2>';
+
+		echo '<div id="ck-ows-panel-tracking" class="ck-ows-panel is-active" role="tabpanel" aria-labelledby="ck-ows-tab-tracking">';
+		echo '<p>' . esc_html__( 'Configure your AusPost API details to fetch live tracking events for customer orders.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_tracking_section' );
+		echo '</table>';
+		echo '</div>';
+
+		echo '<div id="ck-ows-panel-email-preferences" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-email-preferences" hidden>';
+		echo '<p>' . esc_html__( 'Configure your OverSeek API credentials for customer email preferences.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_email_preferences_section' );
+		echo '</table>';
+		echo '</div>';
+
+		echo '<div id="ck-ows-panel-account-tabs" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-account-tabs" hidden>';
+		echo '<p>' . esc_html__( 'Choose which default WooCommerce tabs are visible in My Account navigation.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_account_menu_section' );
+		echo '</table>';
+		echo '</div>';
+
 		submit_button( __( 'Save settings', 'ck-order-workflow-suite' ) );
 		echo '</form>';
 		echo '</div>';
@@ -227,11 +278,24 @@ class CK_OWS_Settings {
 		$key   = (string) ( $args['key'] ?? '' );
 		$type  = (string) ( $args['type'] ?? 'text' );
 		$value = self::get( $key, 'tracking_sync_interval_hours' === $key ? 6 : '' );
+		$is_account_visibility_toggle = 0 === strpos( $key, 'hide_account_' );
 
 		$name = self::OPTION_KEY . '[' . $key . ']';
+		$id   = 'ck-ows-field-' . sanitize_html_class( $key );
 
 		if ( 'checkbox' === $type ) {
-			echo '<label><input type="checkbox" name="' . esc_attr( $name ) . '" value="1" ' . checked( 'yes', (string) $value, false ) . '> ' . esc_html__( 'Enabled', 'ck-order-workflow-suite' ) . '</label>';
+			echo '<input type="hidden" name="' . esc_attr( $name ) . '" value="0">';
+
+			if ( $is_account_visibility_toggle ) {
+				echo '<label class="ck-ows-switch" for="' . esc_attr( $id ) . '">';
+				echo '<input type="checkbox" id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" value="1" ' . checked( 'yes', (string) $value, false ) . '>';
+				echo '<span class="ck-ows-switch__slider" aria-hidden="true"></span>';
+				echo '<span class="screen-reader-text">' . esc_html__( 'Enabled', 'ck-order-workflow-suite' ) . '</span>';
+				echo '</label>';
+				return;
+			}
+
+			echo '<label for="' . esc_attr( $id ) . '"><input type="checkbox" id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" value="1" ' . checked( 'yes', (string) $value, false ) . '> ' . esc_html__( 'Enabled', 'ck-order-workflow-suite' ) . '</label>';
 			return;
 		}
 
@@ -241,6 +305,14 @@ class CK_OWS_Settings {
 		}
 
 		echo '<input type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="regular-text" autocomplete="off">';
+	}
+
+	private function is_enabled_input( array $input, string $key ): bool {
+		if ( ! isset( $input[ $key ] ) ) {
+			return false;
+		}
+
+		return '1' === (string) $input[ $key ];
 	}
 
 	private function get_menu_icon(): string {
