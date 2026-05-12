@@ -31,13 +31,19 @@ class CK_OWS_Account_Email_Preferences {
 
 	public function add_menu_item( array $items ): array {
 		$new_items = array();
+		$inserted  = false;
 
 		foreach ( $items as $key => $label ) {
 			if ( 'customer-logout' === $key ) {
 				$new_items['email-preferences'] = __( 'Email Preferences', 'ck-order-workflow-suite' );
+				$inserted = true;
 			}
 
 			$new_items[ $key ] = $label;
+		}
+
+		if ( ! $inserted ) {
+			$new_items['email-preferences'] = __( 'Email Preferences', 'ck-order-workflow-suite' );
 		}
 
 		return $new_items;
@@ -209,16 +215,80 @@ class CK_OWS_Account_Email_Preferences {
 	}
 
 	private function get_api_config(): array {
-		$base_url = untrailingslashit( (string) CK_OWS_Settings::get( 'email_preferences_api_base_url', '' ) );
+		$base_url = $this->normalize_api_base_url( (string) CK_OWS_Settings::get( 'email_preferences_api_base_url', '' ) );
 		$account  = (string) CK_OWS_Settings::get( 'email_preferences_account_id', '' );
 		$secret   = (string) CK_OWS_Settings::get( 'email_preferences_webhook_secret', '' );
+		$allowed  = $this->is_allowed_api_base_url( $base_url );
 
 		return array(
 			'base_url'      => $base_url,
 			'account_id'    => $account,
 			'webhook_secret'=> $secret,
-			'is_configured' => '' !== $base_url && '' !== $account,
+			'is_configured' => '' !== $base_url && '' !== $account && $allowed,
 		);
+	}
+
+	private function normalize_api_base_url( string $base_url ): string {
+		$base_url = untrailingslashit( trim( $base_url ) );
+
+		if ( '' === $base_url ) {
+			return '';
+		}
+
+		$parts = wp_parse_url( $base_url );
+
+		if ( ! is_array( $parts ) ) {
+			return '';
+		}
+
+		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
+
+		if ( 'https' !== $scheme ) {
+			return '';
+		}
+
+		if ( empty( $parts['host'] ) ) {
+			return '';
+		}
+
+		return esc_url_raw( $base_url );
+	}
+
+	private function is_allowed_api_base_url( string $base_url ): bool {
+		if ( '' === $base_url ) {
+			return false;
+		}
+
+		$host = wp_parse_url( $base_url, PHP_URL_HOST );
+
+		if ( ! is_string( $host ) || '' === $host ) {
+			return false;
+		}
+
+		$host = strtolower( $host );
+
+		$allowed_hosts = apply_filters(
+			'ck_ows_email_preferences_allowed_hosts',
+			array(
+				'api.overseek.com',
+				'staging-api.overseek.com',
+			)
+		);
+
+		if ( ! is_array( $allowed_hosts ) || empty( $allowed_hosts ) ) {
+			return false;
+		}
+
+		$allowed_hosts = array_values(
+			array_filter(
+				array_map(
+					'strtolower',
+					array_map( 'strval', $allowed_hosts )
+				)
+			)
+		);
+
+		return in_array( $host, $allowed_hosts, true );
 	}
 
 	private function build_headers( array $config ): array {

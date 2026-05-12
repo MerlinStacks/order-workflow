@@ -215,17 +215,37 @@ class CK_OWS_Admin_Order_Actions {
 	}
 
 	private function get_redirect_url(): string {
+		$fallback = admin_url( 'edit.php?post_type=shop_order' );
+
 		if ( isset( $_GET['redirect'] ) ) {
-			return esc_url_raw( wp_unslash( $_GET['redirect'] ) );
+			$redirect = esc_url_raw( wp_unslash( $_GET['redirect'] ) );
+
+			return $this->sanitize_redirect_url( $redirect, $fallback );
 		}
 
 		$referer = wp_get_referer();
 
 		if ( $referer ) {
-			return $referer;
+			return $this->sanitize_redirect_url( $referer, $fallback );
 		}
 
-		return admin_url( 'edit.php?post_type=shop_order' );
+		return $fallback;
+	}
+
+	private function sanitize_redirect_url( string $redirect, string $fallback ): string {
+		$validated = wp_validate_redirect( $redirect, '' );
+
+		if ( '' === $validated ) {
+			return $fallback;
+		}
+
+		$admin_base = admin_url();
+
+		if ( 0 !== strpos( $validated, $admin_base ) ) {
+			return $fallback;
+		}
+
+		return $validated;
 	}
 
 	private function format_status_label( string $status ): string {

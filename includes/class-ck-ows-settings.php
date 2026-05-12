@@ -116,15 +116,15 @@ class CK_OWS_Settings {
 			'ck-ows-settings'
 		);
 
-		$this->register_field( 'hide_account_dashboard_tab', __( 'Hide Dashboard tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_orders_tab', __( 'Hide Orders tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_downloads_tab', __( 'Hide Downloads tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_addresses_tab', __( 'Hide Addresses tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_details_tab', __( 'Hide Account details tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_invoices_tab', __( 'Hide Invoices tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_security_tab', __( 'Hide Security tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_email_preferences_tab', __( 'Hide Email preferences tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
-		$this->register_field( 'hide_account_logout_tab', __( 'Hide Logout tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_dashboard_tab', __( 'Show Dashboard tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_orders_tab', __( 'Show Orders tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_downloads_tab', __( 'Show Downloads tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_addresses_tab', __( 'Show Addresses tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_details_tab', __( 'Show Account details tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_invoices_tab', __( 'Show Invoices tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_security_tab', __( 'Show Security tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_email_preferences_tab', __( 'Show Email preferences tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'show_account_logout_tab', __( 'Show Logout tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 	}
 
 	public function sanitize_settings( array $input ): array {
@@ -135,18 +135,18 @@ class CK_OWS_Settings {
 		$current['auspost_account_number']      = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
 		$current['tracking_sync_enabled']       = $this->is_enabled_input( $input, 'tracking_sync_enabled' ) ? 'yes' : 'no';
 		$current['tracking_sync_interval_hours'] = isset( $input['tracking_sync_interval_hours'] ) ? max( 1, min( 24, absint( $input['tracking_sync_interval_hours'] ) ) ) : 6;
-		$current['email_preferences_api_base_url'] = isset( $input['email_preferences_api_base_url'] ) ? esc_url_raw( trim( (string) $input['email_preferences_api_base_url'] ) ) : '';
+		$current['email_preferences_api_base_url'] = isset( $input['email_preferences_api_base_url'] ) ? $this->sanitize_https_base_url( (string) $input['email_preferences_api_base_url'] ) : '';
 		$current['email_preferences_account_id'] = isset( $input['email_preferences_account_id'] ) ? sanitize_text_field( (string) $input['email_preferences_account_id'] ) : '';
 		$current['email_preferences_webhook_secret'] = isset( $input['email_preferences_webhook_secret'] ) ? sanitize_text_field( (string) $input['email_preferences_webhook_secret'] ) : '';
-		$current['hide_account_dashboard_tab']  = $this->is_enabled_input( $input, 'hide_account_dashboard_tab' ) ? 'yes' : 'no';
-		$current['hide_account_orders_tab']     = $this->is_enabled_input( $input, 'hide_account_orders_tab' ) ? 'yes' : 'no';
-		$current['hide_account_downloads_tab']  = $this->is_enabled_input( $input, 'hide_account_downloads_tab' ) ? 'yes' : 'no';
-		$current['hide_account_addresses_tab']  = $this->is_enabled_input( $input, 'hide_account_addresses_tab' ) ? 'yes' : 'no';
-		$current['hide_account_details_tab']    = $this->is_enabled_input( $input, 'hide_account_details_tab' ) ? 'yes' : 'no';
-		$current['hide_account_invoices_tab']   = $this->is_enabled_input( $input, 'hide_account_invoices_tab' ) ? 'yes' : 'no';
-		$current['hide_account_security_tab']   = $this->is_enabled_input( $input, 'hide_account_security_tab' ) ? 'yes' : 'no';
-		$current['hide_account_email_preferences_tab'] = $this->is_enabled_input( $input, 'hide_account_email_preferences_tab' ) ? 'yes' : 'no';
-		$current['hide_account_logout_tab']     = $this->is_enabled_input( $input, 'hide_account_logout_tab' ) ? 'yes' : 'no';
+		$current['show_account_dashboard_tab']  = $this->is_enabled_input( $input, 'show_account_dashboard_tab' ) ? 'yes' : 'no';
+		$current['show_account_orders_tab']     = $this->is_enabled_input( $input, 'show_account_orders_tab' ) ? 'yes' : 'no';
+		$current['show_account_downloads_tab']  = $this->is_enabled_input( $input, 'show_account_downloads_tab' ) ? 'yes' : 'no';
+		$current['show_account_addresses_tab']  = $this->is_enabled_input( $input, 'show_account_addresses_tab' ) ? 'yes' : 'no';
+		$current['show_account_details_tab']    = $this->is_enabled_input( $input, 'show_account_details_tab' ) ? 'yes' : 'no';
+		$current['show_account_invoices_tab']   = $this->is_enabled_input( $input, 'show_account_invoices_tab' ) ? 'yes' : 'no';
+		$current['show_account_security_tab']   = $this->is_enabled_input( $input, 'show_account_security_tab' ) ? 'yes' : 'no';
+		$current['show_account_email_preferences_tab'] = $this->is_enabled_input( $input, 'show_account_email_preferences_tab' ) ? 'yes' : 'no';
+		$current['show_account_logout_tab']     = $this->is_enabled_input( $input, 'show_account_logout_tab' ) ? 'yes' : 'no';
 
 		return $current;
 	}
@@ -183,6 +183,12 @@ class CK_OWS_Settings {
 
 		echo '<div id="ck-ows-panel-email-preferences" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-email-preferences" hidden>';
 		echo '<p>' . esc_html__( 'Configure your OverSeek API credentials for customer email preferences.', 'ck-order-workflow-suite' ) . '</p>';
+		$email_preferences_base_url = (string) self::get( 'email_preferences_api_base_url', '' );
+		if ( '' !== $email_preferences_base_url && ! $this->is_allowed_email_preferences_host( $email_preferences_base_url ) ) {
+			echo '<div class="notice notice-warning inline"><p>';
+			echo esc_html__( 'Email preferences API host is not on the allowlist, so frontend email preferences will stay disabled. Update the URL or extend the allowlist via ck_ows_email_preferences_allowed_hosts.', 'ck-order-workflow-suite' );
+			echo '</p></div>';
+		}
 		echo '<table class="form-table" role="presentation">';
 		do_settings_fields( 'ck-ows-settings', 'ck_ows_email_preferences_section' );
 		echo '</table>';
@@ -239,20 +245,50 @@ class CK_OWS_Settings {
 	}
 
 	public function filter_account_menu_items( array $items ): array {
-		$toggle_to_endpoint = array(
-			'hide_account_dashboard_tab'         => 'dashboard',
-			'hide_account_orders_tab'            => 'orders',
-			'hide_account_downloads_tab'         => 'downloads',
-			'hide_account_addresses_tab'         => 'edit-address',
-			'hide_account_details_tab'           => 'edit-account',
-			'hide_account_invoices_tab'          => 'invoices',
-			'hide_account_security_tab'          => 'security',
-			'hide_account_email_preferences_tab' => 'email-preferences',
-			'hide_account_logout_tab'            => 'customer-logout',
+		$visibility_to_endpoint = array(
+			'show_account_dashboard_tab'         => array(
+				'endpoint'   => 'dashboard',
+				'legacy_key' => 'hide_account_dashboard_tab',
+			),
+			'show_account_orders_tab'            => array(
+				'endpoint'   => 'orders',
+				'legacy_key' => 'hide_account_orders_tab',
+			),
+			'show_account_downloads_tab'         => array(
+				'endpoint'   => 'downloads',
+				'legacy_key' => 'hide_account_downloads_tab',
+			),
+			'show_account_addresses_tab'         => array(
+				'endpoint'   => 'edit-address',
+				'legacy_key' => 'hide_account_addresses_tab',
+			),
+			'show_account_details_tab'           => array(
+				'endpoint'   => 'edit-account',
+				'legacy_key' => 'hide_account_details_tab',
+			),
+			'show_account_invoices_tab'          => array(
+				'endpoint'   => 'invoices',
+				'legacy_key' => 'hide_account_invoices_tab',
+			),
+			'show_account_security_tab'          => array(
+				'endpoint'   => 'security',
+				'legacy_key' => 'hide_account_security_tab',
+			),
+			'show_account_email_preferences_tab' => array(
+				'endpoint'   => 'email-preferences',
+				'legacy_key' => 'hide_account_email_preferences_tab',
+			),
+			'show_account_logout_tab'            => array(
+				'endpoint'   => 'customer-logout',
+				'legacy_key' => 'hide_account_logout_tab',
+			),
 		);
 
-		foreach ( $toggle_to_endpoint as $toggle_key => $endpoint_key ) {
-			if ( 'yes' === self::get( $toggle_key, 'no' ) ) {
+		foreach ( $visibility_to_endpoint as $show_key => $config ) {
+			$endpoint_key = (string) $config['endpoint'];
+			$legacy_key   = (string) $config['legacy_key'];
+
+			if ( ! $this->is_account_tab_visible( $show_key, $legacy_key ) ) {
 				unset( $items[ $endpoint_key ] );
 			}
 		}
@@ -278,7 +314,11 @@ class CK_OWS_Settings {
 		$key   = (string) ( $args['key'] ?? '' );
 		$type  = (string) ( $args['type'] ?? 'text' );
 		$value = self::get( $key, 'tracking_sync_interval_hours' === $key ? 6 : '' );
-		$is_account_visibility_toggle = 0 === strpos( $key, 'hide_account_' );
+		$is_account_visibility_toggle = 0 === strpos( $key, 'show_account_' ) || 0 === strpos( $key, 'hide_account_' );
+
+		if ( 0 === strpos( $key, 'show_account_' ) ) {
+			$value = self::get( $key, 'yes' );
+		}
 
 		$name = self::OPTION_KEY . '[' . $key . ']';
 		$id   = 'ck-ows-field-' . sanitize_html_class( $key );
@@ -305,6 +345,33 @@ class CK_OWS_Settings {
 		}
 
 		echo '<input type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="regular-text" autocomplete="off">';
+
+		if ( 'email_preferences_api_base_url' === $key ) {
+			$allowed_hosts = apply_filters(
+				'ck_ows_email_preferences_allowed_hosts',
+				array(
+					'api.overseek.com',
+					'staging-api.overseek.com',
+				)
+			);
+
+			if ( is_array( $allowed_hosts ) && ! empty( $allowed_hosts ) ) {
+				$allowed_hosts = array_values(
+					array_filter(
+						array_map(
+							'strtolower',
+							array_map( 'strval', $allowed_hosts )
+						)
+					)
+				);
+
+				if ( ! empty( $allowed_hosts ) ) {
+					echo '<p class="description">';
+					echo esc_html__( 'Allowed hosts:', 'ck-order-workflow-suite' ) . ' ' . esc_html( implode( ', ', $allowed_hosts ) );
+					echo '</p>';
+				}
+			}
+		}
 	}
 
 	private function is_enabled_input( array $input, string $key ): bool {
@@ -315,9 +382,80 @@ class CK_OWS_Settings {
 		return '1' === (string) $input[ $key ];
 	}
 
+	private function is_account_tab_visible( string $show_key, string $legacy_hide_key ): bool {
+		$options = get_option( self::OPTION_KEY, array() );
+		$options = is_array( $options ) ? $options : array();
+
+		if ( array_key_exists( $show_key, $options ) ) {
+			return 'yes' === (string) $options[ $show_key ];
+		}
+
+		if ( array_key_exists( $legacy_hide_key, $options ) ) {
+			return 'yes' !== (string) $options[ $legacy_hide_key ];
+		}
+
+		return true;
+	}
+
 	private function get_menu_icon(): string {
 		$svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"><path d="M3 6.25h14M3 10h14M3 13.75h9" stroke="black" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.2" cy="13.75" r="2.2" fill="black"/></svg>';
 
 		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+	}
+
+	private function sanitize_https_base_url( string $url ): string {
+		$url = untrailingslashit( trim( $url ) );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$parts = wp_parse_url( $url );
+
+		if ( ! is_array( $parts ) ) {
+			return '';
+		}
+
+		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
+
+		if ( 'https' !== $scheme || empty( $parts['host'] ) ) {
+			return '';
+		}
+
+		$path = isset( $parts['path'] ) ? (string) $parts['path'] : '';
+
+		return esc_url_raw( 'https://' . $parts['host'] . $path );
+	}
+
+	private function is_allowed_email_preferences_host( string $base_url ): bool {
+		$host = wp_parse_url( $base_url, PHP_URL_HOST );
+
+		if ( ! is_string( $host ) || '' === $host ) {
+			return false;
+		}
+
+		$allowed_hosts = apply_filters(
+			'ck_ows_email_preferences_allowed_hosts',
+			array(
+				'api.overseek.com',
+				'staging-api.overseek.com',
+			)
+		);
+
+		if ( ! is_array( $allowed_hosts ) || empty( $allowed_hosts ) ) {
+			return false;
+		}
+
+		$host = strtolower( $host );
+		$allowed_hosts = array_values(
+			array_filter(
+				array_map(
+					'strtolower',
+					array_map( 'strval', $allowed_hosts )
+				)
+			)
+		);
+
+		return in_array( $host, $allowed_hosts, true );
 	}
 }

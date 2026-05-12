@@ -11,6 +11,7 @@ class CK_OWS_Registration_Guard {
 	private const MIN_SECONDS = 3;
 	private const IP_LIMIT    = 5;
 	private const LOG_MAX     = 200;
+	private const LOG_TTL     = 90 * DAY_IN_SECONDS;
 	private const OPTION_LOG  = 'ckrg_block_log';
 
 	private static ?CK_OWS_Registration_Guard $instance = null;
@@ -120,6 +121,9 @@ class CK_OWS_Registration_Guard {
 		}
 
 		$log   = get_option( self::OPTION_LOG, array() );
+		$log   = is_array( $log ) ? $log : array();
+		$log   = $this->prune_log( $log );
+		update_option( self::OPTION_LOG, $log, false );
 		$tally = array(
 			'honeypot'       => 0,
 			'too_fast'       => 0,
@@ -177,6 +181,7 @@ class CK_OWS_Registration_Guard {
 	private function log_block( string $email, string $username, string $reason ): void {
 		$log = get_option( self::OPTION_LOG, array() );
 		$log = is_array( $log ) ? $log : array();
+		$log = $this->prune_log( $log );
 
 		array_unshift(
 			$log,
@@ -190,6 +195,27 @@ class CK_OWS_Registration_Guard {
 		);
 
 		update_option( self::OPTION_LOG, array_slice( $log, 0, self::LOG_MAX ), false );
+	}
+
+	private function prune_log( array $log ): array {
+		$min_ts = time() - self::LOG_TTL;
+
+		$log = array_values(
+			array_filter(
+				$log,
+				static function ( $entry ) use ( $min_ts ): bool {
+					if ( ! is_array( $entry ) ) {
+						return false;
+					}
+
+					$ts = isset( $entry['ts'] ) ? absint( $entry['ts'] ) : 0;
+
+					return $ts >= $min_ts;
+				}
+			)
+		);
+
+		return array_slice( $log, 0, self::LOG_MAX );
 	}
 
 	private function get_ip(): string {

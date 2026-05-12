@@ -71,6 +71,17 @@
   letter-spacing: 0.02em !important;
   font-weight: 600 !important;
   line-height: 1.2 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  border-right: 1px solid var(--ck-ows-border) !important;
+}
+
+.woocommerce-account ul.account-nav.nav-vertical > li > a::before,
+.woocommerce-account ul.account-nav.nav-vertical > li > a::after,
+.woocommerce-account ul.account-nav.nav-line.nav-vertical > li > a::before,
+.woocommerce-account ul.account-nav.nav-line.nav-vertical > li > a::after {
+  display: none !important;
+  content: none !important;
 }
 
 .woocommerce-account ul.account-nav.nav-vertical > li.active > a,

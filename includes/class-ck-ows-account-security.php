@@ -37,13 +37,19 @@ class CK_OWS_Account_Security {
 
 	public function add_menu_item( array $items ): array {
 		$new_items = array();
+		$inserted  = false;
 
 		foreach ( $items as $key => $label ) {
 			if ( 'customer-logout' === $key ) {
 				$new_items['security'] = __( 'Security', 'ck-order-workflow-suite' );
+				$inserted = true;
 			}
 
 			$new_items[ $key ] = $label;
+		}
+
+		if ( ! $inserted ) {
+			$new_items['security'] = __( 'Security', 'ck-order-workflow-suite' );
 		}
 
 		return $new_items;
