@@ -26,7 +26,7 @@ class CK_OWS_Order_Timeline {
 
 	private function __construct() {
 		add_action( 'woocommerce_order_status_changed', array( $this, 'capture_stage_timestamp' ), 30, 4 );
-		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_timeline' ), 15 );
+		add_action( 'woocommerce_order_details_before_order_table', array( $this, 'render_timeline' ), 5 );
 	}
 
 	public function capture_stage_timestamp( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
@@ -91,7 +91,7 @@ class CK_OWS_Order_Timeline {
 		echo '<section class="ck-ows-order-timeline">';
 		echo '<h2>' . esc_html__( 'Order Progress', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<p>' . esc_html__( 'Follow each stage of your order. Carrier scans may take up to 24 hours to appear.', 'ck-order-workflow-suite' ) . '</p>';
-		echo '<ol class="ck-ows-order-timeline__list">';
+		echo '<ol class="ck-ows-order-timeline__list" aria-label="' . esc_attr__( 'Order progress timeline', 'ck-order-workflow-suite' ) . '">';
 
 		foreach ( $stages as $index => $stage ) {
 			$state = 'upcoming';
@@ -103,7 +103,9 @@ class CK_OWS_Order_Timeline {
 			}
 
 			echo '<li class="ck-ows-order-timeline__item is-' . esc_attr( $state ) . '">';
-			echo '<div class="ck-ows-order-timeline__dot" aria-hidden="true"></div>';
+			echo '<div class="ck-ows-order-timeline__dot" aria-hidden="true">';
+			echo '<span class="ck-ows-order-timeline__icon">' . $this->get_stage_icon_svg( (string) $stage['key'] ) . '</span>';
+			echo '</div>';
 			echo '<div class="ck-ows-order-timeline__content">';
 			echo '<strong>' . esc_html( (string) $stage['label'] ) . '</strong>';
 
@@ -111,8 +113,6 @@ class CK_OWS_Order_Timeline {
 				echo '<div>' . esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $stage['ts'] ) ) . '</div>';
 			} elseif ( 'current' === $state ) {
 				echo '<div>' . esc_html__( 'In progress', 'ck-order-workflow-suite' ) . '</div>';
-			} else {
-				echo '<div>' . esc_html__( 'Pending', 'ck-order-workflow-suite' ) . '</div>';
 			}
 
 			echo '</div>';
@@ -177,5 +177,25 @@ class CK_OWS_Order_Timeline {
 		}
 
 		return min( $last_done + 1, count( $stages ) - 1 );
+	}
+
+	private function get_stage_icon_svg( string $stage_key ): string {
+		if ( 'completed' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M20 6L9 17l-5-5"/></svg>';
+		}
+
+		if ( 'in-dispatch' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M3 7h11v8H3z"/><path d="M14 10h3l3 3v2h-6z"/><circle cx="8" cy="17" r="1.7"/><circle cx="18" cy="17" r="1.7"/></svg>';
+		}
+
+		if ( 'awaiting-artwork' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M3 5h14v10H3z"/><path d="M7.5 10h5"/><circle cx="20" cy="15" r="3"/><path d="M20 13.5v3M18.5 15h3"/></svg>';
+		}
+
+		if ( 'in-production' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M5 5h10v10H5z"/><path d="M8.5 2.5v3M11.5 2.5v3M8.5 15v3M11.5 15v3M2.5 8.5h3M2.5 11.5h3M15 8.5h3M15 11.5h3"/></svg>';
+		}
+
+		return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21l8-4.5V7.5"/></svg>';
 	}
 }

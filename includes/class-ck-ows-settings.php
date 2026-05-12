@@ -27,6 +27,7 @@ class CK_OWS_Settings {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_post_ck_ows_run_tracking_sync', array( $this, 'run_tracking_sync_now' ) );
+		add_filter( 'woocommerce_account_menu_items', array( $this, 'filter_account_menu_items' ), 1000 );
 	}
 
 	public static function get( string $key, $default = '' ) {
@@ -84,6 +85,25 @@ class CK_OWS_Settings {
 		$this->register_field( 'auspost_account_number', __( 'AusPost Account Number (optional)', 'ck-order-workflow-suite' ), 'text' );
 		$this->register_field( 'tracking_sync_enabled', __( 'Enable tracking sync', 'ck-order-workflow-suite' ), 'checkbox' );
 		$this->register_field( 'tracking_sync_interval_hours', __( 'Sync interval (hours)', 'ck-order-workflow-suite' ), 'number' );
+
+		add_settings_section(
+			'ck_ows_account_menu_section',
+			esc_html__( 'My Account Navigation', 'ck-order-workflow-suite' ),
+			static function (): void {
+				echo '<p>' . esc_html__( 'Choose which default WooCommerce tabs are visible in My Account navigation.', 'ck-order-workflow-suite' ) . '</p>';
+			},
+			'ck-ows-settings'
+		);
+
+		$this->register_field( 'hide_account_dashboard_tab', __( 'Hide Dashboard tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_orders_tab', __( 'Hide Orders tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_downloads_tab', __( 'Hide Downloads tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_addresses_tab', __( 'Hide Addresses tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_details_tab', __( 'Hide Account details tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_invoices_tab', __( 'Hide Invoices tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_security_tab', __( 'Hide Security tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_email_preferences_tab', __( 'Hide Email preferences tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'hide_account_logout_tab', __( 'Hide Logout tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 	}
 
 	public function sanitize_settings( array $input ): array {
@@ -94,6 +114,15 @@ class CK_OWS_Settings {
 		$current['auspost_account_number']      = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
 		$current['tracking_sync_enabled']       = isset( $input['tracking_sync_enabled'] ) ? 'yes' : 'no';
 		$current['tracking_sync_interval_hours'] = isset( $input['tracking_sync_interval_hours'] ) ? max( 1, min( 24, absint( $input['tracking_sync_interval_hours'] ) ) ) : 6;
+		$current['hide_account_dashboard_tab']  = isset( $input['hide_account_dashboard_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_orders_tab']     = isset( $input['hide_account_orders_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_downloads_tab']  = isset( $input['hide_account_downloads_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_addresses_tab']  = isset( $input['hide_account_addresses_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_details_tab']    = isset( $input['hide_account_details_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_invoices_tab']   = isset( $input['hide_account_invoices_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_security_tab']   = isset( $input['hide_account_security_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_email_preferences_tab'] = isset( $input['hide_account_email_preferences_tab'] ) ? 'yes' : 'no';
+		$current['hide_account_logout_tab']     = isset( $input['hide_account_logout_tab'] ) ? 'yes' : 'no';
 
 		return $current;
 	}
@@ -158,13 +187,35 @@ class CK_OWS_Settings {
 		exit;
 	}
 
-	private function register_field( string $key, string $label, string $type ): void {
+	public function filter_account_menu_items( array $items ): array {
+		$toggle_to_endpoint = array(
+			'hide_account_dashboard_tab'         => 'dashboard',
+			'hide_account_orders_tab'            => 'orders',
+			'hide_account_downloads_tab'         => 'downloads',
+			'hide_account_addresses_tab'         => 'edit-address',
+			'hide_account_details_tab'           => 'edit-account',
+			'hide_account_invoices_tab'          => 'invoices',
+			'hide_account_security_tab'          => 'security',
+			'hide_account_email_preferences_tab' => 'email-preferences',
+			'hide_account_logout_tab'            => 'customer-logout',
+		);
+
+		foreach ( $toggle_to_endpoint as $toggle_key => $endpoint_key ) {
+			if ( 'yes' === self::get( $toggle_key, 'no' ) ) {
+				unset( $items[ $endpoint_key ] );
+			}
+		}
+
+		return $items;
+	}
+
+	private function register_field( string $key, string $label, string $type, string $section = 'ck_ows_tracking_section' ): void {
 		add_settings_field(
 			$key,
 			esc_html( $label ),
 			array( $this, 'render_field' ),
 			'ck-ows-settings',
-			'ck_ows_tracking_section',
+			$section,
 			array(
 				'key'  => $key,
 				'type' => $type,

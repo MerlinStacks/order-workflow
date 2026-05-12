@@ -155,11 +155,10 @@ class CK_OWS_Artwork_Proof {
 		echo '<div class="ck-ows-artwork-admin">';
 		echo '<p><strong>' . esc_html__( 'Upload Proof PDF', 'ck-order-workflow-suite' ) . '</strong></p>';
 		echo '<p style="margin-top:0;">' . esc_html__( 'Upload a PDF proof that the customer can review and approve from their order details page.', 'ck-order-workflow-suite' ) . '</p>';
-		echo '<input type="hidden" name="action" value="ck_ows_artwork_upload">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
 		wp_nonce_field( 'ck_ows_artwork_upload_' . $order->get_id() );
 		echo '<p><input type="file" id="ck_ows_artwork_pdf" name="ck_ows_artwork_pdf" accept="application/pdf" style="width:100%;"></p>';
-		echo '<p><button type="submit" formmethod="post" formenctype="multipart/form-data" formaction="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="button button-primary" style="width:100%;justify-content:center;">' . esc_html__( 'Upload proof PDF', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '<p><button type="submit" name="action" value="ck_ows_artwork_upload" formmethod="post" formenctype="multipart/form-data" formaction="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="button button-primary" style="width:100%;justify-content:center;">' . esc_html__( 'Upload proof PDF', 'ck-order-workflow-suite' ) . '</button></p>';
 
 		$revisions = self::get_proof_revisions( $order );
 		if ( $proof_link ) {
@@ -433,8 +432,18 @@ class CK_OWS_Artwork_Proof {
 		$proof_url  = $this->get_proof_url( $order );
 		$revisions  = self::get_proof_revisions( $order );
 		$state      = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
+		$fallback_notice = $this->get_customer_fallback_notice();
 
 		echo '<section class="ck-ows-artwork-proof">';
+
+		if ( null !== $fallback_notice ) {
+			echo '<div class="woocommerce-notices-wrapper">';
+			echo '<ul class="woocommerce-' . esc_attr( $fallback_notice['type'] ) . '" role="alert">';
+			echo '<li>' . esc_html( $fallback_notice['message'] ) . '</li>';
+			echo '</ul>';
+			echo '</div>';
+		}
+
 		echo '<h2>' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<p>' . esc_html__( 'Please review your artwork proof before production begins.', 'ck-order-workflow-suite' ) . '</p>';
 
@@ -517,18 +526,14 @@ class CK_OWS_Artwork_Proof {
 				$order->update_status( 'in-production', __( 'Artwork approved by customer. Order moved to In Production.', 'ck-order-workflow-suite' ), true );
 			}
 
-			wc_add_notice( __( 'Thanks, your artwork has been approved.', 'ck-order-workflow-suite' ), 'success' );
-			wp_safe_redirect( $order->get_view_order_url() );
-			exit;
+			$this->redirect_customer_with_notice( $order, __( 'Thanks, your artwork has been approved.', 'ck-order-workflow-suite' ), 'success' );
 		}
 
 		if ( 'request_changes' === $action ) {
 			$message = isset( $_POST['changes_note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['changes_note'] ) ) : '';
 
 			if ( '' === trim( $message ) ) {
-				wc_add_notice( __( 'Please include details for your change request.', 'ck-order-workflow-suite' ), 'error' );
-				wp_safe_redirect( $order->get_view_order_url() );
-				exit;
+				$this->redirect_customer_with_notice( $order, __( 'Please include details for your change request.', 'ck-order-workflow-suite' ), 'error' );
 			}
 
 			$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_CHANGES );
@@ -542,14 +547,51 @@ class CK_OWS_Artwork_Proof {
 				$order->update_status( 'awaiting-artwork', __( 'Order moved back to Awaiting Artwork Approval after customer change request.', 'ck-order-workflow-suite' ), true );
 			}
 
-			wc_add_notice( __( 'Thanks, we have sent your change request to our team.', 'ck-order-workflow-suite' ), 'success' );
+			$this->redirect_customer_with_notice( $order, __( 'Thanks, we have sent your change request to our team.', 'ck-order-workflow-suite' ), 'success' );
+		}
+
+		$this->redirect_customer_with_notice( $order, __( 'Invalid artwork action.', 'ck-order-workflow-suite' ), 'error' );
+	}
+
+	private function redirect_customer_with_notice( WC_Order $order, string $message, string $type ): void {
+		if ( function_exists( 'wc_add_notice' ) ) {
+			wc_add_notice( $message, $type );
 			wp_safe_redirect( $order->get_view_order_url() );
 			exit;
 		}
 
-		wc_add_notice( __( 'Invalid artwork action.', 'ck-order-workflow-suite' ), 'error' );
-		wp_safe_redirect( $order->get_view_order_url() );
+		$notice_url = add_query_arg(
+			array(
+				'ck_ows_artwork_notice'      => $message,
+				'ck_ows_artwork_notice_type' => $type,
+			),
+			$order->get_view_order_url()
+		);
+
+		wp_safe_redirect( $notice_url );
 		exit;
+	}
+
+	private function get_customer_fallback_notice(): ?array {
+		if ( ! isset( $_GET['ck_ows_artwork_notice'] ) || ! isset( $_GET['ck_ows_artwork_notice_type'] ) ) {
+			return null;
+		}
+
+		$message = sanitize_text_field( wp_unslash( $_GET['ck_ows_artwork_notice'] ) );
+		$type    = sanitize_key( wp_unslash( $_GET['ck_ows_artwork_notice_type'] ) );
+
+		if ( '' === $message ) {
+			return null;
+		}
+
+		if ( ! in_array( $type, array( 'error', 'success', 'notice' ), true ) ) {
+			$type = 'notice';
+		}
+
+		return array(
+			'message' => $message,
+			'type'    => $type,
+		);
 	}
 
 	public function handle_staff_override(): void {
