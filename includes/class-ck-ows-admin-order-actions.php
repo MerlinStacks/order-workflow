@@ -236,9 +236,10 @@ class CK_OWS_Admin_Order_Actions {
 	}
 
 	private function order_has_artwork_proof( WC_Order $order ): bool {
-		$proof_id = absint( $order->get_meta( '_ck_ows_artwork_proof_id', true ) );
-		$proof    = (string) $order->get_meta( '_ck_ows_artwork_proof_url', true );
+		if ( class_exists( 'CK_OWS_Artwork_Proof' ) ) {
+			return CK_OWS_Artwork_Proof::order_has_artwork_proof( $order );
+		}
 
-		return $proof_id > 0 || '' !== $proof;
+		return false;
 	}
 }

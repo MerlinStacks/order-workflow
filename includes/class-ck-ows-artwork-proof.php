@@ -8,6 +8,22 @@
 defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Artwork_Proof {
+	public const META_PROOF_ID                = '_ck_ows_artwork_proof_id';
+	public const META_PROOF_URL               = '_ck_ows_artwork_proof_url';
+	public const META_APPROVAL_STATE          = '_ck_ows_artwork_approval_state';
+	public const META_APPROVED_AT             = '_ck_ows_artwork_approved_at';
+	public const META_APPROVED_BY             = '_ck_ows_artwork_approved_by';
+	public const META_CHANGES_REQUESTED_AT    = '_ck_ows_artwork_changes_requested_at';
+	public const META_CHANGES_REQUESTED_BY    = '_ck_ows_artwork_changes_requested_by';
+	public const META_CHANGES_REQUEST_MESSAGE = '_ck_ows_artwork_changes_request_message';
+	public const META_OVERRIDE_AT             = '_ck_ows_artwork_override_at';
+	public const META_OVERRIDE_BY             = '_ck_ows_artwork_override_by';
+	public const META_OVERRIDE_REASON         = '_ck_ows_artwork_override_reason';
+
+	public const STATE_PENDING  = 'pending';
+	public const STATE_APPROVED = 'approved';
+	public const STATE_CHANGES  = 'changes_requested';
+
 	private static ?CK_OWS_Artwork_Proof $instance = null;
 
 	public static function instance(): CK_OWS_Artwork_Proof {
@@ -19,6 +35,416 @@ class CK_OWS_Artwork_Proof {
 	}
 
 	private function __construct() {
-		// Implement in Milestone 6.
+		add_action( 'add_meta_boxes', array( $this, 'add_order_metabox' ) );
+		add_action( 'post_edit_form_tag', array( $this, 'add_multipart_encoding' ) );
+		add_action( 'woocommerce_process_shop_order_meta', array( $this, 'save_order_meta' ), 20, 2 );
+
+		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_customer_panel' ), 30 );
+		add_action( 'admin_post_ck_ows_artwork_action', array( $this, 'handle_customer_action' ) );
+
+		add_action( 'admin_post_ck_ows_artwork_override', array( $this, 'handle_staff_override' ) );
+		add_action( 'woocommerce_order_status_changed', array( $this, 'enforce_production_gate' ), 20, 4 );
+		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
+	}
+
+	public function add_multipart_encoding(): void {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+
+		if ( ! $screen || ! isset( $screen->id ) ) {
+			return;
+		}
+
+		$valid_screens = array( 'shop_order' );
+		if ( function_exists( 'wc_get_page_screen_id' ) ) {
+			$valid_screens[] = wc_get_page_screen_id( 'shop-order' );
+		}
+
+		if ( in_array( $screen->id, $valid_screens, true ) ) {
+			echo ' enctype="multipart/form-data"';
+		}
+	}
+
+	public static function order_has_artwork_proof( WC_Order $order ): bool {
+		$proof_id  = absint( $order->get_meta( self::META_PROOF_ID, true ) );
+		$proof_url = (string) $order->get_meta( self::META_PROOF_URL, true );
+
+		return $proof_id > 0 || '' !== $proof_url;
+	}
+
+	public static function order_is_artwork_approved( WC_Order $order ): bool {
+		$state = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
+
+		return self::STATE_APPROVED === $state;
+	}
+
+	public static function order_has_staff_override( WC_Order $order ): bool {
+		$reason = (string) $order->get_meta( self::META_OVERRIDE_REASON, true );
+
+		return '' !== trim( $reason );
+	}
+
+	public function add_order_metabox( string $screen ): void {
+		$valid_screens = array( 'shop_order' );
+
+		if ( function_exists( 'wc_get_page_screen_id' ) ) {
+			$valid_screens[] = wc_get_page_screen_id( 'shop-order' );
+		}
+
+		if ( ! in_array( $screen, $valid_screens, true ) ) {
+			return;
+		}
+
+		add_meta_box(
+			'ck-ows-artwork-proof',
+			esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ),
+			array( $this, 'render_order_metabox' ),
+			$screen,
+			'side',
+			'default'
+		);
+	}
+
+	public function render_order_metabox( $post_or_order ): void {
+		$order = $post_or_order instanceof WC_Order ? $post_or_order : wc_get_order( $post_or_order->ID ?? 0 );
+
+		if ( ! $order ) {
+			echo '<p>' . esc_html__( 'Order not available.', 'ck-order-workflow-suite' ) . '</p>';
+			return;
+		}
+
+		$proof_id   = absint( $order->get_meta( self::META_PROOF_ID, true ) );
+		$proof_url  = (string) $order->get_meta( self::META_PROOF_URL, true );
+		$proof_link = $proof_id > 0 ? wp_get_attachment_url( $proof_id ) : $proof_url;
+		$state      = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
+
+		wp_nonce_field( 'ck_ows_artwork_meta_' . $order->get_id(), 'ck_ows_artwork_meta_nonce' );
+
+		echo '<p><label for="ck_ows_artwork_pdf"><strong>' . esc_html__( 'Upload Proof PDF', 'ck-order-workflow-suite' ) . '</strong></label></p>';
+		echo '<input type="file" id="ck_ows_artwork_pdf" name="ck_ows_artwork_pdf" accept="application/pdf" style="width:100%;">';
+
+		if ( $proof_link ) {
+			echo '<p><a href="' . esc_url( $proof_link ) . '" target="_blank" rel="noopener">' . esc_html__( 'View current proof', 'ck-order-workflow-suite' ) . '</a></p>';
+			echo '<p><label><input type="checkbox" name="ck_ows_remove_artwork_proof" value="1"> ' . esc_html__( 'Remove current proof', 'ck-order-workflow-suite' ) . '</label></p>';
+		}
+
+		echo '<p><strong>' . esc_html__( 'Approval state:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_state_label( $state ) ) . '</p>';
+
+		$override_url = wp_nonce_url(
+			add_query_arg(
+				array(
+					'action'   => 'ck_ows_artwork_override',
+					'order_id' => $order->get_id(),
+				),
+				admin_url( 'admin-post.php' )
+			),
+			'ck_ows_artwork_override_' . $order->get_id()
+		);
+
+		echo '<hr>';
+		echo '<p><strong>' . esc_html__( 'Staff Override', 'ck-order-workflow-suite' ) . '</strong></p>';
+		echo '<p style="margin-top:0;">' . esc_html__( 'To move to production without customer approval, provide a mandatory reason.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<p><input type="text" name="ck_ows_override_reason" placeholder="' . esc_attr__( 'Mandatory override reason', 'ck-order-workflow-suite' ) . '" style="width:100%;"></p>';
+		echo '<p><button type="submit" formmethod="post" formaction="' . esc_url( $override_url ) . '" class="button button-secondary">' . esc_html__( 'Override and move to In Production', 'ck-order-workflow-suite' ) . '</button></p>';
+	}
+
+	public function save_order_meta( int $order_id, $post ): void {
+		if ( ! isset( $_POST['ck_ows_artwork_meta_nonce'] ) ) {
+			return;
+		}
+
+		$nonce = sanitize_text_field( wp_unslash( $_POST['ck_ows_artwork_meta_nonce'] ) );
+
+		if ( ! wp_verify_nonce( $nonce, 'ck_ows_artwork_meta_' . $order_id ) ) {
+			return;
+		}
+
+		$order = wc_get_order( $order_id );
+
+		if ( ! $order ) {
+			return;
+		}
+
+		if ( isset( $_POST['ck_ows_remove_artwork_proof'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['ck_ows_remove_artwork_proof'] ) ) ) {
+			$order->delete_meta_data( self::META_PROOF_ID );
+			$order->delete_meta_data( self::META_PROOF_URL );
+			$order->delete_meta_data( self::META_APPROVAL_STATE );
+			$order->save();
+			$order->add_order_note( __( 'Artwork proof removed by staff.', 'ck-order-workflow-suite' ) );
+			return;
+		}
+
+		if ( empty( $_FILES['ck_ows_artwork_pdf']['name'] ) ) {
+			return;
+		}
+
+		if ( ! function_exists( 'wp_handle_upload' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
+		if ( ! function_exists( 'wp_insert_attachment' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/media.php';
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+		}
+
+		$uploaded = wp_handle_upload(
+			$_FILES['ck_ows_artwork_pdf'],
+			array(
+				'test_form' => false,
+				'mimes'     => array( 'pdf' => 'application/pdf' ),
+			)
+		);
+
+		if ( isset( $uploaded['error'] ) ) {
+			add_filter(
+				'redirect_post_location',
+				static function ( string $location ) use ( $uploaded ): string {
+					return add_query_arg( 'ck_ows_artwork_upload_error', rawurlencode( (string) $uploaded['error'] ), $location );
+				}
+			);
+			return;
+		}
+
+		$file_path = (string) $uploaded['file'];
+		$file_type = wp_check_filetype( wp_basename( $file_path ), null );
+
+		$attachment_id = wp_insert_attachment(
+			array(
+				'post_mime_type' => $file_type['type'],
+				'post_title'     => sanitize_file_name( wp_basename( $file_path ) ),
+				'post_content'   => '',
+				'post_status'    => 'inherit',
+			),
+			$file_path,
+			$order_id
+		);
+
+		if ( is_wp_error( $attachment_id ) ) {
+			return;
+		}
+
+		wp_update_attachment_metadata( $attachment_id, wp_generate_attachment_metadata( $attachment_id, $file_path ) );
+
+		$order->update_meta_data( self::META_PROOF_ID, $attachment_id );
+		$order->update_meta_data( self::META_PROOF_URL, esc_url_raw( (string) $uploaded['url'] ) );
+		$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_PENDING );
+		$order->save();
+
+		$order->add_order_note( __( 'Artwork proof PDF uploaded and approval requested.', 'ck-order-workflow-suite' ) );
+
+		if ( 'awaiting-artwork-approval' !== $order->get_status() ) {
+			$order->update_status( 'awaiting-artwork-approval', __( 'Order moved to Awaiting Artwork Approval after proof upload.', 'ck-order-workflow-suite' ), true );
+		}
+	}
+
+	public function render_customer_panel( WC_Order $order ): void {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		if ( (int) $order->get_user_id() !== get_current_user_id() ) {
+			return;
+		}
+
+		if ( ! self::order_has_artwork_proof( $order ) ) {
+			return;
+		}
+
+		$proof_url = $this->get_proof_url( $order );
+		$state     = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
+
+		echo '<section class="ck-ows-artwork-proof">';
+		echo '<h2>' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Please review your artwork proof before production begins.', 'ck-order-workflow-suite' ) . '</p>';
+
+		if ( $proof_url ) {
+			echo '<p><a class="button" href="' . esc_url( $proof_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'View proof PDF', 'ck-order-workflow-suite' ) . '</a></p>';
+		}
+
+		echo '<p><strong>' . esc_html__( 'Current state:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_state_label( $state ) ) . '</p>';
+
+		if ( self::STATE_APPROVED === $state ) {
+			echo '<p>' . esc_html__( 'Thank you. Your artwork has been approved.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '</section>';
+			return;
+		}
+
+		$action_url = admin_url( 'admin-post.php' );
+
+		echo '<form method="post" action="' . esc_url( $action_url ) . '">';
+		echo '<input type="hidden" name="action" value="ck_ows_artwork_action">';
+		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
+		wp_nonce_field( 'ck_ows_artwork_customer_' . $order->get_id() );
+
+		echo '<p>';
+		echo '<button type="submit" name="artwork_action" value="approve" class="button">' . esc_html__( 'Approve artwork', 'ck-order-workflow-suite' ) . '</button> ';
+		echo '</p>';
+
+		echo '<p><label for="ck_ows_changes_note">' . esc_html__( 'Request changes', 'ck-order-workflow-suite' ) . '</label>';
+		echo '<textarea name="changes_note" id="ck_ows_changes_note" rows="4" style="width:100%;" placeholder="' . esc_attr__( 'Tell us what needs to change.', 'ck-order-workflow-suite' ) . '"></textarea></p>';
+		echo '<p><button type="submit" name="artwork_action" value="request_changes" class="button button-secondary">' . esc_html__( 'Submit change request', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '</form>';
+		echo '</section>';
+	}
+
+	public function handle_customer_action(): void {
+		if ( ! is_user_logged_in() ) {
+			wp_die( esc_html__( 'You must be logged in.', 'ck-order-workflow-suite' ) );
+		}
+
+		$order_id = isset( $_POST['order_id'] ) ? absint( wp_unslash( $_POST['order_id'] ) ) : 0;
+		$order    = wc_get_order( $order_id );
+
+		if ( ! $order ) {
+			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( 'ck_ows_artwork_customer_' . $order_id );
+
+		if ( (int) $order->get_user_id() !== get_current_user_id() ) {
+			wp_die( esc_html__( 'You cannot update this order.', 'ck-order-workflow-suite' ) );
+		}
+
+		$action = isset( $_POST['artwork_action'] ) ? sanitize_key( wp_unslash( $_POST['artwork_action'] ) ) : '';
+
+		if ( 'approve' === $action ) {
+			$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_APPROVED );
+			$order->update_meta_data( self::META_APPROVED_AT, time() );
+			$order->update_meta_data( self::META_APPROVED_BY, get_current_user_id() );
+			$order->save();
+			$order->add_order_note( __( 'Customer approved artwork proof.', 'ck-order-workflow-suite' ) );
+
+			if ( 'awaiting-artwork-approval' === $order->get_status() ) {
+				$order->update_status( 'in-production', __( 'Artwork approved by customer. Order moved to In Production.', 'ck-order-workflow-suite' ), true );
+			}
+
+			wc_add_notice( __( 'Thanks, your artwork has been approved.', 'ck-order-workflow-suite' ), 'success' );
+			wp_safe_redirect( $order->get_view_order_url() );
+			exit;
+		}
+
+		if ( 'request_changes' === $action ) {
+			$message = isset( $_POST['changes_note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['changes_note'] ) ) : '';
+
+			if ( '' === trim( $message ) ) {
+				wc_add_notice( __( 'Please include details for your change request.', 'ck-order-workflow-suite' ), 'error' );
+				wp_safe_redirect( $order->get_view_order_url() );
+				exit;
+			}
+
+			$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_CHANGES );
+			$order->update_meta_data( self::META_CHANGES_REQUESTED_AT, time() );
+			$order->update_meta_data( self::META_CHANGES_REQUESTED_BY, get_current_user_id() );
+			$order->update_meta_data( self::META_CHANGES_REQUEST_MESSAGE, $message );
+			$order->save();
+			$order->add_order_note( sprintf( __( 'Customer requested artwork changes: %s', 'ck-order-workflow-suite' ), $message ) );
+
+			if ( 'awaiting-artwork-approval' !== $order->get_status() ) {
+				$order->update_status( 'awaiting-artwork-approval', __( 'Order moved back to Awaiting Artwork Approval after customer change request.', 'ck-order-workflow-suite' ), true );
+			}
+
+			wc_add_notice( __( 'Thanks, we have sent your change request to our team.', 'ck-order-workflow-suite' ), 'success' );
+			wp_safe_redirect( $order->get_view_order_url() );
+			exit;
+		}
+
+		wc_add_notice( __( 'Invalid artwork action.', 'ck-order-workflow-suite' ), 'error' );
+		wp_safe_redirect( $order->get_view_order_url() );
+		exit;
+	}
+
+	public function handle_staff_override(): void {
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		$order_id = isset( $_GET['order_id'] ) ? absint( wp_unslash( $_GET['order_id'] ) ) : 0;
+		$order    = wc_get_order( $order_id );
+
+		if ( ! $order ) {
+			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( 'ck_ows_artwork_override_' . $order_id );
+
+		$reason = isset( $_POST['ck_ows_override_reason'] ) ? sanitize_text_field( wp_unslash( $_POST['ck_ows_override_reason'] ) ) : '';
+
+		if ( '' === trim( $reason ) ) {
+			$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
+			$redirect = add_query_arg( 'ck_ows_override_reason_required', 1, $redirect );
+			wp_safe_redirect( $redirect );
+			exit;
+		}
+
+		$order->update_meta_data( self::META_OVERRIDE_REASON, $reason );
+		$order->update_meta_data( self::META_OVERRIDE_BY, get_current_user_id() );
+		$order->update_meta_data( self::META_OVERRIDE_AT, time() );
+		$order->save();
+
+		$order->add_order_note( sprintf( __( 'Staff override approved artwork and moved to production. Reason: %s', 'ck-order-workflow-suite' ), $reason ) );
+		$order->update_status( 'in-production', __( 'Staff override moved order to In Production.', 'ck-order-workflow-suite' ), true );
+
+		$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
+		$redirect = add_query_arg( 'ck_ows_override_success', 1, $redirect );
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function enforce_production_gate( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
+		if ( 'awaiting-artwork-approval' !== $from_status || 'in-production' !== $to_status ) {
+			return;
+		}
+
+		if ( ! self::order_has_artwork_proof( $order ) ) {
+			return;
+		}
+
+		if ( self::order_is_artwork_approved( $order ) || self::order_has_staff_override( $order ) ) {
+			return;
+		}
+
+		$order->update_status( 'awaiting-artwork-approval', __( 'Transition to In Production blocked: artwork approval required.', 'ck-order-workflow-suite' ), true );
+		$order->add_order_note( __( 'Order attempted to move to In Production without required artwork approval.', 'ck-order-workflow-suite' ) );
+	}
+
+	public function admin_notices(): void {
+		if ( isset( $_GET['ck_ows_override_reason_required'] ) ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Override reason is mandatory to move an artwork approval order to production.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_override_success'] ) ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Artwork override applied and order moved to In Production.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_artwork_upload_error'] ) ) {
+			$error = sanitize_text_field( wp_unslash( $_GET['ck_ows_artwork_upload_error'] ) );
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( sprintf( __( 'Artwork upload failed: %s', 'ck-order-workflow-suite' ), $error ) ) . '</p></div>';
+		}
+	}
+
+	private function get_proof_url( WC_Order $order ): string {
+		$proof_id = absint( $order->get_meta( self::META_PROOF_ID, true ) );
+
+		if ( $proof_id > 0 ) {
+			$url = wp_get_attachment_url( $proof_id );
+			if ( $url ) {
+				return (string) $url;
+			}
+		}
+
+		return (string) $order->get_meta( self::META_PROOF_URL, true );
+	}
+
+	private function format_state_label( string $state ): string {
+		$map = array(
+			self::STATE_PENDING  => __( 'Pending customer approval', 'ck-order-workflow-suite' ),
+			self::STATE_APPROVED => __( 'Approved by customer', 'ck-order-workflow-suite' ),
+			self::STATE_CHANGES  => __( 'Changes requested', 'ck-order-workflow-suite' ),
+		);
+
+		if ( isset( $map[ $state ] ) ) {
+			return $map[ $state ];
+		}
+
+		return __( 'Not set', 'ck-order-workflow-suite' );
 	}
 }
