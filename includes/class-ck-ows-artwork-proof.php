@@ -232,7 +232,8 @@ class CK_OWS_Artwork_Proof {
 				),
 				admin_url( 'admin-post.php' )
 			),
-			'ck_ows_artwork_override_' . $order->get_id()
+			'ck_ows_artwork_override_' . $order->get_id(),
+			'ck_ows_artwork_override_nonce'
 		);
 
 		echo '<hr>';
@@ -606,7 +607,7 @@ class CK_OWS_Artwork_Proof {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_artwork_override_' . $order_id );
+		check_admin_referer( 'ck_ows_artwork_override_' . $order_id, 'ck_ows_artwork_override_nonce' );
 
 		$reason = isset( $_POST['ck_ows_override_reason'] ) ? sanitize_text_field( wp_unslash( $_POST['ck_ows_override_reason'] ) ) : '';
 

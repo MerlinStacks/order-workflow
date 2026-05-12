@@ -37,7 +37,7 @@ class CK_OWS_Plugin {
 	 */
 	private function __construct() {
 		$this->load_dependencies();
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ), 99 );
 		$this->boot_modules();
 	}
 
