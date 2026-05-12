@@ -224,23 +224,19 @@ class CK_OWS_Artwork_Proof {
 
 		echo '<p><strong>' . esc_html__( 'Approval state:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_state_label( $state ) ) . '</p>';
 
-		$override_url = wp_nonce_url(
-			add_query_arg(
-				array(
-					'action'   => 'ck_ows_artwork_override',
-					'order_id' => $order->get_id(),
-				),
-				admin_url( 'admin-post.php' )
+		$override_url = add_query_arg(
+			array(
+				'order_id' => $order->get_id(),
 			),
-			'ck_ows_artwork_override_' . $order->get_id(),
-			'ck_ows_artwork_override_nonce'
+			admin_url( 'admin-post.php' )
 		);
 
 		echo '<hr>';
 		echo '<p><strong>' . esc_html__( 'Staff Override', 'ck-order-workflow-suite' ) . '</strong></p>';
 		echo '<p style="margin-top:0;">' . esc_html__( 'To move to production without customer approval, provide a mandatory reason.', 'ck-order-workflow-suite' ) . '</p>';
+		wp_nonce_field( 'ck_ows_artwork_override_' . $order->get_id(), 'ck_ows_artwork_override_nonce' );
 		echo '<p><input type="text" name="ck_ows_override_reason" placeholder="' . esc_attr__( 'Mandatory override reason', 'ck-order-workflow-suite' ) . '" style="width:100%;"></p>';
-		echo '<p><button type="submit" formmethod="post" formaction="' . esc_url( $override_url ) . '" class="button button-secondary">' . esc_html__( 'Override and move to In Production', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '<p><button type="submit" name="action" value="ck_ows_artwork_override" formmethod="post" formaction="' . esc_url( $override_url ) . '" class="button button-secondary">' . esc_html__( 'Override and move to In Production', 'ck-order-workflow-suite' ) . '</button></p>';
 		echo '</div>';
 	}
 
@@ -448,10 +444,6 @@ class CK_OWS_Artwork_Proof {
 		echo '<h2>' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<p>' . esc_html__( 'Please review your artwork proof before production begins.', 'ck-order-workflow-suite' ) . '</p>';
 
-		if ( $proof_url ) {
-			echo '<p><a class="button" href="' . esc_url( $proof_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'View proof PDF', 'ck-order-workflow-suite' ) . '</a></p>';
-		}
-
 		if ( count( $revisions ) > 1 ) {
 			echo '<p><strong>' . esc_html__( 'Previous versions', 'ck-order-workflow-suite' ) . '</strong></p>';
 			echo '<ul class="ck-ows-artwork-proof__versions">';
@@ -470,7 +462,7 @@ class CK_OWS_Artwork_Proof {
 			echo '</ul>';
 		}
 
-		echo '<p><strong>' . esc_html__( 'Current state:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_state_label( $state ) ) . '</p>';
+		echo '<div class="ck-ows-artwork-proof__state"><strong>' . esc_html__( 'Current state:', 'ck-order-workflow-suite' ) . '</strong> <span class="ck-ows-artwork-proof__state-value">' . esc_html( $this->format_state_label( $state ) ) . '</span></div>';
 
 		if ( self::STATE_APPROVED === $state ) {
 			echo '<p>' . esc_html__( 'Thank you. Your artwork has been approved.', 'ck-order-workflow-suite' ) . '</p>';
@@ -479,19 +471,30 @@ class CK_OWS_Artwork_Proof {
 		}
 
 		$action_url = admin_url( 'admin-post.php' );
+		$changes_open_attr = self::STATE_CHANGES === $state ? ' open' : '';
 
-		echo '<form method="post" action="' . esc_url( $action_url ) . '">';
+		echo '<form method="post" action="' . esc_url( $action_url ) . '" class="ck-ows-artwork-proof__form">';
 		echo '<input type="hidden" name="action" value="ck_ows_artwork_action">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
 		wp_nonce_field( 'ck_ows_artwork_customer_' . $order->get_id() );
 
-		echo '<p>';
-		echo '<button type="submit" name="artwork_action" value="approve" class="button">' . esc_html__( 'Approve artwork', 'ck-order-workflow-suite' ) . '</button> ';
-		echo '</p>';
+		echo '<div class="ck-ows-artwork-proof__actions">';
+		echo '<div class="ck-ows-artwork-proof__approve">';
 
-		echo '<p><label for="ck_ows_changes_note">' . esc_html__( 'Request changes', 'ck-order-workflow-suite' ) . '</label>';
-		echo '<textarea name="changes_note" id="ck_ows_changes_note" rows="4" style="width:100%;" placeholder="' . esc_attr__( 'Tell us what needs to change.', 'ck-order-workflow-suite' ) . '"></textarea></p>';
+		if ( $proof_url ) {
+			echo '<p class="ck-ows-artwork-proof__proof-link"><a class="button" href="' . esc_url( $proof_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'View proof PDF', 'ck-order-workflow-suite' ) . '</a></p>';
+		}
+
+		echo '<p><button type="submit" name="artwork_action" value="approve" class="button">' . esc_html__( 'Approve artwork', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '</div>';
+
+		echo '<details class="ck-ows-artwork-proof__changes"' . $changes_open_attr . '>';
+		echo '<summary>' . esc_html__( 'Need edits? Request changes', 'ck-order-workflow-suite' ) . '</summary>';
+		echo '<p><label class="screen-reader-text" for="ck_ows_changes_note">' . esc_html__( 'Request changes', 'ck-order-workflow-suite' ) . '</label>';
+		echo '<textarea name="changes_note" id="ck_ows_changes_note" rows="4" placeholder="' . esc_attr__( 'Tell us what needs to change.', 'ck-order-workflow-suite' ) . '"></textarea></p>';
 		echo '<p><button type="submit" name="artwork_action" value="request_changes" class="button button-secondary">' . esc_html__( 'Submit change request', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '</details>';
+		echo '</div>';
 		echo '</form>';
 		echo '</section>';
 	}
@@ -600,14 +603,20 @@ class CK_OWS_Artwork_Proof {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
 		}
 
-		$order_id = isset( $_GET['order_id'] ) ? absint( wp_unslash( $_GET['order_id'] ) ) : 0;
+		$order_id = isset( $_REQUEST['order_id'] ) ? absint( wp_unslash( $_REQUEST['order_id'] ) ) : 0;
 		$order    = wc_get_order( $order_id );
 
 		if ( ! $order ) {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_artwork_override_' . $order_id, 'ck_ows_artwork_override_nonce' );
+		$override_nonce = isset( $_REQUEST['ck_ows_artwork_override_nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['ck_ows_artwork_override_nonce'] ) ) : '';
+		if ( '' === $override_nonce || ! wp_verify_nonce( $override_nonce, 'ck_ows_artwork_override_' . $order_id ) ) {
+			$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
+			$redirect = add_query_arg( 'ck_ows_override_nonce_failed', 1, $redirect );
+			wp_safe_redirect( $redirect );
+			exit;
+		}
 
 		$reason = isset( $_POST['ck_ows_override_reason'] ) ? sanitize_text_field( wp_unslash( $_POST['ck_ows_override_reason'] ) ) : '';
 
@@ -652,6 +661,10 @@ class CK_OWS_Artwork_Proof {
 	public function admin_notices(): void {
 		if ( isset( $_GET['ck_ows_override_reason_required'] ) ) {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Override reason is mandatory to move an artwork approval order to production.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_override_nonce_failed'] ) ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Security check failed for artwork override. Please refresh and try again.', 'ck-order-workflow-suite' ) . '</p></div>';
 		}
 
 		if ( isset( $_GET['ck_ows_override_success'] ) ) {

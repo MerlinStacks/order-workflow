@@ -57,6 +57,42 @@ class CK_OWS_Plugin {
 			array(),
 			CK_OWS_VERSION
 		);
+
+		$nav_inline_css = '
+		.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation,
+		.woocommerce-account #customer_login ~ .woocommerce .woocommerce-MyAccount-navigation {
+			float: none !important;
+			width: 100% !important;
+			max-width: 100% !important;
+			margin: 0 0 18px !important;
+		}
+		.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation ul {
+			display: flex !important;
+			flex-direction: row !important;
+			flex-wrap: wrap !important;
+			gap: 10px !important;
+			padding: 14px 0 !important;
+			margin: 0 !important;
+		}
+		.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation li {
+			display: inline-flex !important;
+			float: none !important;
+			width: auto !important;
+			margin: 0 !important;
+		}
+		.woocommerce-account .woocommerce .woocommerce-MyAccount-navigation li a {
+			display: inline-flex !important;
+			width: auto !important;
+			padding: 8px 18px !important;
+			border-radius: 999px !important;
+		}
+		.woocommerce-account .woocommerce .woocommerce-MyAccount-content {
+			float: none !important;
+			width: 100% !important;
+		}
+		';
+
+		wp_add_inline_style( 'ck-ows-account-ui', $nav_inline_css );
 	}
 
 	/**

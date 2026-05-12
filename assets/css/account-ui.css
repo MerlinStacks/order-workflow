@@ -151,6 +151,87 @@
   margin: 0 0 6px;
 }
 
+.woocommerce-account .ck-ows-artwork-proof__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__state-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 600;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__actions {
+  display: grid;
+  grid-template-columns: minmax(220px, auto) minmax(280px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__approve,
+.woocommerce-account .ck-ows-artwork-proof__changes {
+  margin: 0;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__changes {
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 10px;
+  padding: 10px 12px 2px;
+  background: #fff;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__changes summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin: 0 0 10px;
+  list-style: none;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__changes summary::-webkit-details-marker {
+  display: none;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__changes summary::before {
+  content: "+";
+  display: inline-block;
+  width: 18px;
+  font-weight: 700;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__changes[open] summary::before {
+  content: "-";
+}
+
+.woocommerce-account .ck-ows-artwork-proof__proof-link,
+.woocommerce-account .ck-ows-artwork-proof__approve p,
+.woocommerce-account .ck-ows-artwork-proof__changes p {
+  margin: 0 0 12px;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__changes textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+@media (max-width: 740px) {
+  .woocommerce-account .ck-ows-artwork-proof__actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .woocommerce-account .ck-ows-artwork-proof__state {
+    flex-wrap: wrap;
+  }
+}
+
 .woocommerce-view-order .ck-ows-order-timeline {
   margin: 0 0 26px;
   padding: 20px;
