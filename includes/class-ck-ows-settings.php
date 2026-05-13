@@ -140,18 +140,20 @@ class CK_OWS_Settings {
 	public function sanitize_settings( array $input ): array {
 		$current = get_option( self::OPTION_KEY, array() );
 		$current = is_array( $current ) ? $current : array();
+		$previous_tracking_enabled = (string) ( $current['tracking_sync_enabled'] ?? 'yes' );
+		$previous_tracking_interval = absint( $current['tracking_sync_interval_hours'] ?? 6 );
 
-		$current['auspost_api_key']             = isset( $input['auspost_api_key'] ) ? $this->encrypt_sensitive_value( sanitize_text_field( (string) $input['auspost_api_key'] ) ) : '';
+		$current['auspost_api_key']             = $this->sanitize_sensitive_setting( $input, $current, 'auspost_api_key' );
 		$current['auspost_account_number']      = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
 		$current['tracking_sync_enabled']       = $this->is_enabled_input( $input, 'tracking_sync_enabled' ) ? 'yes' : 'no';
 		$current['tracking_sync_interval_hours'] = isset( $input['tracking_sync_interval_hours'] ) ? max( 1, min( 24, absint( $input['tracking_sync_interval_hours'] ) ) ) : 6;
 		$current['tracking_email_events_enabled'] = $this->is_enabled_input( $input, 'tracking_email_events_enabled' ) ? 'yes' : 'no';
 		$current['tracking_email_events_webhook_url'] = isset( $input['tracking_email_events_webhook_url'] ) ? $this->sanitize_https_webhook_url( (string) $input['tracking_email_events_webhook_url'] ) : '';
-		$current['tracking_email_events_auth_token'] = isset( $input['tracking_email_events_auth_token'] ) ? $this->encrypt_sensitive_value( sanitize_text_field( (string) $input['tracking_email_events_auth_token'] ) ) : '';
+		$current['tracking_email_events_auth_token'] = $this->sanitize_sensitive_setting( $input, $current, 'tracking_email_events_auth_token' );
 		$current['tracking_email_events_timeout_seconds'] = isset( $input['tracking_email_events_timeout_seconds'] ) ? max( 3, min( 30, absint( $input['tracking_email_events_timeout_seconds'] ) ) ) : 10;
 		$current['email_preferences_api_base_url'] = isset( $input['email_preferences_api_base_url'] ) ? $this->sanitize_https_base_url( (string) $input['email_preferences_api_base_url'] ) : '';
 		$current['email_preferences_account_id'] = isset( $input['email_preferences_account_id'] ) ? sanitize_text_field( (string) $input['email_preferences_account_id'] ) : '';
-		$current['email_preferences_webhook_secret'] = isset( $input['email_preferences_webhook_secret'] ) ? $this->encrypt_sensitive_value( sanitize_text_field( (string) $input['email_preferences_webhook_secret'] ) ) : '';
+		$current['email_preferences_webhook_secret'] = $this->sanitize_sensitive_setting( $input, $current, 'email_preferences_webhook_secret' );
 		$current['show_account_dashboard_tab']  = $this->is_enabled_input( $input, 'show_account_dashboard_tab' ) ? 'yes' : 'no';
 		$current['show_account_orders_tab']     = $this->is_enabled_input( $input, 'show_account_orders_tab' ) ? 'yes' : 'no';
 		$current['show_account_downloads_tab']  = $this->is_enabled_input( $input, 'show_account_downloads_tab' ) ? 'yes' : 'no';
@@ -161,6 +163,10 @@ class CK_OWS_Settings {
 		$current['show_account_security_tab']   = $this->is_enabled_input( $input, 'show_account_security_tab' ) ? 'yes' : 'no';
 		$current['show_account_email_preferences_tab'] = $this->is_enabled_input( $input, 'show_account_email_preferences_tab' ) ? 'yes' : 'no';
 		$current['show_account_logout_tab']     = $this->is_enabled_input( $input, 'show_account_logout_tab' ) ? 'yes' : 'no';
+
+		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
+			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
+		}
 
 		return $current;
 	}
@@ -336,6 +342,7 @@ class CK_OWS_Settings {
 
 		$value = self::get( $key, $default );
 		$is_account_visibility_toggle = 0 === strpos( $key, 'show_account_' ) || 0 === strpos( $key, 'hide_account_' );
+		$is_sensitive_field = in_array( $key, self::sensitive_keys(), true );
 
 		if ( 0 === strpos( $key, 'show_account_' ) ) {
 			$value = self::get( $key, 'yes' );
@@ -377,7 +384,13 @@ class CK_OWS_Settings {
 			return;
 		}
 
-		echo '<input type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="regular-text" autocomplete="off">';
+		if ( $is_sensitive_field ) {
+			$display_value = '' !== (string) $value ? '********' : '';
+			echo '<input type="password" name="' . esc_attr( $name ) . '" value="' . esc_attr( $display_value ) . '" class="regular-text" autocomplete="new-password">';
+			echo '<p class="description">' . esc_html__( 'Saved values are hidden. Leave unchanged to keep the existing value.', 'ck-order-workflow-suite' ) . '</p>';
+		} else {
+			echo '<input type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="regular-text" autocomplete="off">';
+		}
 
 		if ( 'tracking_email_events_webhook_url' === $key ) {
 			echo '<p class="description">' . esc_html__( 'HTTPS endpoint that receives normalized tracking lifecycle events for automation.', 'ck-order-workflow-suite' ) . '</p>';
@@ -421,6 +434,20 @@ class CK_OWS_Settings {
 		}
 
 		return '1' === (string) $input[ $key ];
+	}
+
+	private function sanitize_sensitive_setting( array $input, array $current, string $key ): string {
+		if ( ! isset( $input[ $key ] ) ) {
+			return '';
+		}
+
+		$value = sanitize_text_field( (string) $input[ $key ] );
+
+		if ( '' === trim( $value ) || '********' === $value ) {
+			return isset( $current[ $key ] ) ? (string) $current[ $key ] : '';
+		}
+
+		return $this->encrypt_sensitive_value( $value );
 	}
 
 	private function is_account_tab_visible( string $show_key, string $legacy_hide_key ): bool {

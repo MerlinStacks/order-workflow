@@ -90,10 +90,17 @@ class CK_OWS_Order_Timeline {
 
 		$current_status = $order->get_status();
 		$current_index  = $this->resolve_current_index( $stages, $current_status );
+		$status_label   = wc_get_order_status_name( $current_status );
+		$created_date   = $order->get_date_created();
+		$created_label  = $created_date ? wp_date( get_option( 'date_format' ), $created_date->getTimestamp() ) : __( 'an earlier date', 'ck-order-workflow-suite' );
 
 		echo '<section class="ck-ows-order-timeline">';
-		echo '<h2>' . esc_html__( 'Order Progress', 'ck-order-workflow-suite' ) . '</h2>';
-		echo '<p>' . esc_html__( 'Follow each stage of your order. Carrier scans may take up to 24 hours to appear.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<h2 class="ck-ows-order-timeline__title">' . esc_html__( 'Order Progress', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<p class="ck-ows-order-timeline__intro">' . esc_html__( 'Follow each stage of your order. Carrier scans may take up to 24 hours to appear.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<p class="ck-ows-order-timeline__summary">';
+		echo '<span>' . sprintf( esc_html__( 'Order #%1$s placed on %2$s', 'ck-order-workflow-suite' ), esc_html( $order->get_order_number() ), esc_html( $created_label ) ) . '</span>';
+		echo '<span class="ck-ows-order-timeline__status">' . esc_html( $status_label ) . '</span>';
+		echo '</p>';
 		echo '<ol class="ck-ows-order-timeline__list" aria-label="' . esc_attr__( 'Order progress timeline', 'ck-order-workflow-suite' ) . '">';
 
 		foreach ( $stages as $index => $stage ) {

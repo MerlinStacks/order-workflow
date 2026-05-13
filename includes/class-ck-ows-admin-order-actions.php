@@ -66,6 +66,10 @@ class CK_OWS_Admin_Order_Actions {
 				continue;
 			}
 
+			if ( 'in-production' === $status && ! $this->order_can_move_to_production( $order ) ) {
+				continue;
+			}
+
 			$order->update_status(
 				$status,
 				__( 'Order status updated from bulk action.', 'ck-order-workflow-suite' ),
@@ -144,6 +148,13 @@ class CK_OWS_Admin_Order_Actions {
 			exit;
 		}
 
+		if ( 'in-production' === $status && ! $this->order_can_move_to_production( $order ) ) {
+			$redirect = $this->get_redirect_url();
+			$redirect = add_query_arg( 'ck_ows_artwork_approval_required', 1, $redirect );
+			wp_safe_redirect( $redirect );
+			exit;
+		}
+
 		if ( ! in_array( $status, array( 'awaiting-artwork', 'in-production', 'in-dispatch' ), true ) ) {
 			wp_die( esc_html__( 'Invalid status transition.', 'ck-order-workflow-suite' ) );
 		}
@@ -186,6 +197,12 @@ class CK_OWS_Admin_Order_Actions {
 		if ( isset( $_GET['ck_ows_missing_artwork'] ) ) {
 			echo '<div class="notice notice-warning is-dismissible"><p>';
 			echo esc_html__( 'Cannot move order to Awaiting Artwork Approval until a proof PDF is uploaded.', 'ck-order-workflow-suite' );
+			echo '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_artwork_approval_required'] ) ) {
+			echo '<div class="notice notice-warning is-dismissible"><p>';
+			echo esc_html__( 'Cannot move order to In Production until artwork is approved or a staff override is recorded.', 'ck-order-workflow-suite' );
 			echo '</p></div>';
 		}
 	}
@@ -292,5 +309,13 @@ class CK_OWS_Admin_Order_Actions {
 		}
 
 		return false;
+	}
+
+	private function order_can_move_to_production( WC_Order $order ): bool {
+		if ( class_exists( 'CK_OWS_Artwork_Proof' ) ) {
+			return CK_OWS_Artwork_Proof::order_can_move_to_production( $order );
+		}
+
+		return true;
 	}
 }

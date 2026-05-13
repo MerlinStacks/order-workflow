@@ -311,10 +311,16 @@ class CK_OWS_Artwork_Proof {
 			exit;
 		}
 
-		$this->upload_artwork_file_for_order( $order );
+		$upload_result = $this->upload_artwork_file_for_order( $order );
 
 		$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
-		$redirect = add_query_arg( 'ck_ows_artwork_upload_success', 1, $redirect );
+
+		if ( is_wp_error( $upload_result ) ) {
+			$redirect = add_query_arg( 'ck_ows_artwork_upload_error', rawurlencode( $upload_result->get_error_message() ), $redirect );
+		} else {
+			$redirect = add_query_arg( 'ck_ows_artwork_upload_success', 1, $redirect );
+		}
+
 		wp_safe_redirect( $redirect );
 		exit;
 	}
@@ -404,7 +410,7 @@ class CK_OWS_Artwork_Proof {
 		$this->upload_artwork_file_for_order( $order );
 	}
 
-	private function upload_artwork_file_for_order( WC_Order $order ): void {
+	private function upload_artwork_file_for_order( WC_Order $order ) {
 		$order_id = $order->get_id();
 
 		if ( ! function_exists( 'wp_handle_upload' ) ) {
@@ -425,13 +431,7 @@ class CK_OWS_Artwork_Proof {
 		);
 
 		if ( isset( $uploaded['error'] ) ) {
-			add_filter(
-				'redirect_post_location',
-				static function ( string $location ) use ( $uploaded ): string {
-					return add_query_arg( 'ck_ows_artwork_upload_error', rawurlencode( (string) $uploaded['error'] ), $location );
-				}
-			);
-			return;
+			return new WP_Error( 'ck_ows_artwork_upload_error', (string) $uploaded['error'] );
 		}
 
 		$file_path = (string) $uploaded['file'];
@@ -449,7 +449,7 @@ class CK_OWS_Artwork_Proof {
 		);
 
 		if ( is_wp_error( $attachment_id ) ) {
-			return;
+			return $attachment_id;
 		}
 
 		wp_update_attachment_metadata( $attachment_id, wp_generate_attachment_metadata( $attachment_id, $file_path ) );
@@ -473,6 +473,8 @@ class CK_OWS_Artwork_Proof {
 		if ( 'awaiting-artwork' !== $order->get_status() ) {
 			$order->update_status( 'awaiting-artwork', __( 'Order moved to Awaiting Artwork Approval after proof upload.', 'ck-order-workflow-suite' ), true );
 		}
+
+		return true;
 	}
 
 	public function render_customer_panel( WC_Order $order ): void {
@@ -503,8 +505,8 @@ class CK_OWS_Artwork_Proof {
 			echo '</div>';
 		}
 
-		echo '<h2>' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
-		echo '<p>' . esc_html__( 'Please review your artwork proof before production begins.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<h2 class="ck-ows-artwork-proof__title">' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<p class="ck-ows-artwork-proof__intro">' . esc_html__( 'Please review your artwork proof before production begins.', 'ck-order-workflow-suite' ) . '</p>';
 
 		if ( count( $revisions ) > 1 ) {
 			echo '<p><strong>' . esc_html__( 'Previous versions', 'ck-order-workflow-suite' ) . '</strong></p>';
@@ -544,17 +546,17 @@ class CK_OWS_Artwork_Proof {
 		echo '<div class="ck-ows-artwork-proof__approve">';
 
 		if ( $proof_url ) {
-			echo '<p class="ck-ows-artwork-proof__proof-link"><a class="button" href="' . esc_url( $proof_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'View proof PDF', 'ck-order-workflow-suite' ) . '</a></p>';
+			echo '<p class="ck-ows-artwork-proof__proof-link"><a class="button ck-ows-artwork-proof__button ck-ows-artwork-proof__button--ghost" href="' . esc_url( $proof_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'View proof PDF', 'ck-order-workflow-suite' ) . '</a></p>';
 		}
 
-		echo '<p><button type="submit" name="artwork_action" value="approve" class="button">' . esc_html__( 'Approve artwork', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '<p><button type="submit" name="artwork_action" value="approve" class="button ck-ows-artwork-proof__button ck-ows-artwork-proof__button--approve">' . esc_html__( 'Approve artwork', 'ck-order-workflow-suite' ) . '</button></p>';
 		echo '</div>';
 
 		echo '<details class="ck-ows-artwork-proof__changes"' . $changes_open_attr . '>';
 		echo '<summary>' . esc_html__( 'Need edits? Request changes', 'ck-order-workflow-suite' ) . '</summary>';
 		echo '<p><label class="screen-reader-text" for="ck_ows_changes_note">' . esc_html__( 'Request changes', 'ck-order-workflow-suite' ) . '</label>';
 		echo '<textarea name="changes_note" id="ck_ows_changes_note" rows="4" placeholder="' . esc_attr__( 'Tell us what needs to change.', 'ck-order-workflow-suite' ) . '"></textarea></p>';
-		echo '<p><button type="submit" name="artwork_action" value="request_changes" class="button button-secondary">' . esc_html__( 'Submit change request', 'ck-order-workflow-suite' ) . '</button></p>';
+		echo '<p><button type="submit" name="artwork_action" value="request_changes" class="button button-secondary ck-ows-artwork-proof__button ck-ows-artwork-proof__button--changes">' . esc_html__( 'Submit change request', 'ck-order-workflow-suite' ) . '</button></p>';
 		echo '</details>';
 		echo '</div>';
 		echo '</form>';
@@ -704,20 +706,26 @@ class CK_OWS_Artwork_Proof {
 	}
 
 	public function enforce_production_gate( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
-		if ( 'awaiting-artwork' !== $from_status || 'in-production' !== $to_status ) {
+		unset( $order_id );
+
+		if ( 'in-production' !== $to_status || 'in-production' === $from_status ) {
 			return;
 		}
 
-		if ( ! self::order_has_artwork_proof( $order ) ) {
+		if ( self::order_can_move_to_production( $order ) ) {
 			return;
 		}
 
-		if ( self::order_is_artwork_approved( $order ) || self::order_has_staff_override( $order ) ) {
-			return;
-		}
-
-		$order->update_status( 'awaiting-artwork', __( 'Transition to In Production blocked: artwork approval required.', 'ck-order-workflow-suite' ), true );
+		$order->update_status( $from_status, __( 'Transition to In Production blocked: artwork approval required.', 'ck-order-workflow-suite' ), true );
 		$order->add_order_note( __( 'Order attempted to move to In Production without required artwork approval.', 'ck-order-workflow-suite' ) );
+	}
+
+	public static function order_can_move_to_production( WC_Order $order ): bool {
+		if ( ! self::order_has_artwork_proof( $order ) ) {
+			return true;
+		}
+
+		return self::order_is_artwork_approved( $order ) || self::order_has_staff_override( $order );
 	}
 
 	public function admin_notices(): void {

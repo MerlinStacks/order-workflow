@@ -451,6 +451,31 @@
   padding: 0;
 }
 
+.woocommerce-account .ck-ows-artwork-proof {
+  position: relative;
+  margin: 8px 0 0;
+  padding: 24px;
+  border: 1px solid #d7dee7;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(247, 196, 0, 0.18), transparent 42%),
+    linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%);
+  box-shadow: 0 18px 30px -24px rgba(38, 54, 74, 0.5);
+}
+
+.woocommerce-account .ck-ows-artwork-proof__title {
+  margin: 0;
+  font-size: clamp(1.55rem, 2.2vw, 2rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__intro {
+  max-width: 62ch;
+  margin: 8px 0 18px;
+  color: #495b72;
+}
+
 .woocommerce-account .ck-ows-artwork-proof__versions li {
   margin: 0 0 6px;
 }
@@ -459,23 +484,26 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 16px;
+  width: fit-content;
+  margin: 0 0 20px;
+  padding: 8px 10px 8px 0;
 }
 
 .woocommerce-account .ck-ows-artwork-proof__state-value {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  padding: 4px 12px;
-  border: 1px solid var(--ck-ows-border);
+  padding: 5px 13px;
+  border: 1px solid #bfd4ea;
   border-radius: 999px;
-  background: #fff;
+  background: #eef6ff;
+  color: #193b63;
   font-weight: 600;
 }
 
 .woocommerce-account .ck-ows-artwork-proof__actions {
   display: grid;
-  grid-template-columns: minmax(220px, auto) minmax(280px, 1fr);
+  grid-template-columns: minmax(250px, auto) minmax(320px, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -486,17 +514,18 @@
 }
 
 .woocommerce-account .ck-ows-artwork-proof__changes {
-  border: 1px solid var(--ck-ows-border);
-  border-radius: 10px;
-  padding: 10px 12px 2px;
+  border: 1px solid #c9d4e3;
+  border-radius: 14px;
+  padding: 10px 14px 4px;
   background: #fff;
 }
 
 .woocommerce-account .ck-ows-artwork-proof__changes summary {
   cursor: pointer;
   font-weight: 700;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   list-style: none;
+  color: #1f3f66;
 }
 
 .woocommerce-account .ck-ows-artwork-proof__changes summary::-webkit-details-marker {
@@ -506,7 +535,7 @@
 .woocommerce-account .ck-ows-artwork-proof__changes summary::before {
   content: "+";
   display: inline-block;
-  width: 18px;
+  width: 20px;
   font-weight: 700;
 }
 
@@ -522,36 +551,140 @@
 
 .woocommerce-account .ck-ows-artwork-proof__changes textarea {
   width: 100%;
+  min-height: 100px;
+  border: 1px solid #c5cfdb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.98rem;
   resize: vertical;
 }
 
+.woocommerce-account .ck-ows-artwork-proof__button {
+  min-width: 220px;
+  min-height: 44px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__button:hover {
+  transform: translateY(-1px);
+}
+
+.woocommerce-account .ck-ows-artwork-proof__button--ghost {
+  border-color: #224d7f;
+  background: #fff;
+  color: #17365a;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__button--ghost:hover {
+  border-color: #17365a;
+  background: #17365a;
+  color: #fff;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__button--approve {
+  border-color: #1f6b3b;
+  background: linear-gradient(180deg, #2f8f53 0%, #257745 100%);
+  color: #fff;
+  box-shadow: 0 10px 20px -14px rgba(37, 119, 69, 0.75);
+}
+
+.woocommerce-account .ck-ows-artwork-proof__button--approve:hover {
+  border-color: #1b5c35;
+  background: #1f6b3b;
+  color: #fff;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__button--changes {
+  border-color: #ccd5df;
+  background: #f3f6fa;
+  color: #26405f;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__button--changes:hover {
+  border-color: #26405f;
+  background: #26405f;
+  color: #fff;
+}
+
 @media (max-width: 740px) {
+  .woocommerce-account .ck-ows-artwork-proof {
+    padding: 18px;
+  }
+
   .woocommerce-account .ck-ows-artwork-proof__actions {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 12px;
   }
 
   .woocommerce-account .ck-ows-artwork-proof__state {
     flex-wrap: wrap;
   }
+
+  .woocommerce-account .ck-ows-artwork-proof__button {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 .woocommerce-view-order .ck-ows-order-timeline {
   margin: 0 0 26px;
-  padding: 20px;
-  border: 1px solid var(--ck-ows-border);
-  border-radius: 14px;
-  background: var(--ck-ows-theme-soft);
+  padding: 22px;
+  border: 1px solid #d6e0eb;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(247, 196, 0, 0.18), transparent 40%),
+    linear-gradient(180deg, #f8fbff 0%, #f1f6fc 100%);
+  box-shadow: 0 18px 28px -24px rgba(35, 58, 82, 0.6);
 }
 
-.woocommerce-view-order .ck-ows-order-timeline h2 {
+.woocommerce-view-order .woocommerce-order .order-info {
+  display: none;
+}
+
+.woocommerce-view-order .ck-ows-order-timeline__title {
   margin: 0 0 8px;
   color: var(--ck-ows-text);
+  font-size: clamp(1.5rem, 2.1vw, 1.95rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
-.woocommerce-view-order .ck-ows-order-timeline > p {
-  margin: 0 0 20px;
+.woocommerce-view-order .ck-ows-order-timeline__intro {
+  margin: 0 0 14px;
   color: var(--ck-ows-muted);
+}
+
+.woocommerce-view-order .ck-ows-order-timeline__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+  padding: 10px 12px;
+  border: 1px solid #d2deea;
+  border-radius: 12px;
+  background: #fff;
+  color: #2d435c;
+  font-weight: 600;
+}
+
+.woocommerce-view-order .ck-ows-order-timeline__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid #b9cde2;
+  border-radius: 999px;
+  background: #eaf3ff;
+  color: #173b63;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .woocommerce-view-order .ck-ows-order-timeline__list {
@@ -757,6 +890,12 @@
 
   .woocommerce-view-order .ck-ows-order-timeline {
     padding: 16px;
+  }
+
+  .woocommerce-view-order .ck-ows-order-timeline__summary {
+    margin-bottom: 16px;
+    padding: 9px 10px;
+    font-size: 0.92rem;
   }
 
   .woocommerce-view-order .ck-ows-order-timeline__list {

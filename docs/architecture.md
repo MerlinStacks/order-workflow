@@ -82,7 +82,7 @@ Status states:
 
 - `wc-in-production`
 - `wc-in-dispatch`
-- `wc-awaiting-artwork-approval`
+- `wc-awaiting-artwork`
 
 Primary metadata groups:
 
