@@ -505,7 +505,10 @@ class CK_OWS_Artwork_Proof {
 			echo '</div>';
 		}
 
+		echo '<div class="ck-ows-artwork-proof__head">';
 		echo '<h2 class="ck-ows-artwork-proof__title">' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<div class="ck-ows-artwork-proof__state"><strong>' . esc_html__( 'Current state:', 'ck-order-workflow-suite' ) . '</strong> <span class="ck-ows-artwork-proof__state-value">' . esc_html( $this->format_state_label( $state ) ) . '</span></div>';
+		echo '</div>';
 		echo '<p class="ck-ows-artwork-proof__intro">' . esc_html__( 'Please review your artwork proof before production begins.', 'ck-order-workflow-suite' ) . '</p>';
 
 		if ( count( $revisions ) > 1 ) {
@@ -525,8 +528,6 @@ class CK_OWS_Artwork_Proof {
 			}
 			echo '</ul>';
 		}
-
-		echo '<div class="ck-ows-artwork-proof__state"><strong>' . esc_html__( 'Current state:', 'ck-order-workflow-suite' ) . '</strong> <span class="ck-ows-artwork-proof__state-value">' . esc_html( $this->format_state_label( $state ) ) . '</span></div>';
 
 		if ( self::STATE_APPROVED === $state ) {
 			echo '<p>' . esc_html__( 'Thank you. Your artwork has been approved.', 'ck-order-workflow-suite' ) . '</p>';

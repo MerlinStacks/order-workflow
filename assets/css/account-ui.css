@@ -470,6 +470,14 @@
   letter-spacing: -0.02em;
 }
 
+.woocommerce-account .ck-ows-artwork-proof__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 8px;
+}
+
 .woocommerce-account .ck-ows-artwork-proof__intro {
   max-width: 62ch;
   margin: 8px 0 18px;
@@ -485,8 +493,9 @@
   align-items: center;
   gap: 8px;
   width: fit-content;
-  margin: 0 0 20px;
-  padding: 8px 10px 8px 0;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
 }
 
 .woocommerce-account .ck-ows-artwork-proof__state-value {
@@ -637,6 +646,13 @@
 
   .woocommerce-account .ck-ows-artwork-proof__state {
     flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .woocommerce-account .ck-ows-artwork-proof__head {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 10px;
   }
 
   .woocommerce-account .ck-ows-artwork-proof__button {
@@ -658,7 +674,13 @@
 
 .woocommerce-view-order .woocommerce-order .order-info,
 .woocommerce-view-order .woocommerce-MyAccount-content .order-info,
-.woocommerce-view-order .woocommerce-order-details .order-info {
+.woocommerce-view-order .woocommerce-order-details .order-info,
+.woocommerce-view-order p.order-info {
+  display: none;
+}
+
+.woocommerce-account .woocommerce-order p.order-info,
+.woocommerce-account .woocommerce-order .order-info {
   display: none;
 }
 
