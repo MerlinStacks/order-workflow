@@ -30,23 +30,11 @@ class CK_OWS_Account_Email_Preferences {
 	}
 
 	public function add_menu_item( array $items ): array {
-		$new_items = array();
-		$inserted  = false;
-
-		foreach ( $items as $key => $label ) {
-			if ( 'customer-logout' === $key ) {
-				$new_items['email-preferences'] = __( 'Email Preferences', 'ck-order-workflow-suite' );
-				$inserted = true;
-			}
-
-			$new_items[ $key ] = $label;
-		}
-
-		if ( ! $inserted ) {
-			$new_items['email-preferences'] = __( 'Email Preferences', 'ck-order-workflow-suite' );
-		}
-
-		return $new_items;
+		return CK_OWS_Account_Menu_Helper::insert_before_logout(
+			$items,
+			'email-preferences',
+			__( 'Email Preferences', 'ck-order-workflow-suite' )
+		);
 	}
 
 	public function render_endpoint(): void {
@@ -68,6 +56,13 @@ class CK_OWS_Account_Email_Preferences {
 
 		$user        = wp_get_current_user();
 		$email       = strtolower( (string) $user->user_email );
+
+		if ( ! is_email( $email ) ) {
+			echo '<p>' . esc_html__( 'Unable to load email preferences for this account. Please contact support.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '</div>';
+			return;
+		}
+
 		$preferences = $this->fetch_preferences( $config, $email );
 
 		if ( is_wp_error( $preferences ) ) {
@@ -141,10 +136,15 @@ class CK_OWS_Account_Email_Preferences {
 
 		$user                 = wp_get_current_user();
 		$email                = strtolower( (string) $user->user_email );
+
+		if ( ! is_email( $email ) ) {
+			$this->redirect_to_page();
+		}
+
 		$global_subscribed    = isset( $_POST['global_subscribed'] ) && '1' === (string) wp_unslash( $_POST['global_subscribed'] );
 		$marketing_subscribed = isset( $_POST['marketing_subscribed'] ) && '1' === (string) wp_unslash( $_POST['marketing_subscribed'] );
 		$list_ids_raw         = isset( $_POST['list_ids'] ) && is_array( $_POST['list_ids'] ) ? wp_unslash( $_POST['list_ids'] ) : array();
-		$list_ids             = array_values( array_filter( array_map( 'sanitize_text_field', $list_ids_raw ) ) );
+		$list_ids             = array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $list_ids_raw ) ) ) );
 
 		$payload = array(
 			'accountId'           => $config['account_id'],
@@ -178,6 +178,10 @@ class CK_OWS_Account_Email_Preferences {
 	}
 
 	private function fetch_preferences( array $config, string $email ) {
+		if ( ! is_email( $email ) ) {
+			return new WP_Error( 'ck_ows_email_pref_invalid_email', __( 'Email address is not valid for preference lookup.', 'ck-order-workflow-suite' ) );
+		}
+
 		$url = add_query_arg(
 			array(
 				'accountId' => $config['account_id'],

@@ -9,6 +9,7 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Account_Invoices {
 	private static ?CK_OWS_Account_Invoices $instance = null;
+	private static bool $address_notice_rendered = false;
 
 	public static function instance(): CK_OWS_Account_Invoices {
 		if ( null === self::$instance ) {
@@ -30,26 +31,20 @@ class CK_OWS_Account_Invoices {
 	}
 
 	public function add_menu_item( array $items ): array {
-		$new_items = array();
-		$inserted  = false;
-
-		foreach ( $items as $key => $label ) {
-			if ( 'customer-logout' === $key ) {
-				$new_items['invoices'] = __( 'Invoices', 'ck-order-workflow-suite' );
-				$inserted = true;
-			}
-
-			$new_items[ $key ] = $label;
-		}
-
-		if ( ! $inserted ) {
-			$new_items['invoices'] = __( 'Invoices', 'ck-order-workflow-suite' );
-		}
-
-		return $new_items;
+		return CK_OWS_Account_Menu_Helper::insert_before_logout(
+			$items,
+			'invoices',
+			__( 'Invoices', 'ck-order-workflow-suite' )
+		);
 	}
 
 	public function render_address_notice(): void {
+		if ( self::$address_notice_rendered ) {
+			return;
+		}
+
+		self::$address_notice_rendered = true;
+
 		echo '<div style="background:#fff8e1;border:1px solid #fec610;border-radius:10px;padding:0.85rem 1.1rem;margin-bottom:1.5rem;font-size:0.85rem;color:#666;line-height:1.6;font-family:-apple-system,sans-serif">';
 		echo '<strong style="color:#141414">' . esc_html__( 'Heads up:', 'ck-order-workflow-suite' ) . '</strong> ';
 		echo esc_html__( 'Changing your address here updates it for future orders only. It will not change the delivery address on any orders already placed.', 'ck-order-workflow-suite' );
@@ -57,6 +52,10 @@ class CK_OWS_Account_Invoices {
 	}
 
 	public function render_endpoint(): void {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
 		$orders = wc_get_orders(
 			array(
 				'customer_id' => get_current_user_id(),
@@ -66,20 +65,6 @@ class CK_OWS_Account_Invoices {
 				'status'      => array( 'wc-processing', 'wc-completed', CK_OWS_Statuses::STATUS_IN_PRODUCTION, CK_OWS_Statuses::STATUS_IN_DISPATCH ),
 			)
 		);
-
-		echo '<style>';
-		echo '.ck-invoices{font-family:-apple-system,sans-serif}';
-		echo '.ck-invoices__title{font-size:1.1rem;font-weight:700;color:#141414;margin:0 0 1rem}';
-		echo '.ck-invoices__list{display:flex;flex-direction:column;gap:0.5rem}';
-		echo '.ck-invoices__row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.75rem 1rem;background:#f8f8f8;border-radius:10px;border:1px solid #eee}';
-		echo '.ck-invoices__info{font-size:0.85rem;color:#2c2c2c}';
-		echo '.ck-invoices__info span{color:#999;font-size:0.78rem;margin-left:0.5rem}';
-		echo '.ck-invoices__dl{display:inline-flex;align-items:center;gap:0.4rem;padding:0.35rem 0.85rem;background:#141414;color:#fff;font-size:0.72rem;font-weight:600;border-radius:999px;text-decoration:none;transition:background 0.15s}';
-		echo '.ck-invoices__dl:hover{background:#fec610;color:#141414}';
-		echo '.ck-invoices__dl svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}';
-		echo '.ck-invoices__empty{text-align:center;padding:2rem;color:#999;font-size:0.88rem}';
-		echo '@media(max-width:640px){.ck-invoices__row{flex-direction:column;align-items:flex-start;gap:0.5rem}}';
-		echo '</style>';
 
 		echo '<div class="ck-invoices">';
 		echo '<h3 class="ck-invoices__title">' . esc_html__( 'Your Invoices', 'ck-order-workflow-suite' ) . '</h3>';

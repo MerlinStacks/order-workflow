@@ -66,6 +66,7 @@ class CK_OWS_Tracking {
 				'limit'   => 50,
 				'orderby' => 'date',
 				'order'   => 'DESC',
+				'date_created' => '>' . ( time() - ( 14 * DAY_IN_SECONDS ) ),
 				'status'  => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
 			)
 		);
@@ -85,6 +86,10 @@ class CK_OWS_Tracking {
 			$last_error     = '';
 
 			foreach ( $tracking_numbers as $tracking_number ) {
+				if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
+					continue;
+				}
+
 				$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
 
 				if ( is_wp_error( $result ) ) {
@@ -182,16 +187,47 @@ class CK_OWS_Tracking {
 		}
 
 		foreach ( $items as $item ) {
+			$provider       = strtolower( (string) ( $item['tracking_provider'] ?? $item['custom_tracking_provider'] ?? '' ) );
+			$tracking_num   = isset( $item['tracking_number'] ) ? (string) $item['tracking_number'] : '';
+
 			if ( ! empty( $item['formatted_tracking_link'] ) ) {
 				$links[] = (string) $item['formatted_tracking_link'];
 			} elseif ( ! empty( $item['custom_tracking_link'] ) ) {
 				$links[] = (string) $item['custom_tracking_link'];
-			} elseif ( ! empty( $item['tracking_number'] ) ) {
-				$links[] = 'https://auspost.com.au/mypost/track/#/details/' . rawurlencode( (string) $item['tracking_number'] );
+			} elseif ( '' !== $tracking_num && $this->is_auspost_provider( $provider ) ) {
+				$links[] = 'https://auspost.com.au/mypost/track/#/details/' . rawurlencode( $tracking_num );
 			}
 		}
 
 		return array_values( array_unique( array_filter( $links ) ) );
+	}
+
+	private function is_auspost_provider( string $provider ): bool {
+		if ( '' === $provider ) {
+			return false;
+		}
+
+		$provider = strtolower( $provider );
+
+		return false !== strpos( $provider, 'australia post' ) || false !== strpos( $provider, 'auspost' );
+	}
+
+	private function looks_like_auspost_tracking_number( string $tracking_number ): bool {
+		$normalized = strtoupper( preg_replace( '/\s+/', '', $tracking_number ) );
+
+		if ( '' === $normalized ) {
+			return false;
+		}
+
+		if ( 1 === preg_match( '/^[A-Z]{2}[0-9]{9}AU$/', $normalized ) ) {
+			return true;
+		}
+
+		if ( 1 === preg_match( '/^[0-9]{10,22}$/', $normalized ) ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	private function fetch_auspost_tracking( string $tracking_number, string $api_key ) {

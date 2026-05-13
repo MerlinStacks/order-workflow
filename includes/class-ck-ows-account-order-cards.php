@@ -23,6 +23,10 @@ class CK_OWS_Account_Order_Cards {
 	}
 
 	public function replace_orders_endpoint_renderer(): void {
+		if ( ! function_exists( 'is_account_page' ) || ! is_account_page() ) {
+			return;
+		}
+
 		remove_action( 'woocommerce_account_orders_endpoint', 'woocommerce_account_orders' );
 		add_action( 'woocommerce_account_orders_endpoint', array( $this, 'render_orders_endpoint' ) );
 	}
@@ -44,8 +48,6 @@ class CK_OWS_Account_Order_Cards {
 				'return'      => 'objects',
 			)
 		);
-
-		$this->render_inline_styles();
 
 		echo '<div class="ck-ows-orders-cards">';
 		echo '<h2 class="ck-ows-orders-cards__title">' . esc_html__( 'Your Orders', 'ck-order-workflow-suite' ) . '</h2>';
@@ -164,38 +166,21 @@ class CK_OWS_Account_Order_Cards {
 			return '';
 		}
 
-		$item = reset( $tracking_items );
+		foreach ( $tracking_items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
 
-		if ( ! empty( $item['formatted_tracking_link'] ) ) {
-			return (string) $item['formatted_tracking_link'];
-		}
+			if ( ! empty( $item['formatted_tracking_link'] ) ) {
+				return (string) $item['formatted_tracking_link'];
+			}
 
-		if ( ! empty( $item['custom_tracking_link'] ) ) {
-			return (string) $item['custom_tracking_link'];
+			if ( ! empty( $item['custom_tracking_link'] ) ) {
+				return (string) $item['custom_tracking_link'];
+			}
 		}
 
 		return '';
 	}
 
-	private function render_inline_styles(): void {
-		echo '<style>';
-		echo '.ck-ows-orders-cards{display:flex;flex-direction:column;gap:14px}';
-		echo '.ck-ows-orders-cards__title{margin:0 0 6px;font-size:1.2rem}';
-		echo '.ck-ows-orders-cards__empty{padding:18px;border:1px solid #e5e5e5;border-radius:10px;color:#666}';
-		echo '.ck-ows-order-card{border:1px solid #ececec;border-radius:12px;padding:14px;background:#fff}';
-		echo '.ck-ows-order-card__header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}';
-		echo '.ck-ows-order-card__date{font-size:.85rem;color:#666}';
-		echo '.ck-ows-order-card__status{padding:4px 10px;border-radius:999px;background:#f3f3f3;font-size:.8rem;font-weight:600}';
-		echo '.ck-ows-order-card__items{display:flex;flex-direction:column;gap:8px}';
-		echo '.ck-ows-order-card__item{display:flex;gap:10px;align-items:center}';
-		echo '.ck-ows-order-card__thumb img{width:48px;height:48px;object-fit:cover;border-radius:8px}';
-		echo '.ck-ows-order-card__item-meta{display:flex;flex-direction:column}';
-		echo '.ck-ows-order-card__item-meta small{color:#777}';
-		echo '.ck-ows-order-card__more{font-size:.85rem;color:#666}';
-		echo '.ck-ows-order-card__footer{margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}';
-		echo '.ck-ows-order-card__total{font-weight:700}';
-		echo '.ck-ows-order-card__actions{display:flex;gap:8px;flex-wrap:wrap}';
-		echo '@media(max-width:640px){.ck-ows-order-card__header{flex-direction:column}.ck-ows-order-card__footer{flex-direction:column;align-items:flex-start}}';
-		echo '</style>';
-	}
 }

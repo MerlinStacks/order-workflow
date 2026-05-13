@@ -7,6 +7,214 @@
   --ck-ows-theme-soft: var(--wp--preset--color--secondary, #f5f7fa);
 }
 
+.woocommerce-account .ck-ows-orders-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.woocommerce-account .ck-ows-orders-cards__title {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+}
+
+.woocommerce-account .ck-ows-orders-cards__empty {
+  padding: 18px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  color: #666;
+}
+
+.woocommerce-account .ck-ows-order-card {
+  border: 1px solid #ececec;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.woocommerce-account .ck-ows-order-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.woocommerce-account .ck-ows-order-card__date {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.woocommerce-account .ck-ows-order-card__status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3f3f3;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.woocommerce-account .ck-ows-order-card__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.woocommerce-account .ck-ows-order-card__item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.woocommerce-account .ck-ows-order-card__thumb img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.woocommerce-account .ck-ows-order-card__item-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.woocommerce-account .ck-ows-order-card__item-meta small {
+  color: #777;
+}
+
+.woocommerce-account .ck-ows-order-card__more {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.woocommerce-account .ck-ows-order-card__footer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.woocommerce-account .ck-ows-order-card__total {
+  font-weight: 700;
+}
+
+.woocommerce-account .ck-ows-order-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.woocommerce-account .ck-invoices {
+  font-family: -apple-system, sans-serif;
+}
+
+.woocommerce-account .ck-invoices__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #141414;
+  margin: 0 0 1rem;
+}
+
+.woocommerce-account .ck-invoices__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.woocommerce-account .ck-invoices__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f8f8f8;
+  border-radius: 10px;
+  border: 1px solid #eee;
+}
+
+.woocommerce-account .ck-invoices__info {
+  font-size: 0.85rem;
+  color: #2c2c2c;
+}
+
+.woocommerce-account .ck-invoices__info span {
+  color: #999;
+  font-size: 0.78rem;
+  margin-left: 0.5rem;
+}
+
+.woocommerce-account .ck-invoices__dl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  background: #141414;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.woocommerce-account .ck-invoices__dl svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.woocommerce-account .ck-invoices__empty {
+  text-align: center;
+  padding: 2rem;
+  color: #999;
+  font-size: 0.88rem;
+}
+
+.woocommerce-account .ck-ows-security {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.woocommerce-account .ck-ows-security__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.woocommerce-account .ck-ows-security__card {
+  padding: 12px;
+  border: 1px solid #ececec;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.woocommerce-account .ck-ows-security__tips {
+  margin: 0 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .woocommerce-account .ck-ows-order-card__header,
+  .woocommerce-account .ck-ows-order-card__footer,
+  .woocommerce-account .ck-invoices__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .woocommerce-account .ck-ows-security__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Flatsome account layout override: convert sidebar into top pills nav. */
 .woocommerce-account .row .large-3.col.col-border,
 .woocommerce-account .row .large-9.col {

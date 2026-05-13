@@ -239,9 +239,40 @@ class CK_OWS_Admin_Order_Actions {
 			return $fallback;
 		}
 
-		$admin_base = admin_url();
+		$admin_base_parts = wp_parse_url( admin_url() );
+		$validated_parts  = wp_parse_url( $validated );
 
-		if ( 0 !== strpos( $validated, $admin_base ) ) {
+		if ( ! is_array( $admin_base_parts ) || ! is_array( $validated_parts ) ) {
+			return $fallback;
+		}
+
+		$admin_scheme = isset( $admin_base_parts['scheme'] ) ? strtolower( (string) $admin_base_parts['scheme'] ) : '';
+		$admin_host   = isset( $admin_base_parts['host'] ) ? strtolower( (string) $admin_base_parts['host'] ) : '';
+		$admin_port   = isset( $admin_base_parts['port'] ) ? absint( $admin_base_parts['port'] ) : 0;
+		$admin_path   = isset( $admin_base_parts['path'] ) ? (string) $admin_base_parts['path'] : '/wp-admin/';
+
+		$val_scheme = isset( $validated_parts['scheme'] ) ? strtolower( (string) $validated_parts['scheme'] ) : '';
+		$val_host   = isset( $validated_parts['host'] ) ? strtolower( (string) $validated_parts['host'] ) : '';
+		$val_port   = isset( $validated_parts['port'] ) ? absint( $validated_parts['port'] ) : 0;
+		$val_path   = isset( $validated_parts['path'] ) ? (string) $validated_parts['path'] : '';
+
+		if ( '' === $admin_scheme || '' === $admin_host || '' === $val_scheme || '' === $val_host ) {
+			return $fallback;
+		}
+
+		if ( $val_scheme !== $admin_scheme || $val_host !== $admin_host ) {
+			return $fallback;
+		}
+
+		if ( $admin_port !== $val_port ) {
+			if ( 0 !== $admin_port || 0 !== $val_port ) {
+				return $fallback;
+			}
+		}
+
+		$admin_path = untrailingslashit( $admin_path ) . '/';
+
+		if ( 0 !== strpos( $val_path, $admin_path ) ) {
 			return $fallback;
 		}
 

@@ -49,6 +49,28 @@ array(
 )
 ```
 
+### `ck_ows_tracking_event_delivered`
+
+Fires after a tracking lifecycle event is successfully forwarded to the configured email platform webhook.
+
+Note: HTTP `202` responses are treated as successful delivery, including platform responses where `accepted` is false and `skipped` is true.
+
+Arguments:
+
+1. `int $order_id`
+2. `array $event`
+3. `int $http_status_code`
+
+### `ck_ows_tracking_event_delivery_failed`
+
+Fires when forwarding a tracking lifecycle event fails.
+
+Arguments:
+
+1. `int $order_id`
+2. `array $event`
+3. `string $reason`
+
 ## Automation Examples
 
 ### Send external email on artwork approval status
@@ -71,6 +93,14 @@ add_action( 'ck_ows_tracking_updated', function ( int $order_id, array $payload 
         'timeout' => 10,
     ) );
 }, 10, 2 );
+```
+
+### Observe delivery outcomes for email-platform forwarding
+
+```php
+add_action( 'ck_ows_tracking_event_delivery_failed', function ( int $order_id, array $event, string $reason ): void {
+    error_log( sprintf( 'Tracking event delivery failed for order %d: %s', $order_id, $reason ) );
+}, 10, 3 );
 ```
 
 ## Internal Order Meta Keys (Selected)

@@ -151,6 +151,10 @@ class CK_OWS_Artwork_Proof {
 		$proof_id  = absint( $order->get_meta( self::META_PROOF_ID, true ) );
 		$proof_url = (string) $order->get_meta( self::META_PROOF_URL, true );
 
+		if ( $proof_id > 0 && ! wp_get_attachment_url( $proof_id ) ) {
+			$proof_id = 0;
+		}
+
 		return $proof_id > 0 || '' !== $proof_url;
 	}
 
@@ -365,6 +369,18 @@ class CK_OWS_Artwork_Proof {
 	}
 
 	public function save_order_meta( int $order_id, $post ): void {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'edit_shop_order', $order_id ) ) {
+			return;
+		}
+
+		if ( ! $post || ! isset( $post->post_type ) || 'shop_order' !== $post->post_type ) {
+			return;
+		}
+
 		if ( ! isset( $_POST['ck_ows_artwork_meta_nonce'] ) ) {
 			return;
 		}
@@ -649,14 +665,14 @@ class CK_OWS_Artwork_Proof {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
 		}
 
-		$order_id = isset( $_REQUEST['order_id'] ) ? absint( wp_unslash( $_REQUEST['order_id'] ) ) : 0;
+		$order_id = isset( $_POST['order_id'] ) ? absint( wp_unslash( $_POST['order_id'] ) ) : 0;
 		$order    = wc_get_order( $order_id );
 
 		if ( ! $order ) {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		$override_nonce = isset( $_REQUEST['ck_ows_artwork_override_nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['ck_ows_artwork_override_nonce'] ) ) : '';
+		$override_nonce = isset( $_POST['ck_ows_artwork_override_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['ck_ows_artwork_override_nonce'] ) ) : '';
 		if ( '' === $override_nonce || ! wp_verify_nonce( $override_nonce, 'ck_ows_artwork_override_' . $order_id ) ) {
 			$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
 			$redirect = add_query_arg( 'ck_ows_override_nonce_failed', 1, $redirect );

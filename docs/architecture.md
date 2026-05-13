@@ -41,6 +41,9 @@
 - `CK_OWS_Tracking`
   - Runs scheduled/manual AusPost tracking sync.
   - Stores normalized live tracking payload and emits update hook.
+- `CK_OWS_Tracking_Email_Events`
+  - Listens for tracking updates and forwards lifecycle events to email platform webhook.
+  - Emits success/failure hooks for delivery observability.
 - `CK_OWS_Settings`
   - Provides WooCommerce admin settings and manual sync trigger.
 - `CK_OWS_Events`
@@ -65,6 +68,7 @@
 3. Module requests AusPost API data.
 4. Latest tracking payload saved to order meta.
 5. If payload changed, emit `ck_ows_tracking_updated`.
+6. Optional event forwarder posts mapped shipment lifecycle event to email platform webhook.
 
 ### Timeline
 

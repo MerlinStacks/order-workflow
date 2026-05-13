@@ -25,6 +25,7 @@ Current feature set includes:
 - My Account email preferences endpoint backed by OverSeek API.
 - Registration guard anti-bot protections.
 - Shipment tracking display with AusPost live sync support.
+- Optional forwarding of tracking lifecycle events to email platform webhooks.
 
 For external automations, custom statuses and tracking update hooks are available.
 
@@ -57,6 +58,7 @@ For external automations, custom statuses and tracking update hooks are availabl
 - Supports shipment links from Woo shipment tracking meta.
 - Supports AusPost API sync for live tracking details.
 - Emits `ck_ows_tracking_updated` when tracked data changes.
+- Can forward normalized shipment lifecycle events to an external webhook.
 
 == Legacy Snippet Migration ==
 
@@ -78,3 +80,4 @@ See `changelog.md`.
 - `docs/client-quickstart.md` for store owner onboarding.
 - `docs/release-checklist.md` for pre-launch QA.
 - `docs/hooks-and-events.md` for automation/webhook integration.
+- `docs/tracking-email-events.md` for developer integration with email platforms.

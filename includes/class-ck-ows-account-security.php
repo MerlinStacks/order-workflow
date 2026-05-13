@@ -36,23 +36,11 @@ class CK_OWS_Account_Security {
 	}
 
 	public function add_menu_item( array $items ): array {
-		$new_items = array();
-		$inserted  = false;
-
-		foreach ( $items as $key => $label ) {
-			if ( 'customer-logout' === $key ) {
-				$new_items['security'] = __( 'Security', 'ck-order-workflow-suite' );
-				$inserted = true;
-			}
-
-			$new_items[ $key ] = $label;
-		}
-
-		if ( ! $inserted ) {
-			$new_items['security'] = __( 'Security', 'ck-order-workflow-suite' );
-		}
-
-		return $new_items;
+		return CK_OWS_Account_Menu_Helper::insert_before_logout(
+			$items,
+			'security',
+			__( 'Security', 'ck-order-workflow-suite' )
+		);
 	}
 
 	public function track_login( string $user_login, WP_User $user ): void {
@@ -111,13 +99,6 @@ class CK_OWS_Account_Security {
 		echo '</ul>';
 		echo '</div>';
 
-		echo '<style>';
-		echo '.ck-ows-security{display:flex;flex-direction:column;gap:12px}';
-		echo '.ck-ows-security__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}';
-		echo '.ck-ows-security__card{padding:12px;border:1px solid #ececec;border-radius:10px;background:#fff}';
-		echo '.ck-ows-security__tips{margin:0 0 0 18px;padding:0;display:flex;flex-direction:column;gap:6px}';
-		echo '@media(max-width:640px){.ck-ows-security__grid{grid-template-columns:1fr}}';
-		echo '</style>';
 	}
 
 	private function format_ts( int $timestamp, string $fallback ): string {

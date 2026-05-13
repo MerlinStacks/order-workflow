@@ -41,8 +41,9 @@ class CK_OWS_Shortcodes {
 		}
 
 		$order_key = isset( $_GET['key'] ) ? sanitize_text_field( wp_unslash( $_GET['key'] ) ) : '';
+		$can_view_without_key = is_user_logged_in() && (int) $order->get_user_id() === get_current_user_id();
 
-		if ( ! $order_key || ! $order->key_is_valid( $order_key ) ) {
+		if ( ( '' === $order_key || ! $order->key_is_valid( $order_key ) ) && ! $can_view_without_key ) {
 			return '<p class="woocommerce-error">' . esc_html__( 'Invalid order key', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
@@ -109,13 +110,19 @@ class CK_OWS_Shortcodes {
 		$order_id  = absint( get_query_var( 'order-received' ) );
 		$order_key = isset( $_GET['key'] ) ? sanitize_text_field( wp_unslash( $_GET['key'] ) ) : '';
 
-		if ( ! $order_id || '' === $order_key ) {
+		if ( ! $order_id ) {
 			return '';
 		}
 
 		$order = wc_get_order( $order_id );
 
-		if ( ! $order instanceof WC_Order || ! $order->key_is_valid( $order_key ) ) {
+		if ( ! $order instanceof WC_Order ) {
+			return '';
+		}
+
+		$can_view_without_key = is_user_logged_in() && (int) $order->get_user_id() === get_current_user_id();
+
+		if ( ( '' === $order_key || ! $order->key_is_valid( $order_key ) ) && ! $can_view_without_key ) {
 			return '';
 		}
 

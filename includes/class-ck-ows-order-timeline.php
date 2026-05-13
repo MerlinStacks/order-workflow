@@ -36,16 +36,19 @@ class CK_OWS_Order_Timeline {
 			return;
 		}
 
-		if ( (int) $order->get_meta( $meta_key, true ) > 0 ) {
-			return;
-		}
-
 		$order->update_meta_data( $meta_key, time() );
 		$order->save();
 	}
 
 	public function render_timeline( WC_Order $order ): void {
-		if ( ! is_user_logged_in() || (int) $order->get_user_id() !== get_current_user_id() ) {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		$is_owner = (int) $order->get_user_id() === get_current_user_id();
+		$is_staff = current_user_can( 'edit_shop_order', $order->get_id() ) || current_user_can( 'edit_shop_orders' );
+
+		if ( ! $is_owner && ! $is_staff ) {
 			return;
 		}
 

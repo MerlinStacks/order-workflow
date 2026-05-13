@@ -38,6 +38,20 @@ Fields:
    - Type: integer
    - Range: `1` to `24`
    - Default: `6`
+5. `tracking_email_events_enabled`
+   - Type: boolean (`yes` or `no`)
+   - Default: `no`
+   - Enables forwarding normalized tracking lifecycle events to webhook.
+6. `tracking_email_events_webhook_url`
+   - Type: text (HTTPS URL)
+   - Required only when tracking event forwarding is enabled.
+7. `tracking_email_events_auth_token`
+   - Type: text
+   - Optional bearer token used for webhook authorization header.
+8. `tracking_email_events_timeout_seconds`
+   - Type: integer
+   - Range: `3` to `30`
+   - Default: `10`
 
 ## Manual Tracking Sync
 

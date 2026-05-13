@@ -170,6 +170,7 @@ class CK_OWS_Plugin {
 	 * @return void
 	 */
 	private function load_dependencies(): void {
+		require_once CK_OWS_PATH . 'includes/class-ck-ows-account-menu-helper.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-statuses.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-admin-order-actions.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-customer-shipping-edit.php';
@@ -183,9 +184,8 @@ class CK_OWS_Plugin {
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-account-email-preferences.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-artwork-proof.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-tracking.php';
+		require_once CK_OWS_PATH . 'includes/class-ck-ows-tracking-email-events.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-settings.php';
-		require_once CK_OWS_PATH . 'includes/class-ck-ows-events.php';
-		require_once CK_OWS_PATH . 'includes/class-ck-ows-helpers.php';
 	}
 
 	/**
@@ -207,8 +207,7 @@ class CK_OWS_Plugin {
 		CK_OWS_Account_Email_Preferences::instance();
 		CK_OWS_Artwork_Proof::instance();
 		CK_OWS_Tracking::instance();
+		CK_OWS_Tracking_Email_Events::instance();
 		CK_OWS_Settings::instance();
-		CK_OWS_Events::instance();
-		CK_OWS_Helpers::instance();
 	}
 }

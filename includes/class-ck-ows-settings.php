@@ -37,7 +37,13 @@ class CK_OWS_Settings {
 			return $default;
 		}
 
-		return $options[ $key ] ?? $default;
+		$value = $options[ $key ] ?? $default;
+
+		if ( in_array( $key, self::sensitive_keys(), true ) && is_string( $value ) ) {
+			return self::decrypt_sensitive_value( $value );
+		}
+
+		return $value;
 	}
 
 	public function register_admin_page(): void {
@@ -93,6 +99,10 @@ class CK_OWS_Settings {
 		$this->register_field( 'auspost_account_number', __( 'AusPost Account Number (optional)', 'ck-order-workflow-suite' ), 'text' );
 		$this->register_field( 'tracking_sync_enabled', __( 'Enable tracking sync', 'ck-order-workflow-suite' ), 'checkbox' );
 		$this->register_field( 'tracking_sync_interval_hours', __( 'Sync interval (hours)', 'ck-order-workflow-suite' ), 'number' );
+		$this->register_field( 'tracking_email_events_enabled', __( 'Forward tracking events to email platform', 'ck-order-workflow-suite' ), 'checkbox' );
+		$this->register_field( 'tracking_email_events_webhook_url', __( 'Email platform webhook URL', 'ck-order-workflow-suite' ), 'text' );
+		$this->register_field( 'tracking_email_events_auth_token', __( 'Webhook auth token (optional)', 'ck-order-workflow-suite' ), 'text' );
+		$this->register_field( 'tracking_email_events_timeout_seconds', __( 'Webhook timeout (seconds)', 'ck-order-workflow-suite' ), 'number' );
 
 		add_settings_section(
 			'ck_ows_email_preferences_section',
@@ -131,13 +141,17 @@ class CK_OWS_Settings {
 		$current = get_option( self::OPTION_KEY, array() );
 		$current = is_array( $current ) ? $current : array();
 
-		$current['auspost_api_key']             = isset( $input['auspost_api_key'] ) ? sanitize_text_field( (string) $input['auspost_api_key'] ) : '';
+		$current['auspost_api_key']             = isset( $input['auspost_api_key'] ) ? $this->encrypt_sensitive_value( sanitize_text_field( (string) $input['auspost_api_key'] ) ) : '';
 		$current['auspost_account_number']      = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
 		$current['tracking_sync_enabled']       = $this->is_enabled_input( $input, 'tracking_sync_enabled' ) ? 'yes' : 'no';
 		$current['tracking_sync_interval_hours'] = isset( $input['tracking_sync_interval_hours'] ) ? max( 1, min( 24, absint( $input['tracking_sync_interval_hours'] ) ) ) : 6;
+		$current['tracking_email_events_enabled'] = $this->is_enabled_input( $input, 'tracking_email_events_enabled' ) ? 'yes' : 'no';
+		$current['tracking_email_events_webhook_url'] = isset( $input['tracking_email_events_webhook_url'] ) ? $this->sanitize_https_webhook_url( (string) $input['tracking_email_events_webhook_url'] ) : '';
+		$current['tracking_email_events_auth_token'] = isset( $input['tracking_email_events_auth_token'] ) ? $this->encrypt_sensitive_value( sanitize_text_field( (string) $input['tracking_email_events_auth_token'] ) ) : '';
+		$current['tracking_email_events_timeout_seconds'] = isset( $input['tracking_email_events_timeout_seconds'] ) ? max( 3, min( 30, absint( $input['tracking_email_events_timeout_seconds'] ) ) ) : 10;
 		$current['email_preferences_api_base_url'] = isset( $input['email_preferences_api_base_url'] ) ? $this->sanitize_https_base_url( (string) $input['email_preferences_api_base_url'] ) : '';
 		$current['email_preferences_account_id'] = isset( $input['email_preferences_account_id'] ) ? sanitize_text_field( (string) $input['email_preferences_account_id'] ) : '';
-		$current['email_preferences_webhook_secret'] = isset( $input['email_preferences_webhook_secret'] ) ? sanitize_text_field( (string) $input['email_preferences_webhook_secret'] ) : '';
+		$current['email_preferences_webhook_secret'] = isset( $input['email_preferences_webhook_secret'] ) ? $this->encrypt_sensitive_value( sanitize_text_field( (string) $input['email_preferences_webhook_secret'] ) ) : '';
 		$current['show_account_dashboard_tab']  = $this->is_enabled_input( $input, 'show_account_dashboard_tab' ) ? 'yes' : 'no';
 		$current['show_account_orders_tab']     = $this->is_enabled_input( $input, 'show_account_orders_tab' ) ? 'yes' : 'no';
 		$current['show_account_downloads_tab']  = $this->is_enabled_input( $input, 'show_account_downloads_tab' ) ? 'yes' : 'no';
@@ -313,7 +327,14 @@ class CK_OWS_Settings {
 	public function render_field( array $args ): void {
 		$key   = (string) ( $args['key'] ?? '' );
 		$type  = (string) ( $args['type'] ?? 'text' );
-		$value = self::get( $key, 'tracking_sync_interval_hours' === $key ? 6 : '' );
+		$default = '';
+		if ( 'tracking_sync_interval_hours' === $key ) {
+			$default = 6;
+		} elseif ( 'tracking_email_events_timeout_seconds' === $key ) {
+			$default = 10;
+		}
+
+		$value = self::get( $key, $default );
 		$is_account_visibility_toggle = 0 === strpos( $key, 'show_account_' ) || 0 === strpos( $key, 'hide_account_' );
 
 		if ( 0 === strpos( $key, 'show_account_' ) ) {
@@ -340,11 +361,31 @@ class CK_OWS_Settings {
 		}
 
 		if ( 'number' === $type ) {
-			echo '<input type="number" min="1" max="24" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="small-text">';
+			$min = '1';
+			$max = '24';
+
+			if ( 'tracking_email_events_timeout_seconds' === $key ) {
+				$min = '3';
+				$max = '30';
+			}
+
+			echo '<input type="number" min="' . esc_attr( $min ) . '" max="' . esc_attr( $max ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="small-text">';
+
+			if ( 'tracking_email_events_timeout_seconds' === $key ) {
+				echo '<p class="description">' . esc_html__( 'Recommended: 10 seconds. Used when sending events to your email platform webhook.', 'ck-order-workflow-suite' ) . '</p>';
+			}
 			return;
 		}
 
 		echo '<input type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="regular-text" autocomplete="off">';
+
+		if ( 'tracking_email_events_webhook_url' === $key ) {
+			echo '<p class="description">' . esc_html__( 'HTTPS endpoint that receives normalized tracking lifecycle events for automation.', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
+		if ( 'tracking_email_events_auth_token' === $key ) {
+			echo '<p class="description">' . esc_html__( 'If set, requests include Authorization: Bearer {token}.', 'ck-order-workflow-suite' ) . '</p>';
+		}
 
 		if ( 'email_preferences_api_base_url' === $key ) {
 			$allowed_hosts = apply_filters(
@@ -427,6 +468,37 @@ class CK_OWS_Settings {
 		return esc_url_raw( 'https://' . $parts['host'] . $path );
 	}
 
+	private function sanitize_https_webhook_url( string $url ): string {
+		$url = trim( $url );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$parts = wp_parse_url( $url );
+
+		if ( ! is_array( $parts ) ) {
+			return '';
+		}
+
+		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
+
+		if ( 'https' !== $scheme || empty( $parts['host'] ) ) {
+			return '';
+		}
+
+		$path = isset( $parts['path'] ) ? (string) $parts['path'] : '';
+		$query = isset( $parts['query'] ) ? (string) $parts['query'] : '';
+
+		$sanitized = 'https://' . $parts['host'] . $path;
+
+		if ( '' !== $query ) {
+			$sanitized .= '?' . $query;
+		}
+
+		return esc_url_raw( $sanitized );
+	}
+
 	private function is_allowed_email_preferences_host( string $base_url ): bool {
 		$host = wp_parse_url( $base_url, PHP_URL_HOST );
 
@@ -457,5 +529,86 @@ class CK_OWS_Settings {
 		);
 
 		return in_array( $host, $allowed_hosts, true );
+	}
+
+	private static function sensitive_keys(): array {
+		return array(
+			'auspost_api_key',
+			'tracking_email_events_auth_token',
+			'email_preferences_webhook_secret',
+		);
+	}
+
+	private function encrypt_sensitive_value( string $value ): string {
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$encrypted = self::maybe_encrypt( $value );
+
+		return '' !== $encrypted ? $encrypted : $value;
+	}
+
+	private static function decrypt_sensitive_value( string $value ): string {
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		if ( 0 !== strpos( $value, 'enc:' ) ) {
+			return $value;
+		}
+
+		$decrypted = self::maybe_decrypt( $value );
+
+		return '' !== $decrypted ? $decrypted : '';
+	}
+
+	private static function maybe_encrypt( string $plain ): string {
+		if ( ! function_exists( 'openssl_encrypt' ) ) {
+			return '';
+		}
+
+		$key = hash( 'sha256', wp_salt( 'auth' ) . wp_salt( 'secure_auth' ), true );
+
+		try {
+			$iv = random_bytes( 16 );
+		} catch ( Exception $exception ) {
+			unset( $exception );
+			return '';
+		}
+
+		$cipher_raw = openssl_encrypt( $plain, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv );
+
+		if ( ! is_string( $cipher_raw ) || '' === $cipher_raw ) {
+			return '';
+		}
+
+		$payload = base64_encode( $iv . $cipher_raw );
+
+		return 'enc:' . $payload;
+	}
+
+	private static function maybe_decrypt( string $encoded ): string {
+		if ( ! function_exists( 'openssl_decrypt' ) ) {
+			return '';
+		}
+
+		$payload = substr( $encoded, 4 );
+		$raw     = base64_decode( $payload, true );
+
+		if ( ! is_string( $raw ) || strlen( $raw ) <= 16 ) {
+			return '';
+		}
+
+		$key = hash( 'sha256', wp_salt( 'auth' ) . wp_salt( 'secure_auth' ), true );
+		$iv  = substr( $raw, 0, 16 );
+		$cipher_raw = substr( $raw, 16 );
+		$plain = openssl_decrypt( $cipher_raw, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv );
+
+		return is_string( $plain ) ? $plain : '';
 	}
 }
