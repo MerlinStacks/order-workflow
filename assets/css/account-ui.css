@@ -455,12 +455,12 @@
   position: relative;
   margin: 8px 0 0;
   padding: 24px;
-  border: 1px solid #d7dee7;
+  border: 1px solid #d6dfe9;
   border-radius: 18px;
   background:
-    radial-gradient(circle at top right, rgba(247, 196, 0, 0.18), transparent 42%),
-    linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%);
-  box-shadow: 0 18px 30px -24px rgba(38, 54, 74, 0.5);
+    radial-gradient(circle at 88% 10%, rgba(18, 18, 18, 0.06), transparent 45%),
+    linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 18px 30px -24px rgba(38, 54, 74, 0.35);
 }
 
 .woocommerce-account .ck-ows-artwork-proof__title {
@@ -503,7 +503,7 @@
 
 .woocommerce-account .ck-ows-artwork-proof__actions {
   display: grid;
-  grid-template-columns: minmax(250px, auto) minmax(320px, 1fr);
+  grid-template-columns: minmax(360px, 1.1fr) minmax(360px, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -513,10 +513,16 @@
   margin: 0;
 }
 
+.woocommerce-account .ck-ows-artwork-proof__approve {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .woocommerce-account .ck-ows-artwork-proof__changes {
   border: 1px solid #c9d4e3;
   border-radius: 14px;
-  padding: 10px 14px 4px;
+  padding: 12px 14px 4px;
   background: #fff;
 }
 
@@ -546,6 +552,10 @@
 .woocommerce-account .ck-ows-artwork-proof__proof-link,
 .woocommerce-account .ck-ows-artwork-proof__approve p,
 .woocommerce-account .ck-ows-artwork-proof__changes p {
+  margin: 0;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__changes p {
   margin: 0 0 12px;
 }
 
@@ -560,7 +570,8 @@
 }
 
 .woocommerce-account .ck-ows-artwork-proof__button {
-  min-width: 220px;
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   border-radius: 12px;
   font-size: 0.92rem;
@@ -620,6 +631,10 @@
     gap: 12px;
   }
 
+  .woocommerce-account .ck-ows-artwork-proof__approve {
+    grid-template-columns: 1fr;
+  }
+
   .woocommerce-account .ck-ows-artwork-proof__state {
     flex-wrap: wrap;
   }
@@ -633,15 +648,17 @@
 .woocommerce-view-order .ck-ows-order-timeline {
   margin: 0 0 26px;
   padding: 22px;
-  border: 1px solid #d6e0eb;
+  border: 1px solid #d6dfe9;
   border-radius: 18px;
   background:
-    radial-gradient(circle at top right, rgba(247, 196, 0, 0.18), transparent 40%),
-    linear-gradient(180deg, #f8fbff 0%, #f1f6fc 100%);
-  box-shadow: 0 18px 28px -24px rgba(35, 58, 82, 0.6);
+    radial-gradient(circle at 88% 10%, rgba(18, 18, 18, 0.06), transparent 42%),
+    linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 18px 28px -24px rgba(35, 58, 82, 0.35);
 }
 
-.woocommerce-view-order .woocommerce-order .order-info {
+.woocommerce-view-order .woocommerce-order .order-info,
+.woocommerce-view-order .woocommerce-MyAccount-content .order-info,
+.woocommerce-view-order .woocommerce-order-details .order-info {
   display: none;
 }
 
