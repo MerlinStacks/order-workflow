@@ -685,6 +685,14 @@ body.woocommerce-account p.order-info {
   display: none !important;
 }
 
+.woocommerce-account .woocommerce-MyAccount-content > .woocommerce-notices-wrapper + p {
+  display: none !important;
+}
+
+.woocommerce-account .woocommerce-MyAccount-content > p:has(mark.order-number):has(mark.order-status) {
+  display: none !important;
+}
+
 .woocommerce-view-order .ck-ows-order-timeline__title {
   margin: 0 0 8px;
   color: var(--ck-ows-text);
