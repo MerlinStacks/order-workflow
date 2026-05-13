@@ -675,13 +675,14 @@
 .woocommerce-view-order .woocommerce-order .order-info,
 .woocommerce-view-order .woocommerce-MyAccount-content .order-info,
 .woocommerce-view-order .woocommerce-order-details .order-info,
-.woocommerce-view-order p.order-info {
-  display: none;
+.woocommerce-view-order p.order-info,
+body.woocommerce-account.woocommerce-view-order .woocommerce-MyAccount-content p.order-info,
+body.woocommerce-account.woocommerce-view-order .woocommerce-MyAccount-content .woocommerce-order > p:first-child {
+  display: none !important;
 }
 
-.woocommerce-account .woocommerce-order p.order-info,
-.woocommerce-account .woocommerce-order .order-info {
-  display: none;
+body.woocommerce-account p.order-info {
+  display: none !important;
 }
 
 .woocommerce-view-order .ck-ows-order-timeline__title {
