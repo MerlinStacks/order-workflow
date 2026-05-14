@@ -9,6 +9,8 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Account_Email_Preferences {
 	private static ?CK_OWS_Account_Email_Preferences $instance = null;
+	private const SAVE_PREFS_NONCE       = 'ck_ows_save_email_preferences';
+	private const SAVE_PREFS_NONCE_FIELD = 'ck_ows_save_email_preferences_nonce';
 
 	public static function instance(): CK_OWS_Account_Email_Preferences {
 		if ( null === self::$instance ) {
@@ -82,7 +84,7 @@ class CK_OWS_Account_Email_Preferences {
 
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		echo '<input type="hidden" name="action" value="ck_ows_save_email_preferences">';
-		wp_nonce_field( 'ck_ows_save_email_preferences' );
+		wp_nonce_field( self::SAVE_PREFS_NONCE, self::SAVE_PREFS_NONCE_FIELD );
 
 		echo '<input type="hidden" name="global_subscribed" value="0">';
 		echo '<label><input type="checkbox" name="global_subscribed" value="1" ' . checked( true, $global_subscribed, false ) . '> ' . esc_html__( 'Receive all email communications', 'ck-order-workflow-suite' ) . '</label>';
@@ -126,7 +128,7 @@ class CK_OWS_Account_Email_Preferences {
 			wp_die( esc_html__( 'You must be logged in to update preferences.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_save_email_preferences' );
+		check_admin_referer( self::SAVE_PREFS_NONCE, self::SAVE_PREFS_NONCE_FIELD );
 
 		$config = $this->get_api_config();
 

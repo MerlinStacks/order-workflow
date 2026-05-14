@@ -20,6 +20,12 @@ class CK_OWS_Artwork_Proof {
 	public const META_OVERRIDE_AT             = '_ck_ows_artwork_override_at';
 	public const META_OVERRIDE_BY             = '_ck_ows_artwork_override_by';
 	public const META_OVERRIDE_REASON         = '_ck_ows_artwork_override_reason';
+	private const DELETE_ACTION_NONCE         = 'ck_ows_artwork_delete';
+	private const DELETE_ACTION_NONCE_FIELD   = 'ck_ows_artwork_delete_nonce';
+	private const UPLOAD_ACTION_NONCE         = 'ck_ows_artwork_upload';
+	private const UPLOAD_ACTION_NONCE_FIELD   = 'ck_ows_artwork_upload_nonce';
+	private const CUSTOMER_ACTION_NONCE       = 'ck_ows_artwork_customer';
+	private const CUSTOMER_ACTION_NONCE_FIELD = 'ck_ows_artwork_customer_nonce';
 
 	public const STATE_PENDING  = 'pending';
 	public const STATE_APPROVED = 'approved';
@@ -211,7 +217,7 @@ class CK_OWS_Artwork_Proof {
 		echo '<h4 class="ck-ows-artwork-admin__title">' . esc_html__( 'Upload Proof PDF', 'ck-order-workflow-suite' ) . '</h4>';
 		echo '<p class="ck-ows-artwork-admin__hint">' . esc_html__( 'Upload a PDF proof for customer approval.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
-		wp_nonce_field( 'ck_ows_artwork_upload_' . $order->get_id() );
+		wp_nonce_field( self::UPLOAD_ACTION_NONCE . '_' . $order->get_id(), self::UPLOAD_ACTION_NONCE_FIELD );
 		echo '<div class="ck-ows-artwork-admin__upload-row">';
 		echo '<input type="file" id="ck_ows_artwork_pdf" name="ck_ows_artwork_pdf" accept="application/pdf">';
 		echo '<button type="submit" name="action" value="ck_ows_artwork_upload" formmethod="post" formenctype="multipart/form-data" formaction="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="button button-primary">' . esc_html__( 'Upload PDF', 'ck-order-workflow-suite' ) . '</button>';
@@ -250,7 +256,8 @@ class CK_OWS_Artwork_Proof {
 						),
 						admin_url( 'admin-post.php' )
 					),
-					'ck_ows_artwork_delete_' . $order->get_id() . '_' . $index
+					self::DELETE_ACTION_NONCE,
+					self::DELETE_ACTION_NONCE_FIELD
 				);
 
 				echo '<li class="ck-ows-artwork-admin__version">';
@@ -302,7 +309,7 @@ class CK_OWS_Artwork_Proof {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_artwork_upload_' . $order_id );
+		check_admin_referer( self::UPLOAD_ACTION_NONCE . '_' . $order_id, self::UPLOAD_ACTION_NONCE_FIELD );
 
 		if ( empty( $_FILES['ck_ows_artwork_pdf']['name'] ) ) {
 			$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
@@ -338,7 +345,7 @@ class CK_OWS_Artwork_Proof {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_artwork_delete_' . $order_id . '_' . $rev );
+		check_admin_referer( self::DELETE_ACTION_NONCE, self::DELETE_ACTION_NONCE_FIELD );
 
 		$revisions = self::get_proof_revisions( $order );
 		if ( ! isset( $revisions[ $rev ] ) ) {
@@ -541,7 +548,7 @@ class CK_OWS_Artwork_Proof {
 		echo '<form method="post" action="' . esc_url( $action_url ) . '" class="ck-ows-artwork-proof__form">';
 		echo '<input type="hidden" name="action" value="ck_ows_artwork_action">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
-		wp_nonce_field( 'ck_ows_artwork_customer_' . $order->get_id() );
+		wp_nonce_field( self::CUSTOMER_ACTION_NONCE . '_' . $order->get_id(), self::CUSTOMER_ACTION_NONCE_FIELD );
 
 		echo '<div class="ck-ows-artwork-proof__actions">';
 		echo '<div class="ck-ows-artwork-proof__approve">';
@@ -576,7 +583,7 @@ class CK_OWS_Artwork_Proof {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_artwork_customer_' . $order_id );
+		check_admin_referer( self::CUSTOMER_ACTION_NONCE . '_' . $order_id, self::CUSTOMER_ACTION_NONCE_FIELD );
 
 		if ( (int) $order->get_user_id() !== get_current_user_id() ) {
 			wp_die( esc_html__( 'You cannot update this order.', 'ck-order-workflow-suite' ) );

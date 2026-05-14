@@ -11,6 +11,8 @@ class CK_OWS_Admin_Order_Actions {
 	private const ACTION_SET_IN_PRODUCTION    = 'ck_ows_set_in_production';
 	private const ACTION_SET_IN_DISPATCH      = 'ck_ows_set_in_dispatch';
 	private const ACTION_SET_AWAITING_ARTWORK = 'ck_ows_set_awaiting_artwork';
+	private const STATUS_ACTION_NONCE         = 'ck_ows_set_order_status';
+	private const STATUS_ACTION_NONCE_FIELD   = 'ck_ows_status_nonce';
 
 	private static ?CK_OWS_Admin_Order_Actions $instance = null;
 
@@ -133,7 +135,7 @@ class CK_OWS_Admin_Order_Actions {
 		$order_id = isset( $_GET['order_id'] ) ? absint( wp_unslash( $_GET['order_id'] ) ) : 0;
 		$status   = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
 
-		check_admin_referer( 'ck_ows_set_order_status_' . $order_id . '_' . $status );
+		check_admin_referer( self::STATUS_ACTION_NONCE, self::STATUS_ACTION_NONCE_FIELD );
 
 		$order = wc_get_order( $order_id );
 
@@ -228,7 +230,7 @@ class CK_OWS_Admin_Order_Actions {
 			admin_url( 'admin-post.php' )
 		);
 
-		return wp_nonce_url( $url, 'ck_ows_set_order_status_' . $order_id . '_' . $status );
+		return wp_nonce_url( $url, self::STATUS_ACTION_NONCE, self::STATUS_ACTION_NONCE_FIELD );
 	}
 
 	private function get_redirect_url(): string {

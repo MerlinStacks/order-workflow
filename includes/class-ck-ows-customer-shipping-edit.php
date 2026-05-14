@@ -9,6 +9,8 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Customer_Shipping_Edit {
 	private static ?CK_OWS_Customer_Shipping_Edit $instance = null;
+	private const UPDATE_SHIPPING_NONCE       = 'ck_ows_update_shipping';
+	private const UPDATE_SHIPPING_NONCE_FIELD = 'ck_ows_update_shipping_nonce';
 
 	public static function instance(): CK_OWS_Customer_Shipping_Edit {
 		if ( null === self::$instance ) {
@@ -57,7 +59,7 @@ class CK_OWS_Customer_Shipping_Edit {
 		echo '<input type="hidden" name="action" value="ck_ows_update_shipping_address">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
 		echo '<input type="hidden" name="order_version" value="' . esc_attr( (string) $this->get_order_version( $order ) ) . '">';
-		wp_nonce_field( 'ck_ows_update_shipping_' . $order->get_id() );
+		wp_nonce_field( self::UPDATE_SHIPPING_NONCE . '_' . $order->get_id(), self::UPDATE_SHIPPING_NONCE_FIELD );
 
 		echo '<div class="ck-ows-shipping-edit__grid">';
 		$this->render_input( 'shipping_first_name', __( 'First name', 'ck-order-workflow-suite' ), (string) $order->get_shipping_first_name(), true, 'ck-ows-shipping-edit__field ck-ows-shipping-edit__field--half', array( 'autocomplete' => 'shipping given-name' ) );
@@ -88,7 +90,7 @@ class CK_OWS_Customer_Shipping_Edit {
 			wp_die( esc_html__( 'Order not found.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_update_shipping_' . $order_id );
+		check_admin_referer( self::UPDATE_SHIPPING_NONCE . '_' . $order_id, self::UPDATE_SHIPPING_NONCE_FIELD );
 
 		if ( (int) $order->get_user_id() !== get_current_user_id() ) {
 			wp_die( esc_html__( 'You do not have permission to edit this order.', 'ck-order-workflow-suite' ) );

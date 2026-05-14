@@ -9,6 +9,8 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Settings {
 	public const OPTION_KEY = 'ck_ows_settings';
+	private const TRACKING_SYNC_NONCE       = 'ck_ows_run_tracking_sync';
+	private const TRACKING_SYNC_NONCE_FIELD = 'ck_ows_tracking_sync_nonce';
 
 	private static ?CK_OWS_Settings $instance = null;
 
@@ -230,7 +232,7 @@ class CK_OWS_Settings {
 		echo '<p>' . esc_html__( 'Use this to run an immediate tracking sync without waiting for the scheduled cron.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		echo '<input type="hidden" name="action" value="ck_ows_run_tracking_sync">';
-		wp_nonce_field( 'ck_ows_run_tracking_sync' );
+		wp_nonce_field( self::TRACKING_SYNC_NONCE, self::TRACKING_SYNC_NONCE_FIELD );
 		submit_button( __( 'Run tracking sync now', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
 		echo '</form>';
 		echo '</div>';
@@ -246,7 +248,7 @@ class CK_OWS_Settings {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
 		}
 
-		check_admin_referer( 'ck_ows_run_tracking_sync' );
+		check_admin_referer( self::TRACKING_SYNC_NONCE, self::TRACKING_SYNC_NONCE_FIELD );
 
 		if ( class_exists( 'CK_OWS_Tracking' ) ) {
 			CK_OWS_Tracking::instance()->sync_tracking_data();
