@@ -89,6 +89,12 @@ class CK_OWS_Order_Timeline {
 		);
 
 		$current_status = $order->get_status();
+
+		if ( $this->is_non_progress_status( $current_status ) ) {
+			$this->render_non_progress_notice( $order, $current_status );
+			return;
+		}
+
 		$current_index  = $this->resolve_current_index( $stages, $current_status );
 		$status_label   = wc_get_order_status_name( $current_status );
 		$created_date   = $order->get_date_created();
@@ -173,6 +179,10 @@ class CK_OWS_Order_Timeline {
 	}
 
 	private function resolve_current_index( array $stages, string $order_status ): int {
+		if ( $this->is_non_progress_status( $order_status ) ) {
+			return -1;
+		}
+
 		foreach ( $stages as $index => $stage ) {
 			if ( $stage['key'] === $order_status ) {
 				return $index;
@@ -187,6 +197,33 @@ class CK_OWS_Order_Timeline {
 		}
 
 		return min( $last_done + 1, count( $stages ) - 1 );
+	}
+
+	private function is_non_progress_status( string $order_status ): bool {
+		return in_array( $order_status, array( 'failed', 'cancelled', 'on-hold', 'draft', 'checkout-draft' ), true );
+	}
+
+	private function render_non_progress_notice( WC_Order $order, string $order_status ): void {
+		$status_label  = wc_get_order_status_name( $order_status );
+		$reason_labels = array(
+			'failed'         => __( 'We could not complete payment for this order.', 'ck-order-workflow-suite' ),
+			'cancelled'      => __( 'This order was cancelled and will not continue through production or dispatch.', 'ck-order-workflow-suite' ),
+			'on-hold'        => __( 'This order is currently on hold and is waiting for review before it can continue.', 'ck-order-workflow-suite' ),
+			'draft'          => __( 'This order is still a draft and has not been placed yet.', 'ck-order-workflow-suite' ),
+			'checkout-draft' => __( 'Checkout has not been completed for this order yet.', 'ck-order-workflow-suite' ),
+		);
+
+		$reason = $reason_labels[ $order_status ] ?? __( 'This order is not currently in the active fulfilment workflow.', 'ck-order-workflow-suite' );
+
+		echo '<section class="ck-ows-order-timeline ck-ows-order-timeline--notice">';
+		echo '<h2 class="ck-ows-order-timeline__title">' . esc_html__( 'Order Progress', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<p class="ck-ows-order-timeline__intro">' . esc_html__( 'This order is not currently moving through the fulfilment timeline.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<p class="ck-ows-order-timeline__summary">';
+		echo '<span>' . esc_html__( 'Current status', 'ck-order-workflow-suite' ) . '</span>';
+		echo '<span class="ck-ows-order-timeline__status">' . esc_html( $status_label ) . '</span>';
+		echo '</p>';
+		echo '<p class="ck-ows-order-timeline__notice">' . esc_html( $reason ) . '</p>';
+		echo '</section>';
 	}
 
 	private function get_stage_icon_svg( string $stage_key ): string {

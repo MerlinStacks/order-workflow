@@ -735,6 +735,35 @@ body.woocommerce-account p.order-info {
   text-transform: uppercase;
 }
 
+.woocommerce-view-order .ck-ows-order-timeline--notice {
+  border-color: #e2c78d;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(117, 73, 13, 0.12), transparent 44%),
+    linear-gradient(160deg, #fffdf8 0%, #fff8ea 100%);
+}
+
+.woocommerce-view-order .ck-ows-order-timeline--notice .ck-ows-order-timeline__summary {
+  border-color: #e6c98f;
+  background: rgba(255, 255, 255, 0.82);
+  color: #5d3f15;
+}
+
+.woocommerce-view-order .ck-ows-order-timeline--notice .ck-ows-order-timeline__status {
+  border-color: #d9b977;
+  background: #f7e6c2;
+  color: #53360f;
+}
+
+.woocommerce-view-order .ck-ows-order-timeline__notice {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 4px solid #c98e2b;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #4b3414;
+  line-height: 1.55;
+}
+
 .woocommerce-view-order .ck-ows-order-timeline__list {
   list-style: none;
   display: grid;
