@@ -28,6 +28,7 @@ class CK_OWS_Tracking {
 	private function __construct() {
 		add_filter( 'cron_schedules', array( $this, 'register_interval_schedule' ) );
 		add_action( 'init', array( $this, 'ensure_schedule' ) );
+		add_action( 'init', array( $this, 'suppress_default_tracking_output' ), 20 );
 		add_action( self::CRON_HOOK, array( $this, 'sync_tracking_data' ) );
 
 		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_live_tracking_panel' ), 25 );
@@ -117,6 +118,11 @@ class CK_OWS_Tracking {
 				}
 
 				if ( null === $latest_payload ) {
+					if ( $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
+						$order->delete_meta_data( self::META_LIVE_TRACKING );
+						$order->delete_meta_data( self::META_LAST_EVENT_HASH );
+					}
+
 					$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
 					$order->update_meta_data( self::META_LAST_SYNC_ERROR, $last_error );
 					$order->save();
@@ -242,7 +248,8 @@ class CK_OWS_Tracking {
 		if ( ! empty( $fallback ) ) {
 			echo '<p>';
 			foreach ( $fallback as $index => $url ) {
-				echo '<a class="button" target="_blank" rel="noopener" href="' . esc_url( $url ) . '">' . esc_html( 0 === $index ? __( 'Track shipment', 'ck-order-workflow-suite' ) : __( 'Track another parcel', 'ck-order-workflow-suite' ) ) . '</a> ';
+				$label = 0 === $index ? __( 'Track on AusPost', 'ck-order-workflow-suite' ) : __( 'Track another parcel', 'ck-order-workflow-suite' );
+				echo '<a class="button ck-ows-track-auspost" target="_blank" rel="noopener" href="' . esc_url( $url ) . '"><span class="ck-ows-track-auspost__logo" aria-hidden="true">AP</span>' . esc_html( $label ) . '</a> ';
 			}
 			echo '</p>';
 		}
@@ -270,6 +277,32 @@ class CK_OWS_Tracking {
 		}
 
 		echo '</section>';
+		$this->render_tracking_ui_styles_once();
+	}
+
+	public function suppress_default_tracking_output(): void {
+		if ( class_exists( 'WC_Shipment_Tracking_Actions' ) ) {
+			remove_action( 'woocommerce_view_order', array( 'WC_Shipment_Tracking_Actions', 'display_tracking_info' ), 20 );
+		}
+
+		if ( function_exists( 'wc_shipment_tracking' ) ) {
+			$shipment_tracking = wc_shipment_tracking();
+			if ( is_object( $shipment_tracking ) && isset( $shipment_tracking->actions ) && is_object( $shipment_tracking->actions ) ) {
+				remove_action( 'woocommerce_view_order', array( $shipment_tracking->actions, 'display_tracking_info' ), 20 );
+			}
+		}
+	}
+
+	private function render_tracking_ui_styles_once(): void {
+		static $printed = false;
+
+		if ( $printed ) {
+			return;
+		}
+
+		$printed = true;
+
+		echo '<style>.woocommerce table.my_account_tracking,.woocommerce table.my_account_tracking+.tracking_info{display:none!important}.ck-ows-track-auspost{display:inline-flex;align-items:center;gap:8px;background:#e4002b!important;border-color:#e4002b!important;color:#fff!important;font-weight:700}.ck-ows-track-auspost:hover,.ck-ows-track-auspost:focus{background:#bd0024!important;border-color:#bd0024!important;color:#fff!important}.ck-ows-track-auspost__logo{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:3px;background:#fff;color:#e4002b;font-size:11px;font-weight:800;line-height:1}</style>';
 	}
 
 	private function refresh_tracking_for_order_view( WC_Order $order ): array {
@@ -318,9 +351,37 @@ class CK_OWS_Tracking {
 		}
 
 		$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
+
+		if ( $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
+			$order->delete_meta_data( self::META_LIVE_TRACKING );
+			$order->delete_meta_data( self::META_LAST_EVENT_HASH );
+		}
+
 		$order->save();
 
 		return array();
+	}
+
+	private function is_stale_tracking_payload( WC_Order $order, array $tracking_numbers ): bool {
+		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+
+		if ( ! is_array( $tracking ) || empty( $tracking ) ) {
+			return false;
+		}
+
+		$stored_tracking_number = trim( (string) ( $tracking['tracking_number'] ?? '' ) );
+
+		if ( '' === $stored_tracking_number || empty( $tracking_numbers ) ) {
+			return false;
+		}
+
+		foreach ( $tracking_numbers as $tracking_number ) {
+			if ( strtolower( trim( (string) $tracking_number ) ) === strtolower( $stored_tracking_number ) ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private function extract_tracking_numbers( WC_Order $order ): array {
