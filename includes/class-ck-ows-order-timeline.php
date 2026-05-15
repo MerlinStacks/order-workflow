@@ -200,12 +200,13 @@ class CK_OWS_Order_Timeline {
 	}
 
 	private function is_non_progress_status( string $order_status ): bool {
-		return in_array( $order_status, array( 'failed', 'cancelled', 'on-hold', 'draft', 'checkout-draft' ), true );
+		return in_array( $order_status, array( 'pending', 'failed', 'cancelled', 'on-hold', 'draft', 'checkout-draft' ), true );
 	}
 
 	private function render_non_progress_notice( WC_Order $order, string $order_status ): void {
 		$status_label  = wc_get_order_status_name( $order_status );
 		$reason_labels = array(
+			'pending'        => __( 'This order is waiting for payment confirmation before it can move into fulfilment.', 'ck-order-workflow-suite' ),
 			'failed'         => __( 'We could not complete payment for this order.', 'ck-order-workflow-suite' ),
 			'cancelled'      => __( 'This order was cancelled and will not continue through production or dispatch.', 'ck-order-workflow-suite' ),
 			'on-hold'        => __( 'This order is currently on hold and is waiting for review before it can continue.', 'ck-order-workflow-suite' ),

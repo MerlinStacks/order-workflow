@@ -17,6 +17,7 @@ class CK_OWS_Artwork_Proof {
 	public const META_CHANGES_REQUESTED_AT    = '_ck_ows_artwork_changes_requested_at';
 	public const META_CHANGES_REQUESTED_BY    = '_ck_ows_artwork_changes_requested_by';
 	public const META_CHANGES_REQUEST_MESSAGE = '_ck_ows_artwork_changes_request_message';
+	public const META_CHANGES_REQUEST_HISTORY = '_ck_ows_artwork_changes_request_history';
 	public const META_OVERRIDE_AT             = '_ck_ows_artwork_override_at';
 	public const META_OVERRIDE_BY             = '_ck_ows_artwork_override_by';
 	public const META_OVERRIDE_REASON         = '_ck_ows_artwork_override_reason';
@@ -277,6 +278,41 @@ class CK_OWS_Artwork_Proof {
 		echo '<p><strong>' . esc_html__( 'Approval state:', 'ck-order-workflow-suite' ) . '</strong> <span class="ck-ows-artwork-admin__state ' . esc_attr( $this->get_state_badge_class( $state ) ) . '">' . esc_html( $this->format_state_label( $state ) ) . '</span></p>';
 		echo '</div>';
 
+		$change_history = self::get_change_request_history( $order );
+		if ( ! empty( $change_history ) ) {
+			$latest_request = $change_history[ count( $change_history ) - 1 ];
+			$requested_at   = isset( $latest_request['requested_at'] ) ? absint( $latest_request['requested_at'] ) : 0;
+			$requested_by   = isset( $latest_request['requested_by'] ) ? absint( $latest_request['requested_by'] ) : 0;
+			$message        = isset( $latest_request['message'] ) ? (string) $latest_request['message'] : '';
+
+			echo '<div class="ck-ows-artwork-admin__section">';
+			echo '<p><strong>' . esc_html__( 'Latest change request', 'ck-order-workflow-suite' ) . '</strong></p>';
+			echo '<p>' . esc_html( $message ) . '</p>';
+			echo '<p class="ck-ows-artwork-admin__hint">' . esc_html( $this->format_change_request_meta_line( $requested_by, $requested_at ) ) . '</p>';
+
+			if ( count( $change_history ) > 1 ) {
+				echo '<p><strong>' . esc_html__( 'Change request history', 'ck-order-workflow-suite' ) . '</strong></p>';
+				echo '<ul class="ck-ows-artwork-admin__versions">';
+				$latest_history_index = count( $change_history ) - 1;
+				for ( $index = count( $change_history ) - 1; $index >= 0; $index-- ) {
+					$entry = $change_history[ $index ];
+					$item_class = 'ck-ows-artwork-admin__version ck-ows-artwork-admin__version--history';
+					if ( $index === $latest_history_index ) {
+						$item_class .= ' is-latest';
+					}
+
+					echo '<li class="' . esc_attr( $item_class ) . '">';
+					echo '<div class="ck-ows-artwork-admin__history-head"><span class="ck-ows-artwork-admin__request-badge">' . esc_html( sprintf( __( 'Request %d', 'ck-order-workflow-suite' ), $index + 1 ) ) . '</span></div>';
+					echo '<p class="ck-ows-artwork-admin__history-message">' . esc_html( (string) $entry['message'] ) . '</p>';
+					echo '<p class="ck-ows-artwork-admin__hint">' . esc_html( $this->format_change_request_meta_line( (int) $entry['requested_by'], (int) $entry['requested_at'] ) ) . '</p>';
+					echo '</li>';
+				}
+				echo '</ul>';
+			}
+
+			echo '</div>';
+		}
+
 		$override_url = add_query_arg(
 			array(
 				'order_id' => $order->get_id(),
@@ -512,6 +548,18 @@ class CK_OWS_Artwork_Proof {
 			echo '</div>';
 		}
 
+		if ( self::STATE_APPROVED === $state ) {
+			echo '<div class="ck-ows-artwork-proof__approved">';
+			echo '<h2 class="ck-ows-artwork-proof__title">' . esc_html__( 'Artwork Approved', 'ck-order-workflow-suite' ) . '</h2>';
+			echo '<p class="ck-ows-artwork-proof__intro">' . esc_html__( 'Thank you. Your artwork has been approved.', 'ck-order-workflow-suite' ) . '</p>';
+			if ( $proof_url ) {
+				echo '<p class="ck-ows-artwork-proof__proof-link"><a class="button ck-ows-artwork-proof__button ck-ows-artwork-proof__button--ghost" href="' . esc_url( $proof_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'View final proof PDF', 'ck-order-workflow-suite' ) . '</a></p>';
+			}
+			echo '</div>';
+			echo '</section>';
+			return;
+		}
+
 		echo '<div class="ck-ows-artwork-proof__head">';
 		echo '<h2 class="ck-ows-artwork-proof__title">' . esc_html__( 'Artwork Proof Approval', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<div class="ck-ows-artwork-proof__state"><strong>' . esc_html__( 'Current state:', 'ck-order-workflow-suite' ) . '</strong> <span class="ck-ows-artwork-proof__state-value">' . esc_html( $this->format_state_label( $state ) ) . '</span></div>';
@@ -534,12 +582,6 @@ class CK_OWS_Artwork_Proof {
 				echo '<li><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $label ) . '</a></li>';
 			}
 			echo '</ul>';
-		}
-
-		if ( self::STATE_APPROVED === $state ) {
-			echo '<p>' . esc_html__( 'Thank you. Your artwork has been approved.', 'ck-order-workflow-suite' ) . '</p>';
-			echo '</section>';
-			return;
 		}
 
 		$action_url = admin_url( 'admin-post.php' );
@@ -613,11 +655,21 @@ class CK_OWS_Artwork_Proof {
 			}
 
 			$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_CHANGES );
-			$order->update_meta_data( self::META_CHANGES_REQUESTED_AT, time() );
-			$order->update_meta_data( self::META_CHANGES_REQUESTED_BY, get_current_user_id() );
+			$requested_at = time();
+			$requested_by = get_current_user_id();
+
+			$order->update_meta_data( self::META_CHANGES_REQUESTED_AT, $requested_at );
+			$order->update_meta_data( self::META_CHANGES_REQUESTED_BY, $requested_by );
 			$order->update_meta_data( self::META_CHANGES_REQUEST_MESSAGE, $message );
+			$this->append_change_request_history(
+				$order,
+				array(
+					'requested_at' => $requested_at,
+					'requested_by' => $requested_by,
+					'message'      => $message,
+				)
+			);
 			$order->save();
-			$order->add_order_note( sprintf( __( 'Customer requested artwork changes: %s', 'ck-order-workflow-suite' ), $message ) );
 
 			if ( 'awaiting-artwork' !== $order->get_status() ) {
 				$order->update_status( 'awaiting-artwork', __( 'Order moved back to Awaiting Artwork Approval after customer change request.', 'ck-order-workflow-suite' ), true );
@@ -831,6 +883,74 @@ class CK_OWS_Artwork_Proof {
 		);
 
 		$order->update_meta_data( self::META_PROOF_REVISIONS, $revisions );
+	}
+
+	private static function get_change_request_history( WC_Order $order ): array {
+		$stored = $order->get_meta( self::META_CHANGES_REQUEST_HISTORY, true );
+
+		if ( ! is_array( $stored ) ) {
+			$legacy_message = (string) $order->get_meta( self::META_CHANGES_REQUEST_MESSAGE, true );
+			if ( '' === trim( $legacy_message ) ) {
+				return array();
+			}
+
+			return array(
+				array(
+					'requested_at' => absint( $order->get_meta( self::META_CHANGES_REQUESTED_AT, true ) ),
+					'requested_by' => absint( $order->get_meta( self::META_CHANGES_REQUESTED_BY, true ) ),
+					'message'      => $legacy_message,
+				),
+			);
+		}
+
+		$history = array();
+		foreach ( $stored as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+
+			$message = isset( $entry['message'] ) ? sanitize_textarea_field( (string) $entry['message'] ) : '';
+			if ( '' === trim( $message ) ) {
+				continue;
+			}
+
+			$history[] = array(
+				'requested_at' => isset( $entry['requested_at'] ) ? absint( $entry['requested_at'] ) : 0,
+				'requested_by' => isset( $entry['requested_by'] ) ? absint( $entry['requested_by'] ) : 0,
+				'message'      => $message,
+			);
+		}
+
+		return $history;
+	}
+
+	private function append_change_request_history( WC_Order $order, array $entry ): void {
+		$history   = self::get_change_request_history( $order );
+		$message   = isset( $entry['message'] ) ? sanitize_textarea_field( (string) $entry['message'] ) : '';
+		$history[] = array(
+			'requested_at' => isset( $entry['requested_at'] ) ? absint( $entry['requested_at'] ) : time(),
+			'requested_by' => isset( $entry['requested_by'] ) ? absint( $entry['requested_by'] ) : 0,
+			'message'      => $message,
+		);
+
+		$order->update_meta_data( self::META_CHANGES_REQUEST_HISTORY, $history );
+	}
+
+	private function format_change_request_meta_line( int $requested_by, int $requested_at ): string {
+		$requester_label = __( 'Customer', 'ck-order-workflow-suite' );
+		if ( $requested_by > 0 ) {
+			$requester = get_userdata( $requested_by );
+			if ( $requester && ! empty( $requester->display_name ) ) {
+				$requester_label = $requester->display_name;
+			}
+		}
+
+		$meta_line = sprintf( __( 'Requested by %1$s', 'ck-order-workflow-suite' ), $requester_label );
+		if ( $requested_at > 0 ) {
+			$meta_line .= ' - ' . wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $requested_at );
+		}
+
+		return $meta_line;
 	}
 
 	private function format_state_label( string $state ): string {

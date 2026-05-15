@@ -144,6 +144,8 @@ class CK_OWS_Settings {
 		$current = is_array( $current ) ? $current : array();
 		$previous_tracking_enabled = (string) ( $current['tracking_sync_enabled'] ?? 'yes' );
 		$previous_tracking_interval = absint( $current['tracking_sync_interval_hours'] ?? 6 );
+		$raw_tracking_webhook_url = isset( $input['tracking_email_events_webhook_url'] ) ? trim( (string) $input['tracking_email_events_webhook_url'] ) : '';
+		$raw_email_preferences_base_url = isset( $input['email_preferences_api_base_url'] ) ? trim( (string) $input['email_preferences_api_base_url'] ) : '';
 
 		$current['auspost_api_key']             = $this->sanitize_sensitive_setting( $input, $current, 'auspost_api_key' );
 		$current['auspost_account_number']      = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
@@ -151,9 +153,25 @@ class CK_OWS_Settings {
 		$current['tracking_sync_interval_hours'] = isset( $input['tracking_sync_interval_hours'] ) ? max( 1, min( 24, absint( $input['tracking_sync_interval_hours'] ) ) ) : 6;
 		$current['tracking_email_events_enabled'] = $this->is_enabled_input( $input, 'tracking_email_events_enabled' ) ? 'yes' : 'no';
 		$current['tracking_email_events_webhook_url'] = isset( $input['tracking_email_events_webhook_url'] ) ? $this->sanitize_https_webhook_url( (string) $input['tracking_email_events_webhook_url'] ) : '';
+		if ( '' !== $raw_tracking_webhook_url && '' === $current['tracking_email_events_webhook_url'] ) {
+			add_settings_error(
+				self::OPTION_KEY,
+				'ck_ows_invalid_tracking_webhook_url',
+				esc_html__( 'Email platform webhook URL was not saved. Enter a valid HTTPS URL (for example: https://example.com/webhook).', 'ck-order-workflow-suite' ),
+				'error'
+			);
+		}
 		$current['tracking_email_events_auth_token'] = $this->sanitize_sensitive_setting( $input, $current, 'tracking_email_events_auth_token' );
 		$current['tracking_email_events_timeout_seconds'] = isset( $input['tracking_email_events_timeout_seconds'] ) ? max( 3, min( 30, absint( $input['tracking_email_events_timeout_seconds'] ) ) ) : 10;
 		$current['email_preferences_api_base_url'] = isset( $input['email_preferences_api_base_url'] ) ? $this->sanitize_https_base_url( (string) $input['email_preferences_api_base_url'] ) : '';
+		if ( '' !== $raw_email_preferences_base_url && '' === $current['email_preferences_api_base_url'] ) {
+			add_settings_error(
+				self::OPTION_KEY,
+				'ck_ows_invalid_email_preferences_base_url',
+				esc_html__( 'API Base URL was not saved. Enter a valid HTTPS base URL (for example: https://api.overseek.com).', 'ck-order-workflow-suite' ),
+				'error'
+			);
+		}
 		$current['email_preferences_account_id'] = isset( $input['email_preferences_account_id'] ) ? sanitize_text_field( (string) $input['email_preferences_account_id'] ) : '';
 		$current['email_preferences_webhook_secret'] = $this->sanitize_sensitive_setting( $input, $current, 'email_preferences_webhook_secret' );
 		$current['show_account_dashboard_tab']  = $this->is_enabled_input( $input, 'show_account_dashboard_tab' ) ? 'yes' : 'no';
@@ -184,6 +202,8 @@ class CK_OWS_Settings {
 		echo '<h1>' . esc_html__( 'CK Workflow Settings', 'ck-order-workflow-suite' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Manage tracking integrations and workflow automation from one dedicated admin area.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '</div>';
+
+		settings_errors( self::OPTION_KEY );
 
 		echo '<div class="ck-ows-card">';
 		echo '<h2>' . esc_html__( 'Configuration', 'ck-order-workflow-suite' ) . '</h2>';
@@ -396,6 +416,7 @@ class CK_OWS_Settings {
 
 		if ( 'tracking_email_events_webhook_url' === $key ) {
 			echo '<p class="description">' . esc_html__( 'HTTPS endpoint that receives normalized tracking lifecycle events for automation.', 'ck-order-workflow-suite' ) . '</p>';
+			$this->render_field_error( $key );
 		}
 
 		if ( 'tracking_email_events_auth_token' === $key ) {
@@ -427,6 +448,36 @@ class CK_OWS_Settings {
 					echo '</p>';
 				}
 			}
+
+			$this->render_field_error( $key );
+		}
+	}
+
+	private function render_field_error( string $key ): void {
+		$settings_errors = get_settings_errors( self::OPTION_KEY );
+
+		if ( ! is_array( $settings_errors ) || empty( $settings_errors ) ) {
+			return;
+		}
+
+		$error_code_by_field = array(
+			'tracking_email_events_webhook_url' => 'ck_ows_invalid_tracking_webhook_url',
+			'email_preferences_api_base_url'    => 'ck_ows_invalid_email_preferences_base_url',
+		);
+
+		if ( ! isset( $error_code_by_field[ $key ] ) ) {
+			return;
+		}
+
+		$error_code = $error_code_by_field[ $key ];
+
+		foreach ( $settings_errors as $error ) {
+			if ( ! is_array( $error ) || ( $error['code'] ?? '' ) !== $error_code ) {
+				continue;
+			}
+
+			echo '<p class="description" style="color:#b32d2e;">' . esc_html( (string) ( $error['message'] ?? '' ) ) . '</p>';
+			return;
 		}
 	}
 
@@ -474,11 +525,17 @@ class CK_OWS_Settings {
 	}
 
 	private function sanitize_https_base_url( string $url ): string {
-		$url = untrailingslashit( trim( $url ) );
+		$url = trim( $url );
 
 		if ( '' === $url ) {
 			return '';
 		}
+
+		if ( false === strpos( $url, '://' ) ) {
+			$url = 'https://' . $url;
+		}
+
+		$url = untrailingslashit( $url );
 
 		$parts = wp_parse_url( $url );
 
@@ -492,9 +549,19 @@ class CK_OWS_Settings {
 			return '';
 		}
 
+		$host = (string) $parts['host'];
+		$port = isset( $parts['port'] ) ? (int) $parts['port'] : 0;
 		$path = isset( $parts['path'] ) ? (string) $parts['path'] : '';
 
-		return esc_url_raw( 'https://' . $parts['host'] . $path );
+		$sanitized = 'https://' . $host;
+
+		if ( $port > 0 ) {
+			$sanitized .= ':' . $port;
+		}
+
+		$sanitized .= $path;
+
+		return esc_url_raw( $sanitized );
 	}
 
 	private function sanitize_https_webhook_url( string $url ): string {

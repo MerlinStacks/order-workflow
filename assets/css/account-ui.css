@@ -510,6 +510,22 @@
   font-weight: 600;
 }
 
+.woocommerce-account .ck-ows-artwork-proof__approved {
+  max-width: 64ch;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__approved .ck-ows-artwork-proof__intro {
+  margin-bottom: 14px;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__approved .ck-ows-artwork-proof__proof-link {
+  display: inline-block;
+}
+
+.woocommerce-account .ck-ows-artwork-proof__approved .ck-ows-artwork-proof__button {
+  min-width: 240px;
+}
+
 .woocommerce-account .ck-ows-artwork-proof__actions {
   display: grid;
   grid-template-columns: minmax(360px, 1.1fr) minmax(360px, 1fr);
