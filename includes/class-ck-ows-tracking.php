@@ -248,7 +248,8 @@ class CK_OWS_Tracking {
 		}
 
 		$debug_enabled = isset( $_GET['ck_ows_tracking_debug'] ) && '1' === sanitize_text_field( wp_unslash( (string) $_GET['ck_ows_tracking_debug'] ) );
-		if ( $is_store_manager && $debug_enabled && is_array( $tracking ) && ! empty( $tracking ) ) {
+		$can_view_debug = $is_store_manager || ( is_user_logged_in() && (int) $order->get_user_id() === get_current_user_id() );
+		if ( $can_view_debug && $debug_enabled ) {
 			$events = $this->extract_tracking_events_from_article( is_array( $tracking['raw'] ?? null ) ? $tracking['raw'] : array() );
 			$events = $this->sort_tracking_events_newest_first( $events );
 			$events = array_slice( $events, 0, 10 );
@@ -260,6 +261,7 @@ class CK_OWS_Tracking {
 				'eta'             => (string) ( $tracking['eta'] ?? '' ),
 				'last_event'      => $tracking['last_event'] ?? array(),
 				'events_sample'   => $events,
+				'has_tracking'    => is_array( $tracking ) && ! empty( $tracking ),
 			);
 
 			echo '<details class="ck-ows-tracking-debug"><summary>' . esc_html__( 'Tracking debug (admin only)', 'ck-order-workflow-suite' ) . '</summary>';
