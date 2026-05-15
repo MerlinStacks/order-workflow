@@ -66,22 +66,27 @@ class CK_OWS_Registration_Guard {
 	}
 
 	public function render_register_link(): void {
-		if ( 'yes' !== get_option( 'woocommerce_enable_myaccount_registration', 'no' ) ) {
-			return;
+		$register_url   = '';
+		$wc_registration = 'yes' === get_option( 'woocommerce_enable_myaccount_registration', 'no' );
+
+		if ( $wc_registration ) {
+			$register_url = wc_get_page_permalink( 'myaccount' );
+			$register_url = is_string( $register_url ) ? $register_url . '#register' : '';
+		} elseif ( get_option( 'users_can_register', '0' ) ) {
+			$register_url = wp_registration_url();
 		}
 
-		$register_url = wc_get_page_permalink( 'myaccount' );
-		if ( ! is_string( $register_url ) || '' === $register_url ) {
+		if ( '' === $register_url ) {
 			return;
 		}
 
 		echo '<div class="ck-ows-login-actions">';
-		echo '<a class="button ck-ows-login-actions__register" href="' . esc_url( $register_url ) . '#register">' . esc_html__( 'Register', 'ck-order-workflow-suite' ) . '</a>';
+		echo '<a class="button ck-ows-login-actions__register" href="' . esc_url( $register_url ) . '">' . esc_html__( 'Register', 'ck-order-workflow-suite' ) . '</a>';
 		echo '</div>';
 
 		echo '<p class="ck-ows-register-link">';
 		echo esc_html__( 'New customer?', 'ck-order-workflow-suite' ) . ' ';
-		echo '<a href="' . esc_url( $register_url ) . '#register">' . esc_html__( 'Create an account', 'ck-order-workflow-suite' ) . '</a>';
+		echo '<a href="' . esc_url( $register_url ) . '">' . esc_html__( 'Create an account', 'ck-order-workflow-suite' ) . '</a>';
 		echo '</p>';
 	}
 
