@@ -143,7 +143,8 @@ class CK_OWS_Account_Order_Cards {
 	}
 
 	private function get_invoice_url( WC_Order $order ): string {
-		if ( ! $this->can_generate_invoice_pdf() ) {
+		$actions = wc_get_account_orders_actions( $order );
+		if ( ! isset( $actions['invoice']['url'] ) || '' === (string) $actions['invoice']['url'] ) {
 			return '';
 		}
 
@@ -153,14 +154,6 @@ class CK_OWS_Account_Order_Cards {
 			),
 			wc_get_page_permalink( 'myaccount' )
 		);
-	}
-
-	private function can_generate_invoice_pdf(): bool {
-		if ( class_exists( 'WPO_WCPDF' ) ) {
-			return true;
-		}
-
-		return has_action( 'wp_ajax_generate_wpo_wcpdf' ) || has_action( 'wp_ajax_nopriv_generate_wpo_wcpdf' );
 	}
 
 	private function get_tracking_url( WC_Order $order ): string {

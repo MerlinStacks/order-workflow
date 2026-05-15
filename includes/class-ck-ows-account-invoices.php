@@ -76,8 +76,6 @@ class CK_OWS_Account_Invoices {
 			return;
 		}
 
-		$has_pdf = $this->can_generate_invoice_pdf();
-
 		echo '<div class="ck-invoices__list">';
 
 		foreach ( $orders as $order ) {
@@ -96,8 +94,9 @@ class CK_OWS_Account_Invoices {
 			echo '<span>' . esc_html( $order_date ) . ' · ' . wp_kses_post( $order_total ) . '</span>';
 			echo '</div>';
 
-			if ( $has_pdf ) {
-				$pdf_url = $this->get_invoice_proxy_url( $order );
+			$pdf_url = $this->get_invoice_proxy_url( $order );
+
+			if ( '' !== $pdf_url ) {
 
 				echo '<a href="' . esc_url( $pdf_url ) . '" class="ck-invoices__dl" target="_blank" rel="noopener">';
 				echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
@@ -133,37 +132,31 @@ class CK_OWS_Account_Invoices {
 			return;
 		}
 
-		wp_safe_redirect( $this->get_invoice_url( $order ) );
+		$invoice_url = $this->get_invoice_url( $order );
+		if ( '' === $invoice_url ) {
+			wp_safe_redirect( $order->get_view_order_url() );
+			exit;
+		}
+
+		wp_safe_redirect( $invoice_url );
 		exit;
 	}
 
-	private function can_generate_invoice_pdf(): bool {
-		if ( class_exists( 'WPO_WCPDF' ) ) {
-			return true;
+	private function get_invoice_url( WC_Order $order ): string {
+		$actions = wc_get_account_orders_actions( $order );
+
+		if ( isset( $actions['invoice']['url'] ) && '' !== (string) $actions['invoice']['url'] ) {
+			return (string) $actions['invoice']['url'];
 		}
 
-		return has_action( 'wp_ajax_generate_wpo_wcpdf' ) || has_action( 'wp_ajax_nopriv_generate_wpo_wcpdf' );
-	}
-
-	private function get_invoice_url( WC_Order $order ): string {
-		$legacy_nonce = wp_create_nonce( 'wpo_wcpdf' );
-		$ajax_nonce   = wp_create_nonce( 'generate_wpo_wcpdf' );
-
-		return (string) add_query_arg(
-			array(
-				'action'        => 'generate_wpo_wcpdf',
-				'document_type' => 'invoice',
-				'order_ids'     => $order->get_id(),
-				'order_key'     => $order->get_order_key(),
-				'nonce'         => $legacy_nonce,
-				'_wpnonce'      => $ajax_nonce,
-				'security'      => $ajax_nonce,
-			),
-			admin_url( 'admin-ajax.php' )
-		);
+		return '';
 	}
 
 	private function get_invoice_proxy_url( WC_Order $order ): string {
+		if ( '' === $this->get_invoice_url( $order ) ) {
+			return '';
+		}
+
 		return (string) add_query_arg(
 			array(
 				'ck_ows_invoice_order' => $order->get_id(),
