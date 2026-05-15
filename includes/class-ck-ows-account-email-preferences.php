@@ -11,6 +11,7 @@ class CK_OWS_Account_Email_Preferences {
 	private static ?CK_OWS_Account_Email_Preferences $instance = null;
 	private const SAVE_PREFS_NONCE       = 'ck_ows_save_email_preferences';
 	private const SAVE_PREFS_NONCE_FIELD = 'ck_ows_save_email_preferences_nonce';
+	private const PREFS_CACHE_TTL         = 5 * MINUTE_IN_SECONDS;
 
 	public static function instance(): CK_OWS_Account_Email_Preferences {
 		if ( null === self::$instance ) {
@@ -176,12 +177,21 @@ class CK_OWS_Account_Email_Preferences {
 			$this->redirect_to_page();
 		}
 
+		$this->clear_preferences_cache( $config, $email );
+
 		$this->redirect_to_page( true );
 	}
 
 	private function fetch_preferences( array $config, string $email ) {
 		if ( ! is_email( $email ) ) {
 			return new WP_Error( 'ck_ows_email_pref_invalid_email', __( 'Email address is not valid for preference lookup.', 'ck-order-workflow-suite' ) );
+		}
+
+		$cache_key = $this->get_preferences_cache_key( $config, $email );
+		$cached    = get_transient( $cache_key );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
 		}
 
 		$url = add_query_arg(
@@ -217,7 +227,20 @@ class CK_OWS_Account_Email_Preferences {
 			return new WP_Error( 'ck_ows_email_pref_api_invalid', __( 'Email preferences response was invalid.', 'ck-order-workflow-suite' ) );
 		}
 
+		set_transient( $cache_key, $data, self::PREFS_CACHE_TTL );
+
 		return $data;
+	}
+
+	private function get_preferences_cache_key( array $config, string $email ): string {
+		$account_id = isset( $config['account_id'] ) ? (string) $config['account_id'] : '';
+		$key_source = strtolower( $account_id . '|' . trim( $email ) );
+
+		return 'ck_ows_email_prefs_' . md5( $key_source );
+	}
+
+	private function clear_preferences_cache( array $config, string $email ): void {
+		delete_transient( $this->get_preferences_cache_key( $config, $email ) );
 	}
 
 	private function get_api_config(): array {

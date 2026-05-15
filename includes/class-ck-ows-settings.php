@@ -179,6 +179,7 @@ class CK_OWS_Settings {
 		);
 
 		$this->register_field( 'keep_data_on_uninstall', __( 'Keep plugin data on uninstall', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
+		$this->register_field( 'use_new_invoice_plugin', __( 'Use new invoice plugin integration', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
 		$this->register_field( 'tracking_email_events_retry_attempts', __( 'Webhook retry attempts', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
 		$this->register_field( 'tracking_email_events_retry_backoff_minutes', __( 'Retry backoff (minutes)', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
 	}
@@ -231,6 +232,7 @@ class CK_OWS_Settings {
 		$current['show_account_logout_tab']     = $this->is_enabled_input( $input, 'show_account_logout_tab' ) ? 'yes' : 'no';
 		$current['registration_blocked_domains'] = isset( $input['registration_blocked_domains'] ) ? $this->sanitize_blocked_domain_list( (string) $input['registration_blocked_domains'] ) : '';
 		$current['keep_data_on_uninstall'] = $this->is_enabled_input( $input, 'keep_data_on_uninstall' ) ? 'yes' : 'no';
+		$current['use_new_invoice_plugin'] = $this->is_enabled_input( $input, 'use_new_invoice_plugin' ) ? 'yes' : 'no';
 
 		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
 			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
@@ -777,6 +779,10 @@ class CK_OWS_Settings {
 
 		if ( 'tracking_email_events_auth_token' === $key ) {
 			echo '<p class="description">' . esc_html__( 'If set, requests include Authorization: Bearer {token}.', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
+		if ( 'use_new_invoice_plugin' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Enable to read invoice links from the new provider API. Disable to keep the current WooCommerce invoice action behavior.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
 		if ( 'email_preferences_api_base_url' === $key ) {

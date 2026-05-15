@@ -141,13 +141,7 @@ class CK_OWS_Account_Invoices {
 	}
 
 	private function get_invoice_url( WC_Order $order ): string {
-		$actions = wc_get_account_orders_actions( $order );
-
-		if ( isset( $actions['invoice']['url'] ) && '' !== (string) $actions['invoice']['url'] ) {
-			return html_entity_decode( (string) $actions['invoice']['url'], ENT_QUOTES, 'UTF-8' );
-		}
-
-		return '';
+		return CK_OWS_Invoice_Integration::get_invoice_download_url( $order );
 	}
 
 	private function get_invoice_proxy_url( WC_Order $order ): string {

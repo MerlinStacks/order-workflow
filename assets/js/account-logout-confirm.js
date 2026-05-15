@@ -81,21 +81,28 @@
   const init = () => {
     document.addEventListener("click", (event) => {
       const target = event.target;
+
+      if (target instanceof Element && target.closest("[data-ck-ows-close='1']")) {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+
+      if (target instanceof Element && target.closest("#" + MODAL_ID + " [data-ck-ows-confirm='1']")) {
+        closeModal();
+        return;
+      }
+
       const logoutLink = getLogoutLink(target);
 
       if (logoutLink) {
+        if (logoutLink.closest("#" + MODAL_ID)) {
+          return;
+        }
+
         event.preventDefault();
         openModal(logoutLink.href);
         return;
-      }
-
-      if (!(target instanceof Element)) {
-        return;
-      }
-
-      if (target.closest("[data-ck-ows-close='1']")) {
-        event.preventDefault();
-        closeModal();
       }
     });
 

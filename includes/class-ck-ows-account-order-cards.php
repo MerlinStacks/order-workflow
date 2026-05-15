@@ -144,8 +144,7 @@ class CK_OWS_Account_Order_Cards {
 	}
 
 	private function get_invoice_url( WC_Order $order ): string {
-		$actions = wc_get_account_orders_actions( $order );
-		if ( ! isset( $actions['invoice']['url'] ) || '' === (string) $actions['invoice']['url'] ) {
+		if ( '' === CK_OWS_Invoice_Integration::get_invoice_view_url( $order ) ) {
 			return '';
 		}
 

@@ -49,7 +49,7 @@ class CK_OWS_Plugin {
 	public function enqueue_frontend_assets(): void {
 		$is_account_page = function_exists( 'is_account_page' ) && is_account_page();
 		$is_flatsome     = function_exists( 'wp_get_theme' ) && 'flatsome' === strtolower( (string) wp_get_theme()->get_template() );
-		$needs_popup_css = $is_flatsome && function_exists( 'is_user_logged_in' ) && ! is_user_logged_in();
+		$needs_popup_css = $is_account_page && $is_flatsome && function_exists( 'is_user_logged_in' ) && ! is_user_logged_in();
 
 		if ( ! $is_account_page && ! $needs_popup_css ) {
 			return;
@@ -211,6 +211,7 @@ class CK_OWS_Plugin {
 	private function load_dependencies(): void {
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-audit.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-account-menu-helper.php';
+		require_once CK_OWS_PATH . 'includes/class-ck-ows-invoice-integration.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-statuses.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-admin-order-actions.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-customer-shipping-edit.php';

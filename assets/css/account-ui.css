@@ -1425,10 +1425,14 @@ body.ck-ows-modal-open {
   inset: 0;
   z-index: 99999;
   display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh 16px 24px;
+  box-sizing: border-box;
 }
 
 .ck-ows-modal.is-open {
-  display: block;
+  display: flex;
 }
 
 .ck-ows-modal__backdrop {
@@ -1440,13 +1444,12 @@ body.ck-ows-modal-open {
 .ck-ows-modal__panel {
   position: relative;
   z-index: 1;
-  width: min(94vw, 460px);
-  margin: 12vh auto 0;
+  width: min(100%, 520px);
   background: #fff;
   border: 1px solid #e2e6eb;
   border-radius: 14px;
   box-shadow: 0 26px 60px rgba(0, 0, 0, 0.22);
-  padding: 20px;
+  padding: 24px;
 }
 
 .ck-ows-modal__title {
@@ -1463,36 +1466,51 @@ body.ck-ows-modal-open {
 .ck-ows-modal__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 20px;
   flex-wrap: wrap;
 }
 
-.ck-ows-modal__button {
+.ck-ows-modal .ck-ows-modal__button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
-  padding: 8px 14px;
+  min-height: 44px;
+  min-width: 132px;
+  padding: 10px 18px;
   border-radius: 999px;
   border: 1px solid transparent;
-  text-decoration: none;
+  text-decoration: none !important;
   font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none !important;
+  white-space: nowrap;
   cursor: pointer;
+  box-shadow: none !important;
 }
 
-.ck-ows-modal__button--ghost {
+.ck-ows-modal .ck-ows-modal__button--ghost {
   background: #fff;
   color: var(--ck-ows-text);
   border-color: #d1d7df;
 }
 
-.ck-ows-modal__button--danger {
+.ck-ows-modal .ck-ows-modal__button--danger {
   background: #141414;
   color: #fff;
 }
 
 @media (max-width: 520px) {
+  .ck-ows-modal {
+    padding-top: 18vh;
+  }
+
+  .ck-ows-modal__panel {
+    padding: 18px;
+  }
+
   .ck-ows-modal__actions {
     flex-direction: column-reverse;
     align-items: stretch;
@@ -1500,5 +1518,6 @@ body.ck-ows-modal-open {
 
   .ck-ows-modal__button {
     width: 100%;
+    min-width: 0;
   }
 }

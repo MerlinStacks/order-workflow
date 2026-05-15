@@ -9,6 +9,7 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Tracking {
 	private const CRON_HOOK               = 'ck_ows_tracking_sync_event';
+	private const SYNC_LOCK_KEY            = 'ck_ows_tracking_sync_lock';
 	private const META_LIVE_TRACKING      = '_ck_ows_live_tracking';
 	private const META_LAST_SYNC_TS       = '_ck_ows_live_tracking_last_sync';
 	private const META_LAST_SYNC_ERROR    = '_ck_ows_live_tracking_last_error';
@@ -61,65 +62,76 @@ class CK_OWS_Tracking {
 			return;
 		}
 
-		$orders = wc_get_orders(
-			array(
-				'limit'   => 50,
-				'orderby' => 'date',
-				'order'   => 'DESC',
-				'date_created' => '>' . ( time() - ( 14 * DAY_IN_SECONDS ) ),
-				'status'  => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
-			)
-		);
+		if ( false !== get_transient( self::SYNC_LOCK_KEY ) ) {
+			return;
+		}
 
-		foreach ( $orders as $order ) {
-			if ( ! $order instanceof WC_Order ) {
-				continue;
-			}
+		set_transient( self::SYNC_LOCK_KEY, '1', 10 * MINUTE_IN_SECONDS );
 
-			$tracking_numbers = $this->extract_tracking_numbers( $order );
+		try {
 
-			if ( empty( $tracking_numbers ) ) {
-				continue;
-			}
+			$orders = wc_get_orders(
+				array(
+					'limit'   => 50,
+					'orderby' => 'date',
+					'order'   => 'DESC',
+					'date_created' => '>' . ( time() - ( 14 * DAY_IN_SECONDS ) ),
+					'status'  => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
+				)
+			);
 
-			$latest_payload = null;
-			$last_error     = '';
-
-			foreach ( $tracking_numbers as $tracking_number ) {
-				if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
+			foreach ( $orders as $order ) {
+				if ( ! $order instanceof WC_Order ) {
 					continue;
 				}
 
-				$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
+				$tracking_numbers = $this->extract_tracking_numbers( $order );
 
-				if ( is_wp_error( $result ) ) {
-					$last_error = $result->get_error_message();
+				if ( empty( $tracking_numbers ) ) {
 					continue;
 				}
 
-				$latest_payload = $result;
-				break;
-			}
+				$latest_payload = null;
+				$last_error     = '';
 
-			if ( null === $latest_payload ) {
+				foreach ( $tracking_numbers as $tracking_number ) {
+					if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
+						continue;
+					}
+
+					$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
+
+					if ( is_wp_error( $result ) ) {
+						$last_error = $result->get_error_message();
+						continue;
+					}
+
+					$latest_payload = $result;
+					break;
+				}
+
+				if ( null === $latest_payload ) {
+					$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
+					$order->update_meta_data( self::META_LAST_SYNC_ERROR, $last_error );
+					$order->save();
+					continue;
+				}
+
+				$event_hash = md5( wp_json_encode( $latest_payload ) );
+				$prev_hash  = (string) $order->get_meta( self::META_LAST_EVENT_HASH, true );
+
+				$order->update_meta_data( self::META_LIVE_TRACKING, $latest_payload );
 				$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-				$order->update_meta_data( self::META_LAST_SYNC_ERROR, $last_error );
+				$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
+				$order->update_meta_data( self::META_LAST_EVENT_HASH, $event_hash );
 				$order->save();
-				continue;
+
+				if ( $event_hash !== $prev_hash ) {
+					do_action( 'ck_ows_tracking_updated', $order->get_id(), $latest_payload );
+				}
 			}
-
-			$event_hash = md5( wp_json_encode( $latest_payload ) );
-			$prev_hash  = (string) $order->get_meta( self::META_LAST_EVENT_HASH, true );
-
-			$order->update_meta_data( self::META_LIVE_TRACKING, $latest_payload );
-			$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-			$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
-			$order->update_meta_data( self::META_LAST_EVENT_HASH, $event_hash );
-			$order->save();
-
-			if ( $event_hash !== $prev_hash ) {
-				do_action( 'ck_ows_tracking_updated', $order->get_id(), $latest_payload );
-			}
+		} finally {
+			delete_transient( self::SYNC_LOCK_KEY );
 		}
 	}
 
