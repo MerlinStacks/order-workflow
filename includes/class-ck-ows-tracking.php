@@ -57,8 +57,10 @@ class CK_OWS_Tracking {
 
 	public function sync_tracking_data(): void {
 		$api_key = trim( (string) CK_OWS_Settings::get( 'auspost_api_key', '' ) );
+		$username = trim( (string) CK_OWS_Settings::get( 'auspost_api_username', '' ) );
+		$password = trim( (string) CK_OWS_Settings::get( 'auspost_api_password', '' ) );
 
-		if ( '' === $api_key ) {
+		if ( '' === $api_key && ( '' === $username || '' === $password ) ) {
 			return;
 		}
 
@@ -408,10 +410,12 @@ class CK_OWS_Tracking {
 			}
 		}
 
+		$status = (string) ( $article['status'] ?? $article['tracking_status'] ?? $article['delivery_status'] ?? $article['_tracking_result_status'] ?? '' );
+
 		return array(
 			'provider'        => 'auspost',
 			'tracking_number' => $tracking_number,
-			'status'          => (string) ( $article['status'] ?? $article['tracking_status'] ?? $article['delivery_status'] ?? '' ),
+			'status'          => $status,
 			'last_event'      => array(
 				'description' => (string) ( $last_event['description'] ?? $last_event['event_description'] ?? $last_event['event'] ?? '' ),
 				'date'        => (string) ( $last_event['date'] ?? $last_event['event_time'] ?? $last_event['datetime'] ?? '' ),
@@ -427,9 +431,30 @@ class CK_OWS_Tracking {
 
 		if ( is_array( $tracking_results ) && isset( $tracking_results[0] ) && is_array( $tracking_results[0] ) ) {
 			$first = $tracking_results[0];
+			$status = (string) ( $first['status'] ?? '' );
+
+			if ( isset( $first['trackable_items'][0] ) && is_array( $first['trackable_items'][0] ) ) {
+				$item = $first['trackable_items'][0];
+
+				if ( '' !== $status && ! isset( $item['_tracking_result_status'] ) ) {
+					$item['_tracking_result_status'] = $status;
+				}
+
+				return $item;
+			}
 
 			if ( isset( $first['articles'][0] ) && is_array( $first['articles'][0] ) ) {
-				return $first['articles'][0];
+				$item = $first['articles'][0];
+
+				if ( '' !== $status && ! isset( $item['_tracking_result_status'] ) ) {
+					$item['_tracking_result_status'] = $status;
+				}
+
+				return $item;
+			}
+
+			if ( '' !== $status && ! isset( $first['_tracking_result_status'] ) ) {
+				$first['_tracking_result_status'] = $status;
 			}
 
 			return $first;
@@ -447,7 +472,7 @@ class CK_OWS_Tracking {
 	}
 
 	private function extract_tracking_events_from_article( array $article ): array {
-		$event_keys = array( 'events', 'tracking_events', 'article_events' );
+		$event_keys = array( 'events', 'tracking_events', 'article_events', 'tracking_details' );
 
 		foreach ( $event_keys as $key ) {
 			if ( isset( $article[ $key ] ) && is_array( $article[ $key ] ) ) {
