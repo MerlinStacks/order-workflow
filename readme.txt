@@ -75,6 +75,16 @@ After enabling this plugin, disable legacy code snippets that overlap with:
 
 Keeping old snippets active can cause duplicate output and duplicate hooks.
 
+== Translation Workflow ==
+
+- Source text domain: `ck-order-workflow-suite`
+- Translation files location: `/languages/`
+- Regenerate POT after string changes:
+
+`wp i18n make-pot . languages/ck-order-workflow-suite.pot --domain=ck-order-workflow-suite --exclude=.git,tests`
+
+- If your environment runs WP-CLI as root, add `--allow-root`.
+
 == Changelog ==
 
 See `changelog.md`.

@@ -187,7 +187,9 @@ class CK_OWS_Registration_Guard {
 		echo '<div class="ck-ows-card">';
 		echo '<h2>' . esc_html__( 'Block Summary', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<p>' . esc_html__( 'Blocked registration attempts (latest entries).', 'ck-order-workflow-suite' ) . '</p>';
+		/* translators: %d: total blocked registration attempts. */
 		echo '<p>' . esc_html( sprintf( __( 'Total blocked: %d', 'ck-order-workflow-suite' ), count( $log ) ) ) . '</p>';
+		/* translators: 1: honeypot count, 2: too fast count, 3: blocked domain count, 4: blocked username count, 5: rate limit count. */
 		echo '<p>' . esc_html( sprintf( __( 'Honeypot: %1$d | Too fast: %2$d | Bad domain: %3$d | Bad username: %4$d | Rate limit: %5$d', 'ck-order-workflow-suite' ), $tally['honeypot'], $tally['too_fast'], $tally['blocked_domain'], $tally['username'], $tally['rate_limit'] ) ) . '</p>';
 
 		if ( ! empty( $log ) ) {

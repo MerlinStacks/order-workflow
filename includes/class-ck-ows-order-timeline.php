@@ -104,6 +104,7 @@ class CK_OWS_Order_Timeline {
 		echo '<h2 class="ck-ows-order-timeline__title">' . esc_html__( 'Order Progress', 'ck-order-workflow-suite' ) . '</h2>';
 		echo '<p class="ck-ows-order-timeline__intro">' . esc_html__( 'Follow each stage of your order. Carrier scans may take up to 24 hours to appear.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<p class="ck-ows-order-timeline__summary">';
+		/* translators: 1: order number, 2: order placed date. */
 		echo '<span>' . sprintf( esc_html__( 'Order #%1$s placed on %2$s', 'ck-order-workflow-suite' ), esc_html( $order->get_order_number() ), esc_html( $created_label ) ) . '</span>';
 		echo '<span class="ck-ows-order-timeline__status">' . esc_html( $status_label ) . '</span>';
 		echo '</p>';

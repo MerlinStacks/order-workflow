@@ -233,6 +233,7 @@ class CK_OWS_Artwork_Proof {
 			}
 
 			echo '<div class="ck-ows-artwork-admin__section ck-ows-artwork-admin__proof-head">';
+			/* translators: %s: proof revision label such as v1. */
 			echo '<p><strong>' . esc_html( sprintf( __( 'Current proof (%s)', 'ck-order-workflow-suite' ), $latest_label ) ) . '</strong></p>';
 			echo '<p><a class="button button-secondary" href="' . esc_url( $proof_link ) . '" target="_blank" rel="noopener">' . esc_html__( 'View PDF', 'ck-order-workflow-suite' ) . '</a></p>';
 			echo '</div>';
@@ -302,6 +303,7 @@ class CK_OWS_Artwork_Proof {
 					}
 
 					echo '<li class="' . esc_attr( $item_class ) . '">';
+					/* translators: %d: change request sequence number. */
 					echo '<div class="ck-ows-artwork-admin__history-head"><span class="ck-ows-artwork-admin__request-badge">' . esc_html( sprintf( __( 'Request %d', 'ck-order-workflow-suite' ), $index + 1 ) ) . '</span></div>';
 					echo '<p class="ck-ows-artwork-admin__history-message">' . esc_html( (string) $entry['message'] ) . '</p>';
 					echo '<p class="ck-ows-artwork-admin__hint">' . esc_html( $this->format_change_request_meta_line( (int) $entry['requested_by'], (int) $entry['requested_at'] ) ) . '</p>';
@@ -409,6 +411,7 @@ class CK_OWS_Artwork_Proof {
 		}
 
 		$order->save();
+		/* translators: %s: deleted artwork revision label. */
 		$order->add_order_note( sprintf( __( 'Artwork proof %s deleted by staff.', 'ck-order-workflow-suite' ), $deleted_version ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_revision_deleted', array( 'version' => $deleted_version ) );
 
@@ -579,6 +582,7 @@ class CK_OWS_Artwork_Proof {
 				}
 
 				$uploaded_at = isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : 0;
+				/* translators: 1: revision label, 2: uploaded date/time. */
 				$label       = $uploaded_at > 0 ? sprintf( __( '%1$s from %2$s', 'ck-order-workflow-suite' ), $this->get_revision_label( $index ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $uploaded_at ) ) : $this->get_revision_label( $index );
 
 				echo '<li><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $label ) . '</a></li>';
@@ -765,6 +769,7 @@ class CK_OWS_Artwork_Proof {
 		$order->update_meta_data( self::META_OVERRIDE_AT, time() );
 		$order->save();
 
+		/* translators: %s: staff override reason text. */
 		$order->add_order_note( sprintf( __( 'Staff override approved artwork and moved to production. Reason: %s', 'ck-order-workflow-suite' ), $reason ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_staff_override', array( 'reason' => $reason ) );
 		$order->update_status( 'in-production', __( 'Staff override moved order to In Production.', 'ck-order-workflow-suite' ), true );
@@ -813,6 +818,7 @@ class CK_OWS_Artwork_Proof {
 
 		if ( isset( $_GET['ck_ows_artwork_upload_error'] ) ) {
 			$error = sanitize_text_field( wp_unslash( $_GET['ck_ows_artwork_upload_error'] ) );
+			/* translators: %s: upload error detail. */
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( sprintf( __( 'Artwork upload failed: %s', 'ck-order-workflow-suite' ), $error ) ) . '</p></div>';
 		}
 
@@ -955,6 +961,7 @@ class CK_OWS_Artwork_Proof {
 			}
 		}
 
+		/* translators: %1$s: requester display name. */
 		$meta_line = sprintf( __( 'Requested by %1$s', 'ck-order-workflow-suite' ), $requester_label );
 		if ( $requested_at > 0 ) {
 			$meta_line .= ' - ' . wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $requested_at );

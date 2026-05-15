@@ -1415,3 +1415,90 @@ body.woocommerce-account p.order-info {
     border-left: 1px solid #e5e9ef;
   }
 }
+
+body.ck-ows-modal-open {
+  overflow: hidden;
+}
+
+.ck-ows-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+}
+
+.ck-ows-modal.is-open {
+  display: block;
+}
+
+.ck-ows-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 22, 0.5);
+}
+
+.ck-ows-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(94vw, 460px);
+  margin: 12vh auto 0;
+  background: #fff;
+  border: 1px solid #e2e6eb;
+  border-radius: 14px;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.22);
+  padding: 20px;
+}
+
+.ck-ows-modal__title {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--ck-ows-text);
+}
+
+.ck-ows-modal__text {
+  margin: 8px 0 0;
+  color: #4a596c;
+}
+
+.ck-ows-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.ck-ows-modal__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ck-ows-modal__button--ghost {
+  background: #fff;
+  color: var(--ck-ows-text);
+  border-color: #d1d7df;
+}
+
+.ck-ows-modal__button--danger {
+  background: #141414;
+  color: #fff;
+}
+
+@media (max-width: 520px) {
+  .ck-ows-modal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .ck-ows-modal__button {
+    width: 100%;
+  }
+}

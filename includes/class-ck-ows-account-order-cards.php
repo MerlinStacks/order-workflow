@@ -130,6 +130,7 @@ class CK_OWS_Account_Order_Cards {
 			}
 			echo '<div class="ck-ows-order-card__item-meta">';
 			echo '<span>' . esc_html( $item->get_name() ) . '</span>';
+			/* translators: %d: item quantity. */
 			echo '<small>' . esc_html( sprintf( __( 'Qty: %d', 'ck-order-workflow-suite' ), $item->get_quantity() ) ) . '</small>';
 			echo '</div>';
 			echo '</div>';

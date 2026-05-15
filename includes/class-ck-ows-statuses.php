@@ -36,6 +36,7 @@ class CK_OWS_Statuses {
 				'exclude_from_search'       => false,
 				'show_in_admin_all_list'    => true,
 				'show_in_admin_status_list' => true,
+				/* translators: %s: number of orders with this status. */
 				'label_count'               => _n_noop(
 					'In Production <span class="count">(%s)</span>',
 					'In Production <span class="count">(%s)</span>',
@@ -52,6 +53,7 @@ class CK_OWS_Statuses {
 				'exclude_from_search'       => false,
 				'show_in_admin_all_list'    => true,
 				'show_in_admin_status_list' => true,
+				/* translators: %s: number of orders with this status. */
 				'label_count'               => _n_noop(
 					'In Dispatch <span class="count">(%s)</span>',
 					'In Dispatch <span class="count">(%s)</span>',
@@ -68,6 +70,7 @@ class CK_OWS_Statuses {
 				'exclude_from_search'       => false,
 				'show_in_admin_all_list'    => true,
 				'show_in_admin_status_list' => true,
+				/* translators: %s: number of orders with this status. */
 				'label_count'               => _n_noop(
 					'Awaiting Artwork Approval <span class="count">(%s)</span>',
 					'Awaiting Artwork Approval <span class="count">(%s)</span>',

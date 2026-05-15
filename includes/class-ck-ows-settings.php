@@ -376,6 +376,7 @@ class CK_OWS_Settings {
 
 		if ( isset( $_GET['ck_ows_dead_retried_all'] ) ) {
 			$count = absint( wp_unslash( $_GET['ck_ows_dead_retried_all'] ) );
+			/* translators: %d: number of dead-letter events queued for retry. */
 			echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Queued %d dead-letter event(s) for retry.', 'ck-order-workflow-suite' ), $count ) ) . '</p></div>';
 		}
 		echo '</div>';

@@ -72,6 +72,27 @@ class CK_OWS_Plugin {
 			);
 		}
 
+		if ( $is_account_page ) {
+			wp_enqueue_script(
+				'ck-ows-account-logout-confirm',
+				CK_OWS_URL . 'assets/js/account-logout-confirm.js',
+				array(),
+				CK_OWS_VERSION,
+				true
+			);
+
+			wp_localize_script(
+				'ck-ows-account-logout-confirm',
+				'ckOwsLogoutConfirm',
+				array(
+					'title'   => __( 'Log out?', 'ck-order-workflow-suite' ),
+					'message' => __( 'Are you sure you want to log out of your account?', 'ck-order-workflow-suite' ),
+					'cancel'  => __( 'Cancel', 'ck-order-workflow-suite' ),
+					'confirm' => __( 'Confirm and log out', 'ck-order-workflow-suite' ),
+				)
+			);
+		}
+
 		if ( ! $is_account_page ) {
 			return;
 		}

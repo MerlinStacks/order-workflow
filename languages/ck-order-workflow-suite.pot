@@ -1,0 +1,1332 @@
+# Copyright (C) 2026 CK
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: CK WooCommerce Order Workflow Suite 0.1.4\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ck-order-workflow-suite\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-05-15T03:42:15+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: ck-order-workflow-suite\n"
+
+#. Plugin Name of the plugin
+#: ck-order-workflow-suite.php
+msgid "CK WooCommerce Order Workflow Suite"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: ck-order-workflow-suite.php
+msgid "https://example.com"
+msgstr ""
+
+#. Description of the plugin
+#: ck-order-workflow-suite.php
+msgid "Custom order workflow, customer account enhancements, artwork approvals, and tracking tools for WooCommerce."
+msgstr ""
+
+#. Author of the plugin
+#: ck-order-workflow-suite.php
+msgid "CK"
+msgstr ""
+
+#: ck-order-workflow-suite.php:47
+msgid "CK WooCommerce Order Workflow Suite requires WooCommerce to be active."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:38
+#: includes/class-ck-ows-account-email-preferences.php:50
+#: includes/class-ck-ows-settings.php:263
+msgid "Email Preferences"
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:51
+msgid "Choose which communications you would like to receive."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:54
+msgid "Email preferences are not configured yet. Please contact support."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:63
+msgid "Unable to load email preferences for this account. Please contact support."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:82
+msgid "Email preferences updated."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:90
+msgid "Receive all email communications"
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:94
+msgid "Receive marketing and promotional emails"
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:97
+msgid "Mailing Lists"
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:121
+msgid "Save Email Preferences"
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:128
+msgid "You must be logged in to update preferences."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:184
+msgid "Email address is not valid for preference lookup."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:204
+#: includes/class-ck-ows-account-email-preferences.php:210
+msgid "Unable to load email preferences right now. Please try again later."
+msgstr ""
+
+#: includes/class-ck-ows-account-email-preferences.php:217
+msgid "Email preferences response was invalid."
+msgstr ""
+
+#: includes/class-ck-ows-account-invoices.php:38
+msgid "Invoices"
+msgstr ""
+
+#: includes/class-ck-ows-account-invoices.php:50
+msgid "Heads up:"
+msgstr ""
+
+#: includes/class-ck-ows-account-invoices.php:51
+msgid "Changing your address here updates it for future orders only. It will not change the delivery address on any orders already placed."
+msgstr ""
+
+#: includes/class-ck-ows-account-invoices.php:71
+msgid "Your Invoices"
+msgstr ""
+
+#: includes/class-ck-ows-account-invoices.php:74
+msgid "No invoices available yet."
+msgstr ""
+
+#: includes/class-ck-ows-account-invoices.php:101
+msgid "Download PDF"
+msgstr ""
+
+#: includes/class-ck-ows-account-invoices.php:104
+#: includes/class-ck-ows-account-order-cards.php:95
+msgid "View Order"
+msgstr ""
+
+#: includes/class-ck-ows-account-order-cards.php:53
+msgid "Your Orders"
+msgstr ""
+
+#: includes/class-ck-ows-account-order-cards.php:56
+msgid "No orders found yet."
+msgstr ""
+
+#: includes/class-ck-ows-account-order-cards.php:99
+msgid "Invoice"
+msgstr ""
+
+#: includes/class-ck-ows-account-order-cards.php:104
+msgid "Track"
+msgstr ""
+
+#. translators: %d: item quantity.
+#: includes/class-ck-ows-account-order-cards.php:134
+#, php-format
+msgid "Qty: %d"
+msgstr ""
+
+#: includes/class-ck-ows-account-order-cards.php:142
+msgid "More items in this order"
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:42
+msgid "Security"
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:76
+msgid "Account Activity and Security"
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:77
+msgid "Review your recent account activity and keep your login details secure."
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:81
+msgid "Last login"
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:82
+msgid "No login recorded yet."
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:86
+msgid "Password last changed"
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:87
+msgid "No password change recorded yet."
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:92
+msgid "Change password"
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:96
+msgid "Use a unique password you do not use on other websites."
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:97
+msgid "Do not share your account login with anyone outside your team or household."
+msgstr ""
+
+#: includes/class-ck-ows-account-security.php:98
+msgid "Be cautious of emails asking for your password or payment details."
+msgstr ""
+
+#: includes/class-ck-ows-address-quality.php:33
+msgid "Please enter a suburb/city for your address."
+msgstr ""
+
+#: includes/class-ck-ows-address-quality.php:37
+msgid "Please enter a postcode for your address."
+msgstr ""
+
+#: includes/class-ck-ows-address-quality.php:42
+msgid "Australian postcodes must be exactly 4 digits."
+msgstr ""
+
+#: includes/class-ck-ows-address-quality.php:47
+msgid "New Zealand postcodes must be exactly 4 digits."
+msgstr ""
+
+#: includes/class-ck-ows-address-quality.php:52
+msgid "Please check your postcode. It looks incomplete."
+msgstr ""
+
+#. translators: %s: address type label
+#: includes/class-ck-ows-address-quality.php:57
+#, php-format
+msgid "Please check your %s suburb/city. It looks too short."
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:40
+msgid "Change status to Awaiting Artwork Approval"
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:41
+msgid "Change status to In Production"
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:42
+msgid "Change status to In Dispatch"
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:77
+msgid "Order status updated from bulk action."
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:107
+msgid "Awaiting Artwork Approval"
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:115
+#: includes/class-ck-ows-order-timeline.php:77
+msgid "In Production"
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:123
+#: includes/class-ck-ows-order-timeline.php:82
+msgid "In Dispatch"
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:133
+#: includes/class-ck-ows-artwork-proof.php:340
+#: includes/class-ck-ows-artwork-proof.php:375
+#: includes/class-ck-ows-artwork-proof.php:740
+#: includes/class-ck-ows-settings.php:387
+#: includes/class-ck-ows-settings.php:410
+#: includes/class-ck-ows-settings.php:438
+#: includes/class-ck-ows-settings.php:455
+#: includes/class-ck-ows-settings.php:487
+#: includes/class-ck-ows-settings.php:540
+#: includes/class-ck-ows-settings.php:562
+msgid "You do not have permission to do that."
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:144
+#: includes/class-ck-ows-artwork-proof.php:347
+#: includes/class-ck-ows-artwork-proof.php:383
+#: includes/class-ck-ows-artwork-proof.php:631
+#: includes/class-ck-ows-artwork-proof.php:747
+#: includes/class-ck-ows-customer-shipping-edit.php:90
+#: includes/class-ck-ows-customer-shipping-edit.php:133
+msgid "Order not found."
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:162
+msgid "Invalid status transition."
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:165
+msgid "Order status updated from quick action."
+msgstr ""
+
+#. translators: %s: order status label
+#: includes/class-ck-ows-admin-order-actions.php:189
+#, php-format
+msgid "Order updated to %s."
+msgstr ""
+
+#. translators: 1: updated count, 2: order status label
+#: includes/class-ck-ows-admin-order-actions.php:197
+#, php-format
+msgid "%1$d order(s) updated to %2$s."
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:203
+msgid "Cannot move order to Awaiting Artwork Approval until a proof PDF is uploaded."
+msgstr ""
+
+#: includes/class-ck-ows-admin-order-actions.php:209
+msgid "Cannot move order to In Production until artwork is approved or a staff override is recorded."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:96
+#: includes/class-ck-ows-artwork-proof.php:101
+msgid "Artwork"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:127
+msgid "None"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:193
+#: includes/class-ck-ows-artwork-proof.php:569
+msgid "Artwork Proof Approval"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:205
+msgid "Order not available."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:218
+msgid "Upload Proof PDF"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:219
+msgid "Upload a PDF proof for customer approval."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:224
+msgid "Upload PDF"
+msgstr ""
+
+#. translators: %s: proof revision label such as v1.
+#: includes/class-ck-ows-artwork-proof.php:237
+#, php-format
+msgid "Current proof (%s)"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:238
+msgid "View PDF"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:244
+msgid "Proof versions"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:271
+msgid "Delete this artwork proof version?"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:271
+msgid "Delete"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:279
+msgid "Approval state:"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:290
+msgid "Latest change request"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:295
+msgid "Change request history"
+msgstr ""
+
+#. translators: %d: change request sequence number.
+#: includes/class-ck-ows-artwork-proof.php:307
+#, php-format
+msgid "Request %d"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:327
+msgid "Staff Override"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:328
+msgid "A reason is required to move directly to production."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:331
+msgid "Mandatory override reason"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:332
+msgid "Override to Production"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:354
+msgid "Please choose a PDF file to upload."
+msgstr ""
+
+#. translators: %s: deleted artwork revision label.
+#: includes/class-ck-ows-artwork-proof.php:415
+#, php-format
+msgid "Artwork proof %s deleted by staff."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:518
+msgid "Artwork proof PDF uploaded and approval requested."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:522
+msgid "Order moved to Awaiting Artwork Approval after proof upload."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:558
+msgid "Artwork Approved"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:559
+msgid "Thank you. Your artwork has been approved."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:561
+msgid "View final proof PDF"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:570
+msgid "Current state:"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:572
+msgid "Please review your artwork proof before production begins."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:575
+msgid "Previous versions"
+msgstr ""
+
+#. translators: 1: revision label, 2: uploaded date/time.
+#: includes/class-ck-ows-artwork-proof.php:586
+#, php-format
+msgid "%1$s from %2$s"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:605
+msgid "View proof PDF"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:608
+msgid "Approve artwork"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:612
+msgid "Need edits? Request changes"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:613
+msgid "Request changes"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:614
+msgid "Tell us what needs to change."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:615
+msgid "Submit change request"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:624
+msgid "You must be logged in."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:637
+msgid "You cannot update this order."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:647
+msgid "Customer approved artwork proof."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:651
+msgid "Artwork approved by customer. Order moved to In Production."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:661
+msgid "Please include details for your change request."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:682
+msgid "Order moved back to Awaiting Artwork Approval after customer change request."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:686
+msgid "Thanks, we have sent your change request to our team."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:689
+msgid "Invalid artwork action."
+msgstr ""
+
+#. translators: %s: staff override reason text.
+#: includes/class-ck-ows-artwork-proof.php:773
+#, php-format
+msgid "Staff override approved artwork and moved to production. Reason: %s"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:775
+msgid "Staff override moved order to In Production."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:794
+msgid "Transition to In Production blocked: artwork approval required."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:795
+msgid "Order attempted to move to In Production without required artwork approval."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:808
+msgid "Override reason is mandatory to move an artwork approval order to production."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:812
+msgid "Security check failed for artwork override. Please refresh and try again."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:816
+msgid "Artwork override applied and order moved to In Production."
+msgstr ""
+
+#. translators: %s: upload error detail.
+#: includes/class-ck-ows-artwork-proof.php:822
+#, php-format
+msgid "Artwork upload failed: %s"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:826
+msgid "Artwork proof uploaded successfully."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:830
+msgid "Artwork proof version deleted successfully."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:834
+msgid "Could not delete artwork proof version."
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:956
+msgid "Customer"
+msgstr ""
+
+#. translators: %1$s: requester display name.
+#: includes/class-ck-ows-artwork-proof.php:965
+#, php-format
+msgid "Requested by %1$s"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:975
+msgid "Pending customer approval"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:976
+msgid "Approved by customer"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:977
+msgid "Changes requested"
+msgstr ""
+
+#: includes/class-ck-ows-artwork-proof.php:984
+msgid "Not set"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:56
+msgid "Update Shipping Address"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:57
+msgid "You can update your delivery details while this order is still processing."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:65
+msgid "First name"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:66
+msgid "Last name"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:67
+msgid "Company"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:68
+msgid "Address line 1"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:69
+msgid "Address line 2"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:70
+msgid "Suburb/City"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:71
+msgid "State"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:72
+msgid "Postcode"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:72
+msgid "Enter a valid postcode."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:73
+msgid "Country code"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:73
+msgid "Use a 2-letter country code (for example AU)."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:76
+msgid "Save shipping address"
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:83
+msgid "You must be logged in to do that."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:96
+#: includes/class-ck-ows-customer-shipping-edit.php:137
+msgid "You do not have permission to edit this order."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:100
+msgid "Shipping address can only be updated while the order is processing."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:107
+#: includes/class-ck-ows-customer-shipping-edit.php:141
+msgid "This order was updated before your address change was saved. Please refresh and try again."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:123
+msgid "Please complete all required shipping fields."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:127
+msgid "Please check your shipping details and try again."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:145
+msgid "Customer updated shipping address from My Account."
+msgstr ""
+
+#: includes/class-ck-ows-customer-shipping-edit.php:149
+msgid "Shipping address updated successfully."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:62
+msgid "Processing"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:70
+msgid "Artwork Approval"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:87
+msgid "Delivered"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:101
+msgid "an earlier date"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:104
+#: includes/class-ck-ows-order-timeline.php:221
+msgid "Order Progress"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:105
+msgid "Follow each stage of your order. Carrier scans may take up to 24 hours to appear."
+msgstr ""
+
+#. translators: 1: order number, 2: order placed date.
+#: includes/class-ck-ows-order-timeline.php:108
+#, php-format
+msgid "Order #%1$s placed on %2$s"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:111
+msgid "Order progress timeline"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:132
+msgid "In progress"
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:210
+msgid "This order is waiting for payment confirmation before it can move into fulfilment."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:211
+msgid "We could not complete payment for this order."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:212
+msgid "This order was cancelled and will not continue through production or dispatch."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:213
+msgid "This order is currently on hold and is waiting for review before it can continue."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:214
+msgid "This order is still a draft and has not been placed yet."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:215
+msgid "Checkout has not been completed for this order yet."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:218
+msgid "This order is not currently in the active fulfilment workflow."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:222
+msgid "This order is not currently moving through the fulfilment timeline."
+msgstr ""
+
+#: includes/class-ck-ows-order-timeline.php:224
+msgid "Current status"
+msgstr ""
+
+#: includes/class-ck-ows-plugin.php:88
+msgid "Log out?"
+msgstr ""
+
+#: includes/class-ck-ows-plugin.php:89
+msgid "Are you sure you want to log out of your account?"
+msgstr ""
+
+#: includes/class-ck-ows-plugin.php:90
+msgid "Cancel"
+msgstr ""
+
+#: includes/class-ck-ows-plugin.php:91
+msgid "Confirm and log out"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:135
+msgid "CK Registration Guard"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:136
+#: includes/class-ck-ows-registration-guard.php:183
+#: includes/class-ck-ows-settings.php:154
+#: includes/class-ck-ows-settings.php:265
+msgid "Registration Guard"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:145
+msgid "No permission."
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:151
+msgid "Block log cleared."
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:184
+msgid "Review blocked WooCommerce registration attempts and tune anti-bot rules."
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:188
+msgid "Block Summary"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:189
+msgid "Blocked registration attempts (latest entries)."
+msgstr ""
+
+#. translators: %d: total blocked registration attempts.
+#: includes/class-ck-ows-registration-guard.php:191
+#, php-format
+msgid "Total blocked: %d"
+msgstr ""
+
+#. translators: 1: honeypot count, 2: too fast count, 3: blocked domain count, 4: blocked username count, 5: rate limit count.
+#: includes/class-ck-ows-registration-guard.php:193
+#, php-format
+msgid "Honeypot: %1$d | Too fast: %2$d | Bad domain: %3$d | Bad username: %4$d | Rate limit: %5$d"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:199
+msgid "Clear all block logs?"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:199
+msgid "Clear Log"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:203
+#: includes/class-ck-ows-settings.php:1056
+msgid "Time"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:203
+msgid "Email"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:203
+msgid "Username"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:203
+msgid "Reason"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:203
+msgid "IP"
+msgstr ""
+
+#: includes/class-ck-ows-registration-guard.php:216
+msgid "No blocks logged yet."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:71
+msgid "CK Order Workflow Settings"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:72
+msgid "CK Workflow"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:114
+msgid "Australia Post Tracking"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:116
+#: includes/class-ck-ows-settings.php:270
+msgid "Configure your AusPost API details to fetch live tracking events for customer orders."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:121
+msgid "AusPost API Key"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:122
+msgid "AusPost Account Number (optional)"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:123
+msgid "Enable tracking sync"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:124
+msgid "Sync interval (hours)"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:125
+msgid "Forward tracking events to email platform"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:126
+msgid "Email platform webhook URL"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:127
+msgid "Webhook auth token (optional)"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:128
+msgid "Webhook timeout (seconds)"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:132
+msgid "Email Preferences API"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:134
+msgid "Configure the OverSeek API used by the My Account email preferences page."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:139
+msgid "API Base URL"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:140
+msgid "Account ID"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:141
+msgid "Webhook Secret (optional)"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:145
+msgid "My Account Navigation"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:147
+#: includes/class-ck-ows-settings.php:290
+msgid "Choose which default WooCommerce tabs are visible in My Account navigation."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:156
+#: includes/class-ck-ows-settings.php:297
+msgid "Control anti-bot registration rules for the WooCommerce My Account registration form."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:161
+msgid "Show Dashboard tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:162
+msgid "Show Orders tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:163
+msgid "Show Downloads tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:164
+msgid "Show Addresses tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:165
+msgid "Show Account details tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:166
+msgid "Show Invoices tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:167
+msgid "Show Security tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:168
+msgid "Show Email preferences tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:169
+msgid "Show Logout tab"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:170
+msgid "Blocked email domains"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:174
+msgid "Operations & Safety"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:176
+msgid "Retention, retries, and operational controls for production stores."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:181
+msgid "Keep plugin data on uninstall"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:182
+msgid "Webhook retry attempts"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:183
+msgid "Retry backoff (minutes)"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:204
+msgid "Email platform webhook URL was not saved. Enter a valid HTTPS URL (for example: https://example.com/webhook)."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:217
+msgid "API Base URL was not saved. Enter a valid HTTPS base URL (for example: https://api.overseek.com)."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:244
+msgid "You do not have permission to access this page."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:250
+msgid "CK Workflow Settings"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:251
+msgid "Manage tracking integrations and workflow automation from one dedicated admin area."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:257
+msgid "Configuration"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:261
+msgid "Settings sections"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:262
+msgid "Tracking"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:264
+msgid "My Account Tabs"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:266
+msgid "Operations"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:277
+msgid "Configure your OverSeek API credentials for customer email preferences."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:281
+msgid "Email preferences API host is not on the allowlist, so frontend email preferences will stay disabled. Update the URL or extend the allowlist via ck_ows_email_preferences_allowed_hosts."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:304
+msgid "Configure operational safety controls, retries, and data retention behavior."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:310
+msgid "Save settings"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:315
+msgid "Manual Actions"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:316
+msgid "Use this to run an immediate tracking sync without waiting for the scheduled cron."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:320
+msgid "Run tracking sync now"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:323
+msgid "Run live connection checks against current AusPost and webhook settings."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:327
+msgid "Test connections"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:332
+msgid "Settings Import/Export"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:336
+msgid "Export settings JSON"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:341
+msgid "Paste settings JSON"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:343
+msgid "Import settings JSON"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:348
+msgid "Diagnostics"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:353
+msgid "Dead Letters"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:358
+msgid "Tracking sync completed. Check order tracking panels for latest data."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:362
+msgid "Connection tests complete. See diagnostics panel for latest results."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:366
+msgid "Settings imported and saved successfully."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:370
+msgid "Dead-letter event queued for retry."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:374
+msgid "Dead-letter queue cleared."
+msgstr ""
+
+#. translators: %d: number of dead-letter events queued for retry.
+#: includes/class-ck-ows-settings.php:380
+#, php-format
+msgid "Queued %d dead-letter event(s) for retry."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:711
+#: includes/class-ck-ows-settings.php:716
+msgid "Enabled"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:738
+msgid "Recommended: 10 seconds. Used when sending events to your email platform webhook."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:740
+msgid "Retries after initial delivery fails. Set to 0 to disable retries."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:742
+msgid "Base delay before retrying failed webhook deliveries."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:754
+msgid "One domain per line, for example: mailinator.com"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:755
+msgid "These custom domains are added to the built-in disposable domain list."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:758
+msgid "Built-in blocked domains:"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:768
+msgid "Saved values are hidden. Leave unchanged to keep the existing value."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:774
+msgid "HTTPS endpoint that receives normalized tracking lifecycle events for automation."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:779
+msgid "If set, requests include Authorization: Bearer {token}."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:803
+msgid "Allowed hosts:"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1023
+msgid "WordPress"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1024
+msgid "WooCommerce"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1025
+msgid "HPOS compatibility declared"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1025
+msgid "yes"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1026
+msgid "Tracking cron enabled"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1027
+msgid "Next tracking sync"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1028
+msgid "Last webhook delivery"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1029
+msgid "Dead-letter queue size"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1030
+msgid "Last connection tests"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1034
+msgid "Recent audit events"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1050
+msgid "No dead-letter events currently queued."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1054
+msgid "Failed webhook events that exceeded retries. You can retry individual events or clear the queue."
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1056
+msgid "Order"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1056
+msgid "Attempts"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1056
+msgid "Error"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1056
+msgid "Action"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1075
+msgid "Retry"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1088
+msgid "Queue retries for all dead-letter events?"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1088
+msgid "Retry all"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1094
+msgid "Permanently clear all dead-letter events?"
+msgstr ""
+
+#: includes/class-ck-ows-settings.php:1094
+msgid "Clear dead-letter queue"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:34
+msgid "Order not found"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:40
+msgid "Invalid order"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:47
+msgid "Invalid order key"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:53
+msgid "Your order has been received. Tracking information will be added once your order has been shipped."
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:58
+msgid "Track Your Shipment"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:59
+msgid "Tracking details for your order are below. It may take up to 24 hours for the carrier to update the information."
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:66
+#: includes/class-ck-ows-shortcodes.php:76
+msgid "N/A"
+msgstr ""
+
+#. translators: 1: ship date, 2: carrier, 3: tracking number
+#: includes/class-ck-ows-shortcodes.php:73
+#, php-format
+msgid "Shipped on %1$s via %2$s with tracking number: %3$s"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:75
+msgid "Carrier"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:89
+msgid "Track Shipment"
+msgstr ""
+
+#: includes/class-ck-ows-shortcodes.php:103
+msgid "Download PDF Invoice"
+msgstr ""
+
+#: includes/class-ck-ows-statuses.php:34
+#: includes/class-ck-ows-statuses.php:91
+#: includes/class-ck-ows-statuses.php:98
+msgctxt "Order status"
+msgid "In Production"
+msgstr ""
+
+#. translators: %s: number of orders with this status.
+#: includes/class-ck-ows-statuses.php:40
+#, php-format
+msgid "In Production <span class=\"count\">(%s)</span>"
+msgid_plural "In Production <span class=\"count\">(%s)</span>"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-ck-ows-statuses.php:51
+#: includes/class-ck-ows-statuses.php:92
+#: includes/class-ck-ows-statuses.php:99
+msgctxt "Order status"
+msgid "In Dispatch"
+msgstr ""
+
+#. translators: %s: number of orders with this status.
+#: includes/class-ck-ows-statuses.php:57
+#, php-format
+msgid "In Dispatch <span class=\"count\">(%s)</span>"
+msgid_plural "In Dispatch <span class=\"count\">(%s)</span>"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-ck-ows-statuses.php:68
+#: includes/class-ck-ows-statuses.php:90
+#: includes/class-ck-ows-statuses.php:97
+msgctxt "Order status"
+msgid "Awaiting Artwork Approval"
+msgstr ""
+
+#. translators: %s: number of orders with this status.
+#: includes/class-ck-ows-statuses.php:74
+#, php-format
+msgid "Awaiting Artwork Approval <span class=\"count\">(%s)</span>"
+msgid_plural "Awaiting Artwork Approval <span class=\"count\">(%s)</span>"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-ck-ows-tracking.php:139
+msgid "Shipment Tracking"
+msgstr ""
+
+#: includes/class-ck-ows-tracking.php:142
+msgid "In transit"
+msgstr ""
+
+#: includes/class-ck-ows-tracking.php:143
+msgid "Latest status:"
+msgstr ""
+
+#: includes/class-ck-ows-tracking.php:156
+msgid "Track shipment"
+msgstr ""
+
+#: includes/class-ck-ows-tracking.php:156
+msgid "Track another parcel"
+msgstr ""
