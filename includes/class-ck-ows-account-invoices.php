@@ -75,7 +75,7 @@ class CK_OWS_Account_Invoices {
 			return;
 		}
 
-		$has_pdf = class_exists( 'WPO_WCPDF' );
+		$has_pdf = $this->can_generate_invoice_pdf();
 
 		echo '<div class="ck-invoices__list">';
 
@@ -102,7 +102,7 @@ class CK_OWS_Account_Invoices {
 						'document_type' => 'invoice',
 						'order_ids'     => $order_id,
 						'order_key'     => $order->get_order_key(),
-						'nonce'         => wp_create_nonce( 'wpo_wcpdf' ),
+						'nonce'         => wp_create_nonce( 'generate_wpo_wcpdf' ),
 					),
 					admin_url( 'admin-ajax.php' )
 				);
@@ -120,5 +120,13 @@ class CK_OWS_Account_Invoices {
 
 		echo '</div>';
 		echo '</div>';
+	}
+
+	private function can_generate_invoice_pdf(): bool {
+		if ( class_exists( 'WPO_WCPDF' ) ) {
+			return true;
+		}
+
+		return has_action( 'wp_ajax_generate_wpo_wcpdf' ) || has_action( 'wp_ajax_nopriv_generate_wpo_wcpdf' );
 	}
 }

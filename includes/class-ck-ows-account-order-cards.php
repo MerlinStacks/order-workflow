@@ -143,7 +143,7 @@ class CK_OWS_Account_Order_Cards {
 	}
 
 	private function get_invoice_url( WC_Order $order ): string {
-		if ( ! class_exists( 'WPO_WCPDF' ) ) {
+		if ( ! $this->can_generate_invoice_pdf() ) {
 			return '';
 		}
 
@@ -153,10 +153,18 @@ class CK_OWS_Account_Order_Cards {
 				'document_type' => 'invoice',
 				'order_ids'     => $order->get_id(),
 				'order_key'     => $order->get_order_key(),
-				'nonce'         => wp_create_nonce( 'wpo_wcpdf' ),
+				'nonce'         => wp_create_nonce( 'generate_wpo_wcpdf' ),
 			),
 			admin_url( 'admin-ajax.php' )
 		);
+	}
+
+	private function can_generate_invoice_pdf(): bool {
+		if ( class_exists( 'WPO_WCPDF' ) ) {
+			return true;
+		}
+
+		return has_action( 'wp_ajax_generate_wpo_wcpdf' ) || has_action( 'wp_ajax_nopriv_generate_wpo_wcpdf' );
 	}
 
 	private function get_tracking_url( WC_Order $order ): string {

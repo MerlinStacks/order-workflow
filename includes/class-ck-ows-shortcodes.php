@@ -132,7 +132,7 @@ class CK_OWS_Shortcodes {
 				'document_type' => 'invoice',
 				'order_ids'     => $order->get_id(),
 				'order_key'     => $order->get_order_key(),
-				'nonce'         => wp_create_nonce( 'wpo_wcpdf' ),
+				'nonce'         => wp_create_nonce( 'generate_wpo_wcpdf' ),
 			),
 			admin_url( 'admin-ajax.php' )
 		);
