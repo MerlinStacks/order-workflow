@@ -177,11 +177,63 @@ class CK_OWS_Tracking {
 
 			echo '<p><strong>' . esc_html__( 'Latest status:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $status ) . '</p>';
 
+			$eta = trim( (string) ( $tracking['eta'] ?? '' ) );
+			if ( '' !== $eta ) {
+				echo '<p><strong>' . esc_html__( 'Estimated delivery:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $eta ) . '</p>';
+			}
+
 			if ( ! empty( $tracking['last_event'] ) && is_array( $tracking['last_event'] ) ) {
 				$desc = (string) ( $tracking['last_event']['description'] ?? '' );
 				$when = (string) ( $tracking['last_event']['date'] ?? '' );
 				$loc  = (string) ( $tracking['last_event']['location'] ?? '' );
-				echo '<p>' . esc_html( trim( $desc . ' ' . $when . ' ' . $loc ) ) . '</p>';
+				echo '<p><strong>' . esc_html__( 'Latest scan:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( trim( $desc ) ) . '</p>';
+
+				if ( '' !== trim( $when ) ) {
+					echo '<p><strong>' . esc_html__( 'Scan time:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_tracking_datetime( $when ) ) . '</p>';
+				}
+
+				if ( '' !== trim( $loc ) ) {
+					echo '<p><strong>' . esc_html__( 'Scan location:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $loc ) . '</p>';
+				}
+			}
+
+			$recent_events = $this->extract_tracking_events_from_article( is_array( $tracking['raw'] ?? null ) ? $tracking['raw'] : array() );
+			$recent_events = $this->sort_tracking_events_newest_first( $recent_events );
+
+			if ( ! empty( $recent_events ) ) {
+				echo '<p><strong>' . esc_html__( 'Recent scans:', 'ck-order-workflow-suite' ) . '</strong></p>';
+				echo '<ul>';
+
+				$shown = 0;
+				foreach ( $recent_events as $event ) {
+					if ( $shown >= 3 || ! is_array( $event ) ) {
+						break;
+					}
+
+					$desc = trim( (string) ( $event['description'] ?? $event['event_description'] ?? $event['event'] ?? '' ) );
+					$when = trim( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? '' ) );
+					$loc  = trim( (string) ( $event['location'] ?? $event['location_name'] ?? $event['facility_name'] ?? '' ) );
+
+					if ( '' === $desc && '' === $when && '' === $loc ) {
+						continue;
+					}
+
+					$parts = array();
+					if ( '' !== $desc ) {
+						$parts[] = $desc;
+					}
+					if ( '' !== $when ) {
+						$parts[] = $this->format_tracking_datetime( $when );
+					}
+					if ( '' !== $loc ) {
+						$parts[] = $loc;
+					}
+
+					echo '<li>' . esc_html( implode( ' | ', $parts ) ) . '</li>';
+					$shown++;
+				}
+
+				echo '</ul>';
 			}
 		}
 
@@ -413,14 +465,7 @@ class CK_OWS_Tracking {
 		}
 
 		$events     = $this->extract_tracking_events_from_article( $article );
-		$last_event = ! empty( $events ) ? $events[0] : array();
-
-		if ( empty( $last_event ) && ! empty( $events ) ) {
-			$last_event = end( $events );
-			if ( ! is_array( $last_event ) ) {
-				$last_event = array();
-			}
-		}
+		$last_event = $this->resolve_latest_tracking_event( $events );
 
 		$status = '';
 		foreach ( array( $article['status'] ?? '', $article['tracking_status'] ?? '', $article['delivery_status'] ?? '', $article['_tracking_result_status'] ?? '' ) as $candidate_status ) {
@@ -444,9 +489,43 @@ class CK_OWS_Tracking {
 				'date'        => (string) ( $last_event['date'] ?? $last_event['event_time'] ?? $last_event['datetime'] ?? '' ),
 				'location'    => (string) ( $last_event['location'] ?? $last_event['location_name'] ?? $last_event['facility_name'] ?? '' ),
 			),
-			'eta'             => (string) ( $article['estimated_delivery_date'] ?? '' ),
+			'eta'             => $this->resolve_estimated_delivery_text( $article ),
 			'raw'             => $article,
 		);
+	}
+
+	private function resolve_estimated_delivery_text( array $article ): string {
+		$candidates = array(
+			$article['estimated_delivery_date'] ?? '',
+			$article['estimated_delivery'] ?? '',
+			$article['eta'] ?? '',
+		);
+
+		foreach ( $candidates as $candidate ) {
+			if ( is_string( $candidate ) && '' !== trim( $candidate ) ) {
+				return trim( $candidate );
+			}
+		}
+
+		$range = $article['estimated_delivery_range'] ?? $article['delivery_range'] ?? array();
+		if ( is_array( $range ) ) {
+			$start = trim( (string) ( $range['from'] ?? $range['start'] ?? '' ) );
+			$end   = trim( (string) ( $range['to'] ?? $range['end'] ?? '' ) );
+
+			if ( '' !== $start && '' !== $end ) {
+				return $this->format_tracking_datetime( $start ) . ' - ' . $this->format_tracking_datetime( $end );
+			}
+
+			if ( '' !== $start ) {
+				return $this->format_tracking_datetime( $start );
+			}
+
+			if ( '' !== $end ) {
+				return $this->format_tracking_datetime( $end );
+			}
+		}
+
+		return '';
 	}
 
 	private function extract_article_from_tracking_response( array $body ): array {
@@ -504,5 +583,64 @@ class CK_OWS_Tracking {
 		}
 
 		return array();
+	}
+
+	private function resolve_latest_tracking_event( array $events ): array {
+		$latest_event = array();
+		$latest_ts    = 0;
+
+		foreach ( $events as $event ) {
+			if ( ! is_array( $event ) ) {
+				continue;
+			}
+
+			$event_ts = strtotime( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? '' ) );
+			$event_ts = false === $event_ts ? 0 : (int) $event_ts;
+
+			if ( $event_ts >= $latest_ts ) {
+				$latest_ts    = $event_ts;
+				$latest_event = $event;
+			}
+		}
+
+		if ( ! empty( $latest_event ) ) {
+			return $latest_event;
+		}
+
+		$first = $events[0] ?? array();
+
+		return is_array( $first ) ? $first : array();
+	}
+
+	private function sort_tracking_events_newest_first( array $events ): array {
+		usort(
+			$events,
+			static function ( $a, $b ): int {
+				$a_time = is_array( $a ) ? strtotime( (string) ( $a['date'] ?? $a['event_time'] ?? $a['datetime'] ?? '' ) ) : false;
+				$b_time = is_array( $b ) ? strtotime( (string) ( $b['date'] ?? $b['event_time'] ?? $b['datetime'] ?? '' ) ) : false;
+
+				$a_ts = false === $a_time ? 0 : (int) $a_time;
+				$b_ts = false === $b_time ? 0 : (int) $b_time;
+
+				return $b_ts <=> $a_ts;
+			}
+		);
+
+		return $events;
+	}
+
+	private function format_tracking_datetime( string $value ): string {
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$timestamp = strtotime( $value );
+		if ( false === $timestamp ) {
+			return $value;
+		}
+
+		return wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $timestamp );
 	}
 }

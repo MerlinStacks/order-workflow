@@ -264,6 +264,8 @@ class CK_OWS_Order_Timeline {
 			$events = $tracking['raw']['tracking_events'];
 		} elseif ( isset( $tracking['raw']['article_events'] ) && is_array( $tracking['raw']['article_events'] ) ) {
 			$events = $tracking['raw']['article_events'];
+		} elseif ( isset( $tracking['raw']['tracking_details'] ) && is_array( $tracking['raw']['tracking_details'] ) ) {
+			$events = $tracking['raw']['tracking_details'];
 		}
 
 		if ( empty( $events ) ) {
@@ -285,7 +287,7 @@ class CK_OWS_Order_Timeline {
 			),
 			'delivered'           => array(
 				'label'    => __( 'Delivered', 'ck-order-workflow-suite' ),
-				'patterns' => array( 'delivered', 'proof of delivery', 'item delivered', 'successfully delivered' ),
+				'patterns' => array( 'delivered', 'proof of delivery', 'item delivered', 'successfully delivered', 'delivery complete', 'left in a safe place', 'awaiting collection', 'collected by customer' ),
 			),
 			'return-to-sender'    => array(
 				'label'    => __( 'Returning to CustomKings', 'ck-order-workflow-suite' ),
@@ -320,6 +322,25 @@ class CK_OWS_Order_Timeline {
 						}
 						break;
 					}
+				}
+			}
+		}
+
+		$tracking_status = strtolower( trim( (string) ( $tracking['status'] ?? $tracking['tracking_status'] ?? $tracking['raw']['status'] ?? $tracking['raw']['tracking_status'] ?? $tracking['raw']['delivery_status'] ?? '' ) ) );
+		$status_ts       = $this->resolve_event_timestamp( (string) ( $tracking['last_event']['date'] ?? '' ) );
+
+		if ( '' !== $tracking_status ) {
+			if ( false !== strpos( $tracking_status, 'delivered' ) ) {
+				if ( ! isset( $found_timestamps['delivered'] ) ) {
+					$found_timestamps['delivered'] = $status_ts;
+				}
+			} elseif ( false !== strpos( $tracking_status, 'out for delivery' ) ) {
+				if ( ! isset( $found_timestamps['out-for-delivery'] ) ) {
+					$found_timestamps['out-for-delivery'] = $status_ts;
+				}
+			} elseif ( false !== strpos( $tracking_status, 'transit' ) ) {
+				if ( ! isset( $found_timestamps['in-transit'] ) ) {
+					$found_timestamps['in-transit'] = $status_ts;
 				}
 			}
 		}
