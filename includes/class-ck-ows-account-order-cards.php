@@ -72,7 +72,6 @@ class CK_OWS_Account_Order_Cards {
 	private function render_order_card( WC_Order $order ): void {
 		$order_number = $order->get_order_number();
 		$order_date   = $order->get_date_created();
-		$status_name  = wc_get_order_status_name( $order->get_status() );
 		$total        = $order->get_formatted_order_total();
 
 		echo '<article class="ck-ows-order-card">';
@@ -82,7 +81,6 @@ class CK_OWS_Account_Order_Cards {
 			echo '<div class="ck-ows-order-card__date">' . esc_html( wc_format_datetime( $order_date ) ) . '</div>';
 		}
 		echo '</div>';
-		echo '<span class="ck-ows-order-card__status">' . esc_html( $status_name ) . '</span>';
 		echo '</header>';
 
 		echo '<div class="ck-ows-order-card__items">';

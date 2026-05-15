@@ -112,7 +112,6 @@ class CK_OWS_Order_Timeline {
 		}
 
 		$current_index  = $this->resolve_current_index( $stages, $current_status );
-		$status_label   = wc_get_order_status_name( $current_status );
 		$created_date   = $order->get_date_created();
 		$created_label  = $created_date ? wp_date( get_option( 'date_format' ), $created_date->getTimestamp() ) : __( 'an earlier date', 'ck-order-workflow-suite' );
 
@@ -122,7 +121,6 @@ class CK_OWS_Order_Timeline {
 		echo '<p class="ck-ows-order-timeline__summary">';
 		/* translators: 1: order number, 2: order placed date. */
 		echo '<span>' . sprintf( esc_html__( 'Order #%1$s placed on %2$s', 'ck-order-workflow-suite' ), esc_html( $order->get_order_number() ), esc_html( $created_label ) ) . '</span>';
-		echo '<span class="ck-ows-order-timeline__status">' . esc_html( $status_label ) . '</span>';
 		echo '</p>';
 		echo '<ol class="ck-ows-order-timeline__list" aria-label="' . esc_attr__( 'Order progress timeline', 'ck-order-workflow-suite' ) . '">';
 

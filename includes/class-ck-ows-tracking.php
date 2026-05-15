@@ -148,6 +148,10 @@ class CK_OWS_Tracking {
 	}
 
 	public function render_live_tracking_panel( WC_Order $order ): void {
+		if ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) {
+			return;
+		}
+
 		$is_store_manager = current_user_can( 'manage_woocommerce' );
 
 		if ( ! is_user_logged_in() || ( ! $is_store_manager && (int) $order->get_user_id() !== get_current_user_id() ) ) {
