@@ -261,16 +261,8 @@ class CK_OWS_Order_Timeline {
 			return array();
 		}
 
-		$events = array();
-		if ( isset( $tracking['raw']['events'] ) && is_array( $tracking['raw']['events'] ) ) {
-			$events = $tracking['raw']['events'];
-		} elseif ( isset( $tracking['raw']['tracking_events'] ) && is_array( $tracking['raw']['tracking_events'] ) ) {
-			$events = $tracking['raw']['tracking_events'];
-		} elseif ( isset( $tracking['raw']['article_events'] ) && is_array( $tracking['raw']['article_events'] ) ) {
-			$events = $tracking['raw']['article_events'];
-		} elseif ( isset( $tracking['raw']['tracking_details'] ) && is_array( $tracking['raw']['tracking_details'] ) ) {
-			$events = $tracking['raw']['tracking_details'];
-		}
+
+		$events = $this->extract_tracking_events_from_payload( is_array( $tracking['raw'] ?? null ) ? $tracking['raw'] : array() );
 
 		if ( empty( $events ) ) {
 			return array();
@@ -385,6 +377,83 @@ class CK_OWS_Order_Timeline {
 		}
 
 		return (int) $timestamp;
+	}
+
+	private function extract_tracking_events_from_payload( array $payload ): array {
+		$event_keys = array( 'events', 'tracking_events', 'article_events', 'tracking_details' );
+
+		foreach ( $event_keys as $key ) {
+			if ( isset( $payload[ $key ] ) && is_array( $payload[ $key ] ) ) {
+				$events = $this->normalize_tracking_events( $payload[ $key ] );
+				if ( ! empty( $events ) ) {
+					return $events;
+				}
+			}
+		}
+
+		return $this->collect_tracking_events_from_node( $payload );
+	}
+
+	private function normalize_tracking_events( array $events ): array {
+		$normalized = array();
+
+		foreach ( $events as $event ) {
+			if ( ! is_array( $event ) ) {
+				continue;
+			}
+
+			if ( $this->looks_like_tracking_event( $event ) ) {
+				$normalized[] = $event;
+				continue;
+			}
+
+			$nested = $this->collect_tracking_events_from_node( $event );
+			if ( ! empty( $nested ) ) {
+				$normalized = array_merge( $normalized, $nested );
+			}
+		}
+
+		return $normalized;
+	}
+
+	private function collect_tracking_events_from_node( $node, int $depth = 0 ): array {
+		if ( $depth > 5 || ! is_array( $node ) ) {
+			return array();
+		}
+
+		if ( $this->looks_like_tracking_event( $node ) ) {
+			return array( $node );
+		}
+
+		$events = array();
+		foreach ( $node as $child ) {
+			if ( ! is_array( $child ) ) {
+				continue;
+			}
+
+			$events = array_merge( $events, $this->collect_tracking_events_from_node( $child, $depth + 1 ) );
+		}
+
+		return $events;
+	}
+
+	private function looks_like_tracking_event( array $event ): bool {
+		$description = trim(
+			implode(
+				' ',
+				array(
+					(string) ( $event['description'] ?? '' ),
+					(string) ( $event['event_description'] ?? '' ),
+					(string) ( $event['event'] ?? '' ),
+					(string) ( $event['status'] ?? '' ),
+					(string) ( $event['summary'] ?? '' ),
+					(string) ( $event['title'] ?? '' ),
+				)
+			)
+		);
+		$date = trim( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? $event['time'] ?? $event['timestamp'] ?? '' ) );
+
+		return '' !== $description && '' !== $date;
 	}
 
 	private function get_stage_icon_svg( string $stage_key ): string {
