@@ -643,6 +643,33 @@
   padding: 0;
 }
 
+.mfp-wrap #customer_login .u-column1,
+.mfp-wrap #customer_login .u-column2,
+.mfp-wrap #customer_login .col-1,
+.mfp-wrap #customer_login .col-2,
+.lightbox-content #customer_login .u-column1,
+.lightbox-content #customer_login .u-column2,
+.lightbox-content #customer_login .col-1,
+.lightbox-content #customer_login .col-2 {
+  float: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.mfp-wrap #customer_login form.login,
+.mfp-wrap #customer_login form.register,
+.mfp-wrap #customer_login .woocommerce-form-login,
+.mfp-wrap #customer_login .woocommerce-form-register,
+.lightbox-content #customer_login form.login,
+.lightbox-content #customer_login form.register,
+.lightbox-content #customer_login .woocommerce-form-login,
+.lightbox-content #customer_login .woocommerce-form-register {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
 .mfp-wrap #customer_login.ck-ows-auth-mode-login .u-column2,
 .mfp-wrap #customer_login.ck-ows-auth-mode-login .col-2,
 .lightbox-content #customer_login.ck-ows-auth-mode-login .u-column2,
