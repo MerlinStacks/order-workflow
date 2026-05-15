@@ -256,6 +256,7 @@ class CK_OWS_Tracking {
 			$events = $this->extract_tracking_events_from_article( is_array( $tracking['raw'] ?? null ) ? $tracking['raw'] : array() );
 			$events = $this->sort_tracking_events_newest_first( $events );
 			$events = array_slice( $events, 0, 10 );
+			$raw    = is_array( $tracking['raw'] ?? null ) ? $tracking['raw'] : array();
 
 			$debug = array(
 				'order_id'        => $order->get_id(),
@@ -264,7 +265,22 @@ class CK_OWS_Tracking {
 				'eta'             => (string) ( $tracking['eta'] ?? '' ),
 				'last_event'      => $tracking['last_event'] ?? array(),
 				'events_sample'   => $events,
-				'has_tracking'    => is_array( $tracking ) && ! empty( $tracking ),
+				'has_tracking'       => is_array( $tracking ) && ! empty( $tracking ),
+				'last_sync_error'    => (string) $order->get_meta( self::META_LAST_SYNC_ERROR, true ),
+				'raw_top_level_keys' => array_keys( $raw ),
+				'raw_status_fields'  => array(
+					'status'          => (string) ( $raw['status'] ?? '' ),
+					'tracking_status' => (string) ( $raw['tracking_status'] ?? '' ),
+					'delivery_status' => (string) ( $raw['delivery_status'] ?? '' ),
+				),
+				'raw_excerpt' => array(
+					'trackable_items' => $raw['trackable_items'] ?? null,
+					'articles'        => $raw['articles'] ?? null,
+					'events'          => $raw['events'] ?? null,
+					'tracking_events' => $raw['tracking_events'] ?? null,
+					'article_events'  => $raw['article_events'] ?? null,
+					'tracking_details' => $raw['tracking_details'] ?? null,
+				),
 			);
 
 			echo '<details class="ck-ows-tracking-debug"><summary>' . esc_html__( 'Tracking debug (admin only)', 'ck-order-workflow-suite' ) . '</summary>';
@@ -292,12 +308,16 @@ class CK_OWS_Tracking {
 	public function suppress_default_tracking_output(): void {
 		if ( class_exists( 'WC_Shipment_Tracking_Actions' ) ) {
 			remove_action( 'woocommerce_view_order', array( 'WC_Shipment_Tracking_Actions', 'display_tracking_info' ), 20 );
+			remove_action( 'woocommerce_order_details_after_order_table', array( 'WC_Shipment_Tracking_Actions', 'display_tracking_info' ), 20 );
+			remove_action( 'woocommerce_order_details_before_order_table', array( 'WC_Shipment_Tracking_Actions', 'display_tracking_info' ), 20 );
 		}
 
 		if ( function_exists( 'wc_shipment_tracking' ) ) {
 			$shipment_tracking = wc_shipment_tracking();
 			if ( is_object( $shipment_tracking ) && isset( $shipment_tracking->actions ) && is_object( $shipment_tracking->actions ) ) {
 				remove_action( 'woocommerce_view_order', array( $shipment_tracking->actions, 'display_tracking_info' ), 20 );
+				remove_action( 'woocommerce_order_details_after_order_table', array( $shipment_tracking->actions, 'display_tracking_info' ), 20 );
+				remove_action( 'woocommerce_order_details_before_order_table', array( $shipment_tracking->actions, 'display_tracking_info' ), 20 );
 			}
 		}
 	}
@@ -311,7 +331,26 @@ class CK_OWS_Tracking {
 
 		$printed = true;
 
-		echo '<style>.woocommerce-account .woocommerce-MyAccount-content>section.woocommerce-customer-details+h2,.woocommerce-account .woocommerce-MyAccount-content>section.woocommerce-customer-details+h2+table.my_account_tracking,.woocommerce-account .woocommerce-MyAccount-content>h2:has(+table.my_account_tracking),.woocommerce-account .woocommerce-MyAccount-content>table.my_account_tracking{display:none!important}.ck-ows-track-auspost{display:inline-flex;align-items:center;gap:8px;background:#e4002b!important;border-color:#e4002b!important;color:#fff!important;font-weight:700}.ck-ows-track-auspost:hover,.ck-ows-track-auspost:focus{background:#bd0024!important;border-color:#bd0024!important;color:#fff!important}.ck-ows-track-auspost__logo{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px}.ck-ows-track-auspost__logo svg{display:block;width:22px;height:22px;fill:#fff}</style>';
+		$styles = '.woocommerce-account .woocommerce-MyAccount-content table.my_account_tracking{display:none!important}'
+			. '.woocommerce-account .woocommerce-MyAccount-content h2.ck-ows-hide-tracking-title{display:none!important}'
+			. '.ck-ows-track-auspost{display:inline-flex;align-items:center;gap:8px;background:#e4002b!important;border-color:#e4002b!important;color:#fff!important;font-weight:700}'
+			. '.ck-ows-track-auspost:hover,.ck-ows-track-auspost:focus{background:#bd0024!important;border-color:#bd0024!important;color:#fff!important}'
+			. '.ck-ows-track-auspost__logo{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px}'
+			. '.ck-ows-track-auspost__logo svg{display:block;width:22px;height:22px;fill:#fff}';
+
+		$script = '(function(){'
+			. 'var tables=document.querySelectorAll(".woocommerce-account .woocommerce-MyAccount-content table.my_account_tracking");'
+			. 'for(var i=0;i<tables.length;i++){' 
+			. 'var table=tables[i];var prev=table.previousElementSibling;'
+			. 'if(prev&&prev.tagName==="H2"){' 
+			. 'var txt=(prev.textContent||"").trim().toLowerCase();'
+			. 'if(txt==="tracking information"||txt==="shipment tracking"||txt==="tracking"){prev.classList.add("ck-ows-hide-tracking-title");}'
+			. '}'
+			. '}'
+			. '})();';
+
+		echo '<style>' . esc_html( $styles ) . '</style>';
+		echo '<script>' . $script . '</script>';
 	}
 
 	private function refresh_tracking_for_order_view( WC_Order $order ): array {
@@ -617,7 +656,7 @@ class CK_OWS_Tracking {
 			$status = 'Delivered';
 		}
 
-		return array(
+		$payload = array(
 			'provider'        => 'auspost',
 			'tracking_number' => $tracking_number,
 			'status'          => $status,
@@ -629,6 +668,12 @@ class CK_OWS_Tracking {
 			'eta'             => $this->resolve_estimated_delivery_text( $article ),
 			'raw'             => $article,
 		);
+
+		if ( ! $this->is_tracking_payload_usable( $payload ) ) {
+			return new WP_Error( 'ck_ows_auspost_empty_payload', 'AusPost returned no usable status or scan events for this tracking number.' );
+		}
+
+		return $payload;
 	}
 
 	private function resolve_estimated_delivery_text( array $article ): string {
@@ -696,6 +741,15 @@ class CK_OWS_Tracking {
 				$first['_tracking_result_status'] = $status;
 			}
 
+			$candidate = $this->find_tracking_article_candidate_in_node( $first );
+			if ( ! empty( $candidate ) ) {
+				if ( '' !== $status && ! isset( $candidate['_tracking_result_status'] ) ) {
+					$candidate['_tracking_result_status'] = $status;
+				}
+
+				return $candidate;
+			}
+
 			return $first;
 		}
 
@@ -705,6 +759,46 @@ class CK_OWS_Tracking {
 
 		if ( isset( $body['article'] ) && is_array( $body['article'] ) ) {
 			return $body['article'];
+		}
+
+		$candidate = $this->find_tracking_article_candidate_in_node( $body );
+		if ( ! empty( $candidate ) ) {
+			return $candidate;
+		}
+
+		return array();
+	}
+
+	private function find_tracking_article_candidate_in_node( $node, int $depth = 0 ): array {
+		if ( $depth > 4 || ! is_array( $node ) ) {
+			return array();
+		}
+
+		if ( isset( $node['events'] ) && is_array( $node['events'] ) ) {
+			return $node;
+		}
+
+		if ( isset( $node['tracking_events'] ) && is_array( $node['tracking_events'] ) ) {
+			return $node;
+		}
+
+		if ( isset( $node['article_events'] ) && is_array( $node['article_events'] ) ) {
+			return $node;
+		}
+
+		if ( isset( $node['tracking_details'] ) && is_array( $node['tracking_details'] ) ) {
+			return $node;
+		}
+
+		foreach ( $node as $child ) {
+			if ( ! is_array( $child ) ) {
+				continue;
+			}
+
+			$candidate = $this->find_tracking_article_candidate_in_node( $child, $depth + 1 );
+			if ( ! empty( $candidate ) ) {
+				return $candidate;
+			}
 		}
 
 		return array();
