@@ -17,7 +17,7 @@ if ( 'yes' === (string) ( $settings['keep_data_on_uninstall'] ?? 'no' ) ) {
 }
 
 delete_option( 'ck_ows_settings' );
-delete_option( 'ck_ows_reg_guard_log' );
+delete_option( 'ckrg_block_log' );
 delete_option( 'ck_ows_audit_log' );
 delete_option( 'ck_ows_last_connection_tests' );
 delete_option( 'ck_ows_last_webhook_delivery' );

@@ -18,15 +18,21 @@ function assert_contains(string $source, string $needle, string $label, array &$
 $failures = array();
 
 $tracking_events_file = $root . '/includes/class-ck-ows-tracking-email-events.php';
+$tracking_file        = $root . '/includes/class-ck-ows-tracking.php';
 $settings_file        = $root . '/includes/class-ck-ows-settings.php';
 $uninstall_file       = $root . '/uninstall.php';
 
 $tracking_source = file_get_contents($tracking_events_file);
+$tracking_core_source = file_get_contents($tracking_file);
 $settings_source = file_get_contents($settings_file);
 $uninstall_source = file_get_contents($uninstall_file);
 
 if (! is_string($tracking_source) || '' === $tracking_source) {
 	$failures[] = '[FAIL] Could not read tracking email events source';
+}
+
+if (! is_string($tracking_core_source) || '' === $tracking_core_source) {
+	$failures[] = '[FAIL] Could not read tracking source';
 }
 
 if (! is_string($settings_source) || '' === $settings_source) {
@@ -42,6 +48,8 @@ if (empty($failures)) {
 	assert_contains($tracking_source, 'schedule_retry(', 'retry scheduler usage', $failures);
 	assert_contains($tracking_source, 'push_dead_letter(', 'dead-letter writer usage', $failures);
 	assert_contains($tracking_source, "'ck_ows_last_webhook_delivery'", 'last webhook status tracking', $failures);
+	assert_contains($tracking_core_source, 'isset( $first[\'items\'][0] )', 'AusPost tracking_results items parser', $failures);
+	assert_contains($tracking_core_source, 'isset( $body[\'items\'][0] )', 'AusPost top-level items parser', $failures);
 
 	assert_contains($settings_source, 'render_dead_letters_panel()', 'dead-letter panel renderer', $failures);
 	assert_contains($settings_source, 'retry_dead_letter(): void', 'dead-letter retry handler', $failures);
@@ -50,8 +58,11 @@ if (empty($failures)) {
 	assert_contains($settings_source, 'check_admin_referer( self::DLQ_RETRY_NONCE', 'retry nonce verification', $failures);
 	assert_contains($settings_source, 'check_admin_referer( self::DLQ_CLEAR_NONCE', 'clear nonce verification', $failures);
 	assert_contains($settings_source, 'check_admin_referer( self::DLQ_RETRY_ALL_NONCE', 'retry-all nonce verification', $failures);
+	assert_contains($settings_source, "'artwork_events_webhook_url'", 'artwork webhook URL setting', $failures);
+	assert_contains($settings_source, "'artwork_events_auth_token'", 'artwork auth token setting', $failures);
 
 	assert_contains($uninstall_source, "keep_data_on_uninstall", 'uninstall keep-data toggle', $failures);
+	assert_contains($uninstall_source, "delete_option( 'ckrg_block_log' )", 'registration guard cleanup on uninstall', $failures);
 	assert_contains($uninstall_source, "delete_option( 'ck_ows_tracking_event_dead_letters' )", 'dead-letter cleanup on uninstall', $failures);
 }
 

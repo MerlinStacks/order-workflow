@@ -263,6 +263,8 @@ class CK_OWS_Settings {
 
 		$this->register_field( 'keep_data_on_uninstall', __( 'Keep plugin data on uninstall', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
 		$this->register_field( 'use_new_invoice_plugin', __( 'Use new invoice plugin integration', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
+		$this->register_field( 'artwork_events_webhook_url', __( 'Artwork events webhook URL', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
+		$this->register_field( 'artwork_events_auth_token', __( 'Artwork events auth token', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
 		$this->register_field( 'tracking_email_events_retry_attempts', __( 'Webhook retry attempts', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
 		$this->register_field( 'tracking_email_events_retry_backoff_minutes', __( 'Retry backoff (minutes)', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
 	}
@@ -319,6 +321,8 @@ class CK_OWS_Settings {
 		$current['registration_blocked_domains'] = isset( $input['registration_blocked_domains'] ) ? $this->sanitize_blocked_domain_list( (string) $input['registration_blocked_domains'] ) : '';
 		$current['keep_data_on_uninstall'] = $this->is_enabled_input( $input, 'keep_data_on_uninstall' ) ? 'yes' : 'no';
 		$current['use_new_invoice_plugin'] = $this->is_enabled_input( $input, 'use_new_invoice_plugin' ) ? 'yes' : 'no';
+		$current['artwork_events_webhook_url'] = isset( $input['artwork_events_webhook_url'] ) ? $this->sanitize_https_webhook_url( (string) $input['artwork_events_webhook_url'] ) : '';
+		$current['artwork_events_auth_token'] = $this->sanitize_sensitive_setting( $input, $current, 'artwork_events_auth_token' );
 
 		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
 			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
@@ -904,6 +908,14 @@ class CK_OWS_Settings {
 		if ( 'use_new_invoice_plugin' === $key ) {
 			echo '<p class="description">' . esc_html__( 'Enable to read invoice links from the new provider API. Disable to keep the current WooCommerce invoice action behavior.', 'ck-order-workflow-suite' ) . '</p>';
 			echo '<p class="description"><strong>' . esc_html__( 'Saved value:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( 'yes' === (string) self::get( 'use_new_invoice_plugin', 'no' ) ? __( 'Enabled', 'ck-order-workflow-suite' ) : __( 'Disabled', 'ck-order-workflow-suite' ) ) . '</p>';
+		}
+
+		if ( 'artwork_events_webhook_url' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Optional HTTPS endpoint for artwork approval events. Leave blank to auto-discover OverSeek or use the local OverSeek REST endpoint.', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
+		if ( 'artwork_events_auth_token' === $key ) {
+			echo '<p class="description">' . esc_html__( 'If set, outgoing artwork events include Authorization: Bearer {token}, and incoming artwork events must provide the same bearer token.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
 		if ( 'email_preferences_api_base_url' === $key ) {

@@ -294,8 +294,10 @@ class CK_OWS_Tracking {
 
 	public function get_tracking_payload_for_order( WC_Order $order, bool $force_refresh = false ): array {
 		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+		$last_sync_ts = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
+		$is_refresh_due = $last_sync_ts <= 0 || ( time() - $last_sync_ts ) >= ( 15 * MINUTE_IN_SECONDS );
 
-		if ( $force_refresh || ! $this->is_tracking_payload_usable( $tracking ) ) {
+		if ( $force_refresh || $is_refresh_due || ! $this->is_tracking_payload_usable( $tracking ) ) {
 			$tracking = $this->refresh_tracking_for_order_view( $order );
 			if ( ! $this->is_tracking_payload_usable( $tracking ) ) {
 				$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
@@ -320,6 +322,45 @@ class CK_OWS_Tracking {
 				remove_action( 'woocommerce_order_details_before_order_table', array( $shipment_tracking->actions, 'display_tracking_info' ), 20 );
 			}
 		}
+
+		$this->remove_tracking_display_callbacks_from_hook( 'woocommerce_view_order' );
+		$this->remove_tracking_display_callbacks_from_hook( 'woocommerce_order_details_after_order_table' );
+		$this->remove_tracking_display_callbacks_from_hook( 'woocommerce_order_details_before_order_table' );
+	}
+
+	private function remove_tracking_display_callbacks_from_hook( string $hook_name ): void {
+		global $wp_filter;
+
+		if ( ! isset( $wp_filter[ $hook_name ] ) || ! $wp_filter[ $hook_name ] instanceof WP_Hook ) {
+			return;
+		}
+
+		$callbacks = $wp_filter[ $hook_name ]->callbacks;
+		if ( ! is_array( $callbacks ) ) {
+			return;
+		}
+
+		foreach ( $callbacks as $priority => $entries ) {
+			if ( ! is_array( $entries ) ) {
+				continue;
+			}
+
+			foreach ( $entries as $entry ) {
+				$function = $entry['function'] ?? null;
+
+				if ( ! is_array( $function ) || ! isset( $function[1] ) ) {
+					continue;
+				}
+
+				if ( 'display_tracking_info' !== $function[1] ) {
+					continue;
+				}
+
+				if ( is_object( $function[0] ) && false !== strpos( strtolower( get_class( $function[0] ) ), 'shipment_tracking' ) ) {
+					remove_action( $hook_name, $function, (int) $priority );
+				}
+			}
+		}
 	}
 
 	private function render_tracking_ui_styles_once(): void {
@@ -332,6 +373,8 @@ class CK_OWS_Tracking {
 		$printed = true;
 
 		$styles = '.woocommerce-account .woocommerce-MyAccount-content table.my_account_tracking{display:none!important}'
+			. '.woocommerce-account .woocommerce-MyAccount-content h2 + table.my_account_tracking{display:none!important}'
+			. '.woocommerce-account .woocommerce-MyAccount-content h2:has(+table.my_account_tracking){display:none!important}'
 			. '.woocommerce-account .woocommerce-MyAccount-content h2.ck-ows-hide-tracking-title{display:none!important}'
 			. '.ck-ows-track-auspost{display:inline-flex;align-items:center;gap:8px;background:#e4002b!important;border-color:#e4002b!important;color:#fff!important;font-weight:700}'
 			. '.ck-ows-track-auspost:hover,.ck-ows-track-auspost:focus{background:#bd0024!important;border-color:#bd0024!important;color:#fff!important}'
@@ -339,6 +382,7 @@ class CK_OWS_Tracking {
 			. '.ck-ows-track-auspost__logo svg{display:block;width:22px;height:22px;fill:#fff}';
 
 		$script = '(function(){'
+			. 'function hideTrackingHeader(){'
 			. 'var tables=document.querySelectorAll(".woocommerce-account .woocommerce-MyAccount-content table.my_account_tracking");'
 			. 'for(var i=0;i<tables.length;i++){' 
 			. 'var table=tables[i];var prev=table.previousElementSibling;'
@@ -346,6 +390,16 @@ class CK_OWS_Tracking {
 			. 'var txt=(prev.textContent||"").trim().toLowerCase();'
 			. 'if(txt==="tracking information"||txt==="shipment tracking"||txt==="tracking"){prev.classList.add("ck-ows-hide-tracking-title");}'
 			. '}'
+			. '}'
+			. '}'
+			. 'hideTrackingHeader();'
+			. 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",hideTrackingHeader);}else{hideTrackingHeader();}'
+			. 'window.addEventListener("load",hideTrackingHeader);'
+			. 'if(window.MutationObserver){'
+			. 'var root=document.querySelector(".woocommerce-account .woocommerce-MyAccount-content")||document.body;'
+			. 'var observer=new MutationObserver(function(){hideTrackingHeader();});'
+			. 'observer.observe(root,{childList:true,subtree:true});'
+			. 'setTimeout(function(){observer.disconnect();},10000);'
 			. '}'
 			. '})();';
 
@@ -737,6 +791,16 @@ class CK_OWS_Tracking {
 				return $item;
 			}
 
+			if ( isset( $first['items'][0] ) && is_array( $first['items'][0] ) ) {
+				$item = $first['items'][0];
+
+				if ( '' !== $status && ! isset( $item['_tracking_result_status'] ) ) {
+					$item['_tracking_result_status'] = $status;
+				}
+
+				return $item;
+			}
+
 			if ( '' !== $status && ! isset( $first['_tracking_result_status'] ) ) {
 				$first['_tracking_result_status'] = $status;
 			}
@@ -759,6 +823,10 @@ class CK_OWS_Tracking {
 
 		if ( isset( $body['article'] ) && is_array( $body['article'] ) ) {
 			return $body['article'];
+		}
+
+		if ( isset( $body['items'][0] ) && is_array( $body['items'][0] ) ) {
+			return $body['items'][0];
 		}
 
 		$candidate = $this->find_tracking_article_candidate_in_node( $body );
