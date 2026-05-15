@@ -18,7 +18,7 @@ class CK_OWS_Invoice_Integration {
 			$status   = is_array( $invoice ) && isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
 
 			if ( 'ready' === $status ) {
-				return self::build_rest_download_url( $order_id );
+				return self::build_rest_download_url( $order );
 			}
 
 			return '';
@@ -40,7 +40,7 @@ class CK_OWS_Invoice_Integration {
 			$status   = is_array( $invoice ) && isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
 
 			if ( 'ready' === $status ) {
-				return self::build_rest_download_url( $order_id );
+				return self::build_rest_download_url( $order );
 			}
 
 			return '';
@@ -80,10 +80,11 @@ class CK_OWS_Invoice_Integration {
 		return $invoice;
 	}
 
-	private static function build_rest_download_url( int $order_id ): string {
+	private static function build_rest_download_url( WC_Order $order ): string {
 		return (string) add_query_arg(
 			array(
-				'order_id' => $order_id,
+				'order_id' => $order->get_id(),
+				'key'      => $order->get_order_key(),
 			),
 			'/wp-json/overseek/v1/invoices/download'
 		);

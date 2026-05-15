@@ -13,6 +13,7 @@ class CK_OWS_Order_Timeline {
 	private const META_TS_IN_PRODUCTION     = '_ck_ows_ts_in_production';
 	private const META_TS_IN_DISPATCH       = '_ck_ows_ts_in_dispatch';
 	private const META_TS_DELIVERED         = '_ck_ows_ts_delivered';
+	private const META_LIVE_TRACKING        = '_ck_ows_live_tracking';
 
 	private static ?CK_OWS_Order_Timeline $instance = null;
 
@@ -91,6 +92,12 @@ class CK_OWS_Order_Timeline {
 			'label' => __( 'In Dispatch', 'ck-order-workflow-suite' ),
 			'ts'    => (int) $order->get_meta( self::META_TS_IN_DISPATCH, true ),
 		);
+
+		$tracking_stages = $this->resolve_auspost_tracking_stages( $order );
+		if ( ! empty( $tracking_stages ) ) {
+			$stages = array_merge( $stages, $tracking_stages );
+		}
+
 		$stages[] = array(
 			'key'   => 'completed',
 			'label' => __( 'Delivered', 'ck-order-workflow-suite' ),
@@ -238,9 +245,138 @@ class CK_OWS_Order_Timeline {
 		echo '</section>';
 	}
 
+	private function resolve_auspost_tracking_stages( WC_Order $order ): array {
+		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+
+		if ( ! is_array( $tracking ) || empty( $tracking ) ) {
+			return array();
+		}
+
+		$provider = strtolower( trim( (string) ( $tracking['provider'] ?? '' ) ) );
+		if ( '' !== $provider && 'auspost' !== $provider ) {
+			return array();
+		}
+
+		$events = array();
+		if ( isset( $tracking['raw']['events'] ) && is_array( $tracking['raw']['events'] ) ) {
+			$events = $tracking['raw']['events'];
+		} elseif ( isset( $tracking['raw']['tracking_events'] ) && is_array( $tracking['raw']['tracking_events'] ) ) {
+			$events = $tracking['raw']['tracking_events'];
+		} elseif ( isset( $tracking['raw']['article_events'] ) && is_array( $tracking['raw']['article_events'] ) ) {
+			$events = $tracking['raw']['article_events'];
+		}
+
+		if ( empty( $events ) ) {
+			return array();
+		}
+
+		$milestones = array(
+			'received-by-auspost' => array(
+				'label'    => __( 'Received by Auspost', 'ck-order-workflow-suite' ),
+				'patterns' => array( 'received by australia post', 'received by auspost', 'lodged', 'accepted by carrier', 'received by carrier' ),
+			),
+			'in-transit'          => array(
+				'label'    => __( 'In Transit', 'ck-order-workflow-suite' ),
+				'patterns' => array( 'in transit', 'transit', 'processed at facility', 'processed through facility', 'onboard for delivery' ),
+			),
+			'out-for-delivery'    => array(
+				'label'    => __( 'Out for Delivery', 'ck-order-workflow-suite' ),
+				'patterns' => array( 'out for delivery', 'onboard for delivery', 'with driver for delivery' ),
+			),
+			'return-to-sender'    => array(
+				'label'    => __( 'Returning to CustomKings', 'ck-order-workflow-suite' ),
+				'patterns' => array( 'return to sender', 'returning to sender', 'returned to sender' ),
+			),
+		);
+
+		$found_timestamps = array();
+
+		foreach ( $events as $event ) {
+			if ( ! is_array( $event ) ) {
+				continue;
+			}
+
+			$description = strtolower( trim( (string) ( $event['description'] ?? $event['event_description'] ?? $event['event'] ?? '' ) ) );
+			$status      = strtolower( trim( (string) ( $event['status'] ?? '' ) ) );
+			$haystack    = trim( $description . ' ' . $status );
+
+			if ( '' === $haystack ) {
+				continue;
+			}
+
+			$event_ts = $this->resolve_event_timestamp(
+				(string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? '' )
+			);
+
+			foreach ( $milestones as $key => $milestone ) {
+				foreach ( $milestone['patterns'] as $pattern ) {
+					if ( false !== strpos( $haystack, $pattern ) ) {
+						if ( ! isset( $found_timestamps[ $key ] ) || ( $event_ts > 0 && $event_ts < $found_timestamps[ $key ] ) ) {
+							$found_timestamps[ $key ] = $event_ts;
+						}
+						break;
+					}
+				}
+			}
+		}
+
+		$stages = array();
+		foreach ( array( 'received-by-auspost', 'in-transit', 'out-for-delivery' ) as $key ) {
+			if ( isset( $found_timestamps[ $key ] ) ) {
+				$stages[] = array(
+					'key'   => $key,
+					'label' => $milestones[ $key ]['label'],
+					'ts'    => (int) $found_timestamps[ $key ],
+				);
+			}
+		}
+
+		if ( isset( $found_timestamps['return-to-sender'] ) ) {
+			$stages[] = array(
+				'key'   => 'return-to-sender',
+				'label' => $milestones['return-to-sender']['label'],
+				'ts'    => (int) $found_timestamps['return-to-sender'],
+			);
+		}
+
+		return $stages;
+	}
+
+	private function resolve_event_timestamp( string $value ): int {
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return 0;
+		}
+
+		$timestamp = strtotime( $value );
+
+		if ( false === $timestamp ) {
+			return 0;
+		}
+
+		return (int) $timestamp;
+	}
+
 	private function get_stage_icon_svg( string $stage_key ): string {
 		if ( 'completed' === $stage_key ) {
 			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M20 6L9 17l-5-5"/></svg>';
+		}
+
+		if ( 'received-by-auspost' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21l8-4.5V7.5"/></svg>';
+		}
+
+		if ( 'in-transit' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M2 13h9l3-4h4l4 4v4h-2"/><circle cx="7" cy="17" r="1.7"/><circle cx="18" cy="17" r="1.7"/><path d="M11 17h5"/></svg>';
+		}
+
+		if ( 'out-for-delivery' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M2 13h11v4H2z"/><path d="M13 13h4l3 3v1h-7z"/><circle cx="7" cy="18" r="1.7"/><circle cx="18" cy="18" r="1.7"/></svg>';
+		}
+
+		if ( 'return-to-sender' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M20 12a8 8 0 1 1-2.35-5.66"/><path d="M20 4v6h-6"/></svg>';
 		}
 
 		if ( 'in-dispatch' === $stage_key ) {

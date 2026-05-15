@@ -91,6 +91,10 @@ class CK_OWS_Tracking {
 					continue;
 				}
 
+				if ( $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers ) ) {
+					continue;
+				}
+
 				$latest_payload = null;
 				$last_error     = '';
 
@@ -199,6 +203,11 @@ class CK_OWS_Tracking {
 			return array();
 		}
 
+		if ( $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers ) ) {
+			$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+			return is_array( $tracking ) ? $tracking : array();
+		}
+
 		foreach ( $tracking_numbers as $tracking_number ) {
 			if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
 				continue;
@@ -287,6 +296,48 @@ class CK_OWS_Tracking {
 		}
 
 		if ( 1 === preg_match( '/^[0-9]{10,22}$/', $normalized ) ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private function should_skip_sync_for_delivered_order( WC_Order $order, array $tracking_numbers ): bool {
+		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+
+		if ( ! is_array( $tracking ) || empty( $tracking ) ) {
+			return false;
+		}
+
+		$stored_tracking_number = isset( $tracking['tracking_number'] ) ? sanitize_text_field( (string) $tracking['tracking_number'] ) : '';
+
+		if ( '' !== $stored_tracking_number && ! in_array( $stored_tracking_number, $tracking_numbers, true ) ) {
+			return false;
+		}
+
+		if ( $this->is_delivered_payload( $tracking ) ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private function is_delivered_payload( array $payload ): bool {
+		$status      = strtolower( trim( (string) ( $payload['status'] ?? $payload['tracking_status'] ?? '' ) ) );
+		$description = strtolower( trim( (string) ( $payload['last_event']['description'] ?? '' ) ) );
+
+		if ( false !== strpos( $status, 'delivered' ) || false !== strpos( $description, 'delivered' ) ) {
+			return true;
+		}
+
+		$raw = $payload['raw'] ?? array();
+		if ( ! is_array( $raw ) ) {
+			return false;
+		}
+
+		$raw_status = strtolower( trim( (string) ( $raw['status'] ?? $raw['tracking_status'] ?? $raw['delivery_status'] ?? '' ) ) );
+
+		if ( false !== strpos( $raw_status, 'delivered' ) ) {
 			return true;
 		}
 
