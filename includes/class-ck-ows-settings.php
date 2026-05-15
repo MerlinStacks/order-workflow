@@ -198,7 +198,10 @@ class CK_OWS_Settings {
 			'ck-ows-settings'
 		);
 
+		$this->register_field( 'auspost_tracking_api_base_url', __( 'AusPost Tracking API URL (optional)', 'ck-order-workflow-suite' ), 'text' );
 		$this->register_field( 'auspost_api_key', __( 'AusPost API Key', 'ck-order-workflow-suite' ), 'text' );
+		$this->register_field( 'auspost_api_username', __( 'AusPost API Username (optional)', 'ck-order-workflow-suite' ), 'text' );
+		$this->register_field( 'auspost_api_password', __( 'AusPost API Password / Secret (optional)', 'ck-order-workflow-suite' ), 'text' );
 		$this->register_field( 'auspost_account_number', __( 'AusPost Account Number (optional)', 'ck-order-workflow-suite' ), 'text' );
 		$this->register_field( 'tracking_sync_enabled', __( 'Enable tracking sync', 'ck-order-workflow-suite' ), 'checkbox' );
 		$this->register_field( 'tracking_sync_interval_hours', __( 'Sync interval (hours)', 'ck-order-workflow-suite' ), 'number' );
@@ -272,8 +275,11 @@ class CK_OWS_Settings {
 		$raw_tracking_webhook_url = isset( $input['tracking_email_events_webhook_url'] ) ? trim( (string) $input['tracking_email_events_webhook_url'] ) : '';
 		$raw_email_preferences_base_url = isset( $input['email_preferences_api_base_url'] ) ? trim( (string) $input['email_preferences_api_base_url'] ) : '';
 
-		$current['auspost_api_key']             = $this->sanitize_sensitive_setting( $input, $current, 'auspost_api_key' );
-		$current['auspost_account_number']      = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
+		$current['auspost_tracking_api_base_url'] = isset( $input['auspost_tracking_api_base_url'] ) ? $this->sanitize_https_base_url( (string) $input['auspost_tracking_api_base_url'] ) : '';
+		$current['auspost_api_key']               = $this->sanitize_sensitive_setting( $input, $current, 'auspost_api_key' );
+		$current['auspost_api_username']          = isset( $input['auspost_api_username'] ) ? sanitize_text_field( (string) $input['auspost_api_username'] ) : '';
+		$current['auspost_api_password']          = $this->sanitize_sensitive_setting( $input, $current, 'auspost_api_password' );
+		$current['auspost_account_number']        = isset( $input['auspost_account_number'] ) ? sanitize_text_field( (string) $input['auspost_account_number'] ) : '';
 		$current['tracking_sync_enabled']       = $this->is_enabled_input( $input, 'tracking_sync_enabled' ) ? 'yes' : 'no';
 		$current['tracking_sync_interval_hours'] = isset( $input['tracking_sync_interval_hours'] ) ? max( 1, min( 24, absint( $input['tracking_sync_interval_hours'] ) ) ) : 6;
 		$current['tracking_email_events_enabled'] = $this->is_enabled_input( $input, 'tracking_email_events_enabled' ) ? 'yes' : 'no';
@@ -859,6 +865,22 @@ class CK_OWS_Settings {
 			$this->render_field_error( $key );
 		}
 
+		if ( 'auspost_tracking_api_base_url' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Optional HTTPS base URL for the AusPost tracking service. Leave blank to use the default Track API endpoint.', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
+		if ( 'auspost_api_key' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Used for the public Track API (AUTH-KEY header).', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
+		if ( 'auspost_api_username' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Optional Shipping API username (key). If set with password, tracking requests use basic auth against the Shipping API URL.', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
+		if ( 'auspost_api_password' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Optional Shipping API secret (password) paired with the username above.', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
 		if ( 'tracking_email_events_auth_token' === $key ) {
 			echo '<p class="description">' . esc_html__( 'If set, requests include Authorization: Bearer {token}.', 'ck-order-workflow-suite' ) . '</p>';
 		}
@@ -1202,19 +1224,39 @@ class CK_OWS_Settings {
 	}
 
 	private function test_auspost_connection(): array {
-		$api_key = trim( (string) self::get( 'auspost_api_key', '' ) );
+		$api_key  = trim( (string) self::get( 'auspost_api_key', '' ) );
+		$username = trim( (string) self::get( 'auspost_api_username', '' ) );
+		$password = trim( (string) self::get( 'auspost_api_password', '' ) );
+		$base_url = untrailingslashit( (string) self::get( 'auspost_tracking_api_base_url', '' ) );
 
-		if ( '' === $api_key ) {
-			return array( 'ok' => false, 'message' => 'Missing API key' );
+		if ( '' !== $username && '' !== $password ) {
+			if ( '' === $base_url ) {
+				$base_url = 'https://digitalapi.auspost.com.au/shipping/v1';
+			}
+
+			$response = wp_remote_get(
+				$base_url . '/accounts',
+				array(
+					'timeout' => 10,
+					'headers' => array(
+						'Authorization' => 'Basic ' . base64_encode( $username . ':' . $password ),
+						'Accept'        => 'application/json',
+					),
+				)
+			);
+		} else {
+			if ( '' === $api_key ) {
+				return array( 'ok' => false, 'message' => 'Missing API key or shipping username/password' );
+			}
+
+			$response = wp_remote_get(
+				'https://digitalapi.auspost.com.au/postcode/search.json?q=2000',
+				array(
+					'timeout' => 10,
+					'headers' => array( 'AUTH-KEY' => $api_key ),
+				)
+			);
 		}
-
-		$response = wp_remote_get(
-			'https://digitalapi.auspost.com.au/postcode/search.json?q=2000',
-			array(
-				'timeout' => 10,
-				'headers' => array( 'AUTH-KEY' => $api_key ),
-			)
-		);
 
 		if ( is_wp_error( $response ) ) {
 			return array( 'ok' => false, 'message' => $response->get_error_message() );
@@ -1262,7 +1304,9 @@ class CK_OWS_Settings {
 	private static function sensitive_keys(): array {
 		return array(
 			'auspost_api_key',
+			'auspost_api_password',
 			'tracking_email_events_auth_token',
+			'artwork_events_auth_token',
 			'email_preferences_webhook_secret',
 		);
 	}

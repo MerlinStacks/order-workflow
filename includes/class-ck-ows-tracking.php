@@ -243,16 +243,35 @@ class CK_OWS_Tracking {
 	}
 
 	private function fetch_auspost_tracking( string $tracking_number, string $api_key ) {
-		$url = 'https://digitalapi.auspost.com.au/track/v2/track?tracking_ids=' . rawurlencode( $tracking_number );
+		$username = trim( (string) CK_OWS_Settings::get( 'auspost_api_username', '' ) );
+		$password = trim( (string) CK_OWS_Settings::get( 'auspost_api_password', '' ) );
+		$base_url = untrailingslashit( (string) CK_OWS_Settings::get( 'auspost_tracking_api_base_url', '' ) );
+
+		$headers = array(
+			'Accept' => 'application/json',
+		);
+
+		if ( '' !== $username && '' !== $password ) {
+			if ( '' === $base_url ) {
+				$base_url = 'https://digitalapi.auspost.com.au/shipping/v1';
+			}
+
+			$url                    = $base_url . '/track?tracking_ids=' . rawurlencode( $tracking_number );
+			$headers['Authorization'] = 'Basic ' . base64_encode( $username . ':' . $password );
+		} else {
+			if ( '' === $base_url ) {
+				$base_url = 'https://digitalapi.auspost.com.au/track/v2';
+			}
+
+			$url                 = $base_url . '/track?tracking_ids=' . rawurlencode( $tracking_number );
+			$headers['AUTH-KEY'] = $api_key;
+		}
 
 		$response = wp_remote_get(
 			$url,
 			array(
 				'timeout' => 20,
-				'headers' => array(
-					'AUTH-KEY' => $api_key,
-					'Accept'   => 'application/json',
-				),
+				'headers' => $headers,
 			)
 		);
 

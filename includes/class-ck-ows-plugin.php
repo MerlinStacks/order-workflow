@@ -224,6 +224,7 @@ class CK_OWS_Plugin {
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-account-security.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-account-email-preferences.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-artwork-proof.php';
+		require_once CK_OWS_PATH . 'includes/class-ck-ows-artwork-events.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-tracking.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-tracking-email-events.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-settings.php';
@@ -247,6 +248,7 @@ class CK_OWS_Plugin {
 		CK_OWS_Account_Security::instance();
 		CK_OWS_Account_Email_Preferences::instance();
 		CK_OWS_Artwork_Proof::instance();
+		CK_OWS_Artwork_Events::instance();
 		CK_OWS_Tracking::instance();
 		CK_OWS_Tracking_Email_Events::instance();
 		CK_OWS_Settings::instance();

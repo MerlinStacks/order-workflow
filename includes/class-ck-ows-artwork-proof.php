@@ -517,6 +517,7 @@ class CK_OWS_Artwork_Proof {
 
 		$order->add_order_note( __( 'Artwork proof PDF uploaded and approval requested.', 'ck-order-workflow-suite' ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_uploaded' );
+		CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'approval_requested' );
 
 		if ( 'awaiting-artwork' !== $order->get_status() ) {
 			$order->update_status( 'awaiting-artwork', __( 'Order moved to Awaiting Artwork Approval after proof upload.', 'ck-order-workflow-suite' ), true );
@@ -646,6 +647,7 @@ class CK_OWS_Artwork_Proof {
 			$order->save();
 			$order->add_order_note( __( 'Customer approved artwork proof.', 'ck-order-workflow-suite' ) );
 			CK_OWS_Audit::log_order_event( $order, 'artwork_approved_by_customer' );
+			CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'approved' );
 
 			if ( 'awaiting-artwork' === $order->get_status() ) {
 				$order->update_status( 'in-production', __( 'Artwork approved by customer. Order moved to In Production.', 'ck-order-workflow-suite' ), true );
@@ -683,6 +685,7 @@ class CK_OWS_Artwork_Proof {
 			}
 
 			CK_OWS_Audit::log_order_event( $order, 'artwork_changes_requested' );
+			CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'changes_requested', array( 'notes' => $message ) );
 			$this->redirect_customer_with_notice( $order, __( 'Thanks, we have sent your change request to our team.', 'ck-order-workflow-suite' ), 'success' );
 		}
 
@@ -772,6 +775,7 @@ class CK_OWS_Artwork_Proof {
 		/* translators: %s: staff override reason text. */
 		$order->add_order_note( sprintf( __( 'Staff override approved artwork and moved to production. Reason: %s', 'ck-order-workflow-suite' ), $reason ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_staff_override', array( 'reason' => $reason ) );
+		CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'override_used', array( 'notes' => $reason ) );
 		$order->update_status( 'in-production', __( 'Staff override moved order to In Production.', 'ck-order-workflow-suite' ), true );
 
 		$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
