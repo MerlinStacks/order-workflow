@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2 - 2026-05-15
+
+### Changed
+
+- Refined WooCommerce login and registration form styling for better alignment with plugin account UI.
+- Added Flatsome-compatible styling support for popup login/register forms.
+- Added a register CTA button/link on login forms when account registration is enabled.
+- Extended registration guard coverage to native WordPress registration forms.
+
 ## 0.1.0 - 2026-05-12
 
 ### Added

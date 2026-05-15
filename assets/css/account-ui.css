@@ -655,6 +655,141 @@
   margin-top: 10px;
 }
 
+/* Flatsome popup login/register form polish. */
+.mfp-wrap .woocommerce form.login,
+.mfp-wrap .woocommerce form.register,
+.mfp-wrap .woocommerce .woocommerce-form-login,
+.mfp-wrap .woocommerce .woocommerce-form-register,
+.lightbox-content .woocommerce form.login,
+.lightbox-content .woocommerce form.register,
+.lightbox-content .woocommerce .woocommerce-form-login,
+.lightbox-content .woocommerce .woocommerce-form-register {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px;
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 28px -24px rgba(22, 34, 48, 0.45);
+}
+
+.mfp-wrap .woocommerce h2,
+.lightbox-content .woocommerce h2 {
+  margin: 0 0 12px;
+  color: var(--ck-ows-text);
+  font-size: 1.2rem;
+  letter-spacing: 0.01em;
+}
+
+.mfp-wrap .woocommerce .form-row,
+.lightbox-content .woocommerce .form-row {
+  margin: 0 0 12px;
+}
+
+.mfp-wrap .woocommerce label,
+.lightbox-content .woocommerce label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ck-ows-text);
+  font-weight: 600;
+}
+
+.mfp-wrap .woocommerce input.input-text,
+.lightbox-content .woocommerce input.input-text {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #cfd8e3;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.mfp-wrap .woocommerce .button,
+.lightbox-content .woocommerce .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 140px;
+  padding: 9px 18px;
+  border: 1px solid var(--ck-ows-accent);
+  border-radius: 999px;
+  background: var(--ck-ows-accent);
+  color: #121212;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.mfp-wrap .woocommerce .button:hover,
+.lightbox-content .woocommerce .button:hover {
+  border-color: #121212;
+  background: #121212;
+  color: #fff;
+}
+
+.mfp-wrap .woocommerce .woocommerce-form__label-for-checkbox,
+.lightbox-content .woocommerce .woocommerce-form__label-for-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mfp-wrap .woocommerce .woocommerce-LostPassword,
+.lightbox-content .woocommerce .woocommerce-LostPassword {
+  margin-top: 10px;
+}
+
+.woocommerce-account .ck-ows-register-link,
+.mfp-wrap .ck-ows-register-link,
+.lightbox-content .ck-ows-register-link {
+  margin: 10px 0 0;
+  color: var(--ck-ows-muted);
+  font-size: 0.9rem;
+}
+
+.woocommerce-account .ck-ows-register-link a,
+.mfp-wrap .ck-ows-register-link a,
+.lightbox-content .ck-ows-register-link a {
+  color: var(--ck-ows-text);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.woocommerce-account .ck-ows-login-actions,
+.mfp-wrap .ck-ows-login-actions,
+.lightbox-content .ck-ows-login-actions {
+  margin: 10px 0 0;
+}
+
+.woocommerce-account .ck-ows-login-actions__register,
+.mfp-wrap .ck-ows-login-actions__register,
+.lightbox-content .ck-ows-login-actions__register {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 140px;
+  padding: 9px 18px;
+  border: 1px solid #121212;
+  border-radius: 999px;
+  background: #fff;
+  color: #121212;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.woocommerce-account .ck-ows-login-actions__register:hover,
+.mfp-wrap .ck-ows-login-actions__register:hover,
+.lightbox-content .ck-ows-login-actions__register:hover {
+  background: #121212;
+  border-color: #121212;
+  color: #fff;
+}
+
 .woocommerce-account #customer_login .woocommerce-button:hover,
 .woocommerce-account #customer_login button.button:hover,
 .woocommerce-account #customer_login input.button:hover {

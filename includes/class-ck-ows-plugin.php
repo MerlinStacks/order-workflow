@@ -47,7 +47,11 @@ class CK_OWS_Plugin {
 	 * @return void
 	 */
 	public function enqueue_frontend_assets(): void {
-		if ( ! function_exists( 'is_account_page' ) || ! is_account_page() ) {
+		$is_account_page = function_exists( 'is_account_page' ) && is_account_page();
+		$is_flatsome     = function_exists( 'wp_get_theme' ) && 'flatsome' === strtolower( (string) wp_get_theme()->get_template() );
+		$needs_popup_css = $is_flatsome && function_exists( 'is_user_logged_in' ) && ! is_user_logged_in();
+
+		if ( ! $is_account_page && ! $needs_popup_css ) {
 			return;
 		}
 
@@ -57,6 +61,10 @@ class CK_OWS_Plugin {
 			array(),
 			CK_OWS_VERSION
 		);
+
+		if ( ! $is_account_page ) {
+			return;
+		}
 
 		$nav_inline_css = '
 		.woocommerce-account .row .large-3.col.col-border,
