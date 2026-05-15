@@ -96,17 +96,7 @@ class CK_OWS_Account_Invoices {
 			echo '</div>';
 
 			if ( $has_pdf ) {
-				$nonce   = wp_create_nonce( 'wpo_wcpdf' );
-				$pdf_url = add_query_arg(
-					array(
-						'action'        => 'generate_wpo_wcpdf',
-						'document_type' => 'invoice',
-						'order_ids'     => $order_id,
-						'order_key'     => $order->get_order_key(),
-						'nonce'         => $nonce,
-					),
-					admin_url( 'admin-ajax.php' )
-				);
+				$pdf_url = $this->get_invoice_url( $order );
 
 				echo '<a href="' . esc_url( $pdf_url ) . '" class="ck-invoices__dl" target="_blank" rel="noopener">';
 				echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
@@ -129,5 +119,35 @@ class CK_OWS_Account_Invoices {
 		}
 
 		return has_action( 'wp_ajax_generate_wpo_wcpdf' ) || has_action( 'wp_ajax_nopriv_generate_wpo_wcpdf' );
+	}
+
+	private function get_invoice_url( WC_Order $order ): string {
+		$actions = wc_get_account_orders_actions( $order );
+
+		if ( isset( $actions['invoice']['url'] ) && '' !== (string) $actions['invoice']['url'] ) {
+			return (string) $actions['invoice']['url'];
+		}
+
+		foreach ( $actions as $action ) {
+			if ( ! is_array( $action ) || empty( $action['url'] ) ) {
+				continue;
+			}
+
+			$action_name = isset( $action['name'] ) ? strtolower( (string) $action['name'] ) : '';
+			if ( false !== strpos( $action_name, 'invoice' ) ) {
+				return (string) $action['url'];
+			}
+		}
+
+		return (string) add_query_arg(
+			array(
+				'action'        => 'generate_wpo_wcpdf',
+				'document_type' => 'invoice',
+				'order_ids'     => $order->get_id(),
+				'order_key'     => $order->get_order_key(),
+				'nonce'         => wp_create_nonce( 'wpo_wcpdf' ),
+			),
+			admin_url( 'admin-ajax.php' )
+		);
 	}
 }
