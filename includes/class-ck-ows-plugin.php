@@ -62,6 +62,16 @@ class CK_OWS_Plugin {
 			CK_OWS_VERSION
 		);
 
+		if ( $needs_popup_css ) {
+			wp_enqueue_script(
+				'ck-ows-auth-toggle',
+				CK_OWS_URL . 'assets/js/auth-toggle.js',
+				array(),
+				CK_OWS_VERSION,
+				true
+			);
+		}
+
 		if ( ! $is_account_page ) {
 			return;
 		}

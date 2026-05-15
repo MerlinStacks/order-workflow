@@ -266,7 +266,29 @@ class CK_OWS_Registration_Guard {
 	}
 
 	private function get_blocked_domains(): array {
-		$domains = array(
+		$domains = self::default_blocked_domains();
+
+		$custom_domains_raw = CK_OWS_Settings::get( 'registration_blocked_domains', '' );
+		$custom_domains     = preg_split( '/\r\n|\r|\n/', (string) $custom_domains_raw );
+
+		if ( is_array( $custom_domains ) && ! empty( $custom_domains ) ) {
+			$custom_domains = array_values(
+				array_filter(
+					array_map(
+						'strtolower',
+						array_map( 'trim', array_map( 'strval', $custom_domains ) )
+					)
+				)
+			);
+
+			$domains = array_values( array_unique( array_merge( $domains, $custom_domains ) ) );
+		}
+
+		return apply_filters( 'ck_ows_registration_blocked_domains', $domains );
+	}
+
+	public static function default_blocked_domains(): array {
+		return array(
 			'mailinator.com',
 			'guerrillamail.com',
 			'tempmail.com',
@@ -286,23 +308,5 @@ class CK_OWS_Registration_Guard {
 			'msg.telus.com',
 			'msg.koodomobile.com',
 		);
-
-		$custom_domains_raw = CK_OWS_Settings::get( 'registration_blocked_domains', '' );
-		$custom_domains     = preg_split( '/\r\n|\r|\n/', (string) $custom_domains_raw );
-
-		if ( is_array( $custom_domains ) && ! empty( $custom_domains ) ) {
-			$custom_domains = array_values(
-				array_filter(
-					array_map(
-						'strtolower',
-						array_map( 'trim', array_map( 'strval', $custom_domains ) )
-					)
-				)
-			);
-
-			$domains = array_values( array_unique( array_merge( $domains, $custom_domains ) ) );
-		}
-
-		return apply_filters( 'ck_ows_registration_blocked_domains', $domains );
 	}
 }

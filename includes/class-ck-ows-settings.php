@@ -432,8 +432,15 @@ class CK_OWS_Settings {
 			echo '<textarea id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="large-text code" rows="8" spellcheck="false">' . esc_textarea( (string) $value ) . '</textarea>';
 
 			if ( 'registration_blocked_domains' === $key ) {
+				$default_domains = class_exists( 'CK_OWS_Registration_Guard' ) ? CK_OWS_Registration_Guard::default_blocked_domains() : array();
+				$default_domains = is_array( $default_domains ) ? array_values( array_filter( array_map( 'strval', $default_domains ) ) ) : array();
+
 				echo '<p class="description">' . esc_html__( 'One domain per line, for example: mailinator.com', 'ck-order-workflow-suite' ) . '</p>';
 				echo '<p class="description">' . esc_html__( 'These custom domains are added to the built-in disposable domain list.', 'ck-order-workflow-suite' ) . '</p>';
+
+				if ( ! empty( $default_domains ) ) {
+					echo '<p class="description"><strong>' . esc_html__( 'Built-in blocked domains:', 'ck-order-workflow-suite' ) . '</strong><br>' . nl2br( esc_html( implode( "\n", $default_domains ) ) ) . '</p>';
+				}
 			}
 
 			return;
