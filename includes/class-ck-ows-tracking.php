@@ -162,7 +162,19 @@ class CK_OWS_Tracking {
 		echo '<h2>' . esc_html__( 'Shipment Tracking', 'ck-order-workflow-suite' ) . '</h2>';
 
 		if ( is_array( $tracking ) && ! empty( $tracking ) ) {
-			$status = (string) ( $tracking['status'] ?? $tracking['tracking_status'] ?? __( 'In transit', 'ck-order-workflow-suite' ) );
+			$status = '';
+			foreach ( array( $tracking['status'] ?? '', $tracking['tracking_status'] ?? '' ) as $candidate_status ) {
+				$candidate_status = trim( (string) $candidate_status );
+				if ( '' !== $candidate_status ) {
+					$status = $candidate_status;
+					break;
+				}
+			}
+
+			if ( '' === $status ) {
+				$status = __( 'In transit', 'ck-order-workflow-suite' );
+			}
+
 			echo '<p><strong>' . esc_html__( 'Latest status:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $status ) . '</p>';
 
 			if ( ! empty( $tracking['last_event'] ) && is_array( $tracking['last_event'] ) ) {
@@ -410,7 +422,18 @@ class CK_OWS_Tracking {
 			}
 		}
 
-		$status = (string) ( $article['status'] ?? $article['tracking_status'] ?? $article['delivery_status'] ?? $article['_tracking_result_status'] ?? '' );
+		$status = '';
+		foreach ( array( $article['status'] ?? '', $article['tracking_status'] ?? '', $article['delivery_status'] ?? '', $article['_tracking_result_status'] ?? '' ) as $candidate_status ) {
+			$candidate_status = trim( (string) $candidate_status );
+			if ( '' !== $candidate_status ) {
+				$status = $candidate_status;
+				break;
+			}
+		}
+
+		if ( '' === $status ) {
+			$status = trim( (string) ( $last_event['description'] ?? $last_event['event_description'] ?? $last_event['event'] ?? '' ) );
+		}
 
 		return array(
 			'provider'        => 'auspost',

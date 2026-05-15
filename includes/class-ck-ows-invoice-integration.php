@@ -15,9 +15,8 @@ class CK_OWS_Invoice_Integration {
 		if ( self::PROVIDER_NEW === self::get_provider() ) {
 			$order_id = $order->get_id();
 			$invoice  = self::get_new_invoice_data( $order_id );
-			$status   = is_array( $invoice ) && isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
 
-			if ( 'ready' === $status ) {
+			if ( is_array( $invoice ) ) {
 				return self::build_rest_download_url( $order );
 			}
 
@@ -37,9 +36,8 @@ class CK_OWS_Invoice_Integration {
 		if ( self::PROVIDER_NEW === self::get_provider() ) {
 			$order_id = $order->get_id();
 			$invoice  = self::get_new_invoice_data( $order_id );
-			$status   = is_array( $invoice ) && isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
 
-			if ( 'ready' === $status ) {
+			if ( is_array( $invoice ) ) {
 				return self::build_rest_download_url( $order );
 			}
 
