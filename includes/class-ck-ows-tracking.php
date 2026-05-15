@@ -187,9 +187,11 @@ class CK_OWS_Tracking {
 			}
 
 			if ( ! empty( $tracking['last_event'] ) && is_array( $tracking['last_event'] ) ) {
-				$desc = (string) ( $tracking['last_event']['description'] ?? '' );
-				$when = (string) ( $tracking['last_event']['date'] ?? '' );
-				$loc  = (string) ( $tracking['last_event']['location'] ?? '' );
+				$desc = trim( (string) ( $tracking['last_event']['description'] ?? '' ) );
+				$when = trim( (string) ( $tracking['last_event']['date'] ?? '' ) );
+				$loc  = trim( (string) ( $tracking['last_event']['location'] ?? '' ) );
+
+				if ( '' !== $desc || '' !== $when || '' !== $loc ) {
 				echo '<p><strong>' . esc_html__( 'Latest scan:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( trim( $desc ) ) . '</p>';
 
 				if ( '' !== trim( $when ) ) {
@@ -198,6 +200,7 @@ class CK_OWS_Tracking {
 
 				if ( '' !== trim( $loc ) ) {
 					echo '<p><strong>' . esc_html__( 'Scan location:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $loc ) . '</p>';
+				}
 				}
 			}
 
@@ -304,7 +307,50 @@ class CK_OWS_Tracking {
 			}
 		}
 
-		return is_array( $tracking ) ? $tracking : array();
+		return $this->is_tracking_payload_usable( $tracking ) ? $tracking : array();
+	}
+
+	public function debug_fetch_tracking_number( string $tracking_number ): array {
+		$tracking_number = sanitize_text_field( $tracking_number );
+		$api_key         = trim( (string) CK_OWS_Settings::get( 'auspost_api_key', '' ) );
+		$username        = trim( (string) CK_OWS_Settings::get( 'auspost_api_username', '' ) );
+		$password        = trim( (string) CK_OWS_Settings::get( 'auspost_api_password', '' ) );
+
+		$result = array(
+			'ran_at'          => time(),
+			'tracking_number' => $tracking_number,
+			'ok'              => false,
+			'message'         => '',
+			'auth_mode'       => '' !== $username && '' !== $password ? 'shipping_api_basic_auth' : 'track_api_auth_key',
+			'payload'         => array(),
+		);
+
+		if ( '' === trim( $tracking_number ) ) {
+			$result['message'] = __( 'Enter a tracking number to test.', 'ck-order-workflow-suite' );
+			return $result;
+		}
+
+		if ( '' === $api_key && ( '' === $username || '' === $password ) ) {
+			$result['message'] = __( 'Missing AusPost API key or shipping username/password.', 'ck-order-workflow-suite' );
+			return $result;
+		}
+
+		if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
+			$result['message'] = __( 'Tracking number does not look like an AusPost article ID, but the API test was still attempted.', 'ck-order-workflow-suite' );
+		}
+
+		$payload = $this->fetch_auspost_tracking( $tracking_number, $api_key );
+
+		if ( is_wp_error( $payload ) ) {
+			$result['message'] = $payload->get_error_message();
+			return $result;
+		}
+
+		$result['ok']      = true;
+		$result['message'] = __( 'AusPost returned a usable parsed tracking payload.', 'ck-order-workflow-suite' );
+		$result['payload'] = $payload;
+
+		return $result;
 	}
 
 	public function suppress_default_tracking_output(): void {
@@ -490,11 +536,6 @@ class CK_OWS_Tracking {
 	private function is_tracking_payload_usable( $tracking ): bool {
 		if ( ! is_array( $tracking ) || empty( $tracking ) ) {
 			return false;
-		}
-
-		$status = trim( (string) ( $tracking['status'] ?? $tracking['tracking_status'] ?? '' ) );
-		if ( '' !== $status ) {
-			return true;
 		}
 
 		$last_event = $tracking['last_event'] ?? array();
@@ -715,9 +756,9 @@ class CK_OWS_Tracking {
 			'tracking_number' => $tracking_number,
 			'status'          => $status,
 			'last_event'      => array(
-				'description' => (string) ( $last_event['description'] ?? $last_event['event_description'] ?? $last_event['event'] ?? '' ),
-				'date'        => (string) ( $last_event['date'] ?? $last_event['event_time'] ?? $last_event['datetime'] ?? '' ),
-				'location'    => (string) ( $last_event['location'] ?? $last_event['location_name'] ?? $last_event['facility_name'] ?? '' ),
+				'description' => (string) ( $last_event['description'] ?? $last_event['event_description'] ?? $last_event['event'] ?? $last_event['summary'] ?? $last_event['title'] ?? '' ),
+				'date'        => (string) ( $last_event['date'] ?? $last_event['event_time'] ?? $last_event['datetime'] ?? $last_event['time'] ?? $last_event['timestamp'] ?? '' ),
+				'location'    => (string) ( $last_event['location'] ?? $last_event['location_name'] ?? $last_event['facility_name'] ?? $last_event['place'] ?? '' ),
 			),
 			'eta'             => $this->resolve_estimated_delivery_text( $article ),
 			'raw'             => $article,
@@ -877,11 +918,76 @@ class CK_OWS_Tracking {
 
 		foreach ( $event_keys as $key ) {
 			if ( isset( $article[ $key ] ) && is_array( $article[ $key ] ) ) {
-				return $article[ $key ];
+				$events = $this->normalize_tracking_events( $article[ $key ] );
+				if ( ! empty( $events ) ) {
+					return $events;
+				}
 			}
 		}
 
-		return array();
+		return $this->collect_tracking_events_from_node( $article );
+	}
+
+	private function normalize_tracking_events( array $events ): array {
+		$normalized = array();
+
+		foreach ( $events as $event ) {
+			if ( ! is_array( $event ) ) {
+				continue;
+			}
+
+			if ( $this->looks_like_tracking_event( $event ) ) {
+				$normalized[] = $event;
+				continue;
+			}
+
+			$nested = $this->collect_tracking_events_from_node( $event, 0 );
+			if ( ! empty( $nested ) ) {
+				$normalized = array_merge( $normalized, $nested );
+			}
+		}
+
+		return $normalized;
+	}
+
+	private function collect_tracking_events_from_node( $node, int $depth = 0 ): array {
+		if ( $depth > 5 || ! is_array( $node ) ) {
+			return array();
+		}
+
+		if ( $this->looks_like_tracking_event( $node ) ) {
+			return array( $node );
+		}
+
+		$events = array();
+		foreach ( $node as $child ) {
+			if ( ! is_array( $child ) ) {
+				continue;
+			}
+
+			$events = array_merge( $events, $this->collect_tracking_events_from_node( $child, $depth + 1 ) );
+		}
+
+		return $events;
+	}
+
+	private function looks_like_tracking_event( array $event ): bool {
+		$description = trim(
+			implode(
+				' ',
+				array(
+					(string) ( $event['description'] ?? '' ),
+					(string) ( $event['event_description'] ?? '' ),
+					(string) ( $event['event'] ?? '' ),
+					(string) ( $event['status'] ?? '' ),
+					(string) ( $event['summary'] ?? '' ),
+					(string) ( $event['title'] ?? '' ),
+				)
+			)
+		);
+		$date = trim( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? $event['time'] ?? $event['timestamp'] ?? '' ) );
+
+		return '' !== $description && '' !== $date;
 	}
 
 	private function resolve_latest_tracking_event( array $events ): array {
@@ -894,7 +1000,7 @@ class CK_OWS_Tracking {
 				continue;
 			}
 
-			$event_ts = strtotime( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? '' ) );
+			$event_ts = strtotime( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? $event['time'] ?? $event['timestamp'] ?? '' ) );
 			$event_ts = false === $event_ts ? 0 : (int) $event_ts;
 			if ( $event_ts > 0 ) {
 				$has_valid_ts = true;
@@ -930,6 +1036,8 @@ class CK_OWS_Tracking {
 							(string) ( $event['event_description'] ?? '' ),
 							(string) ( $event['event'] ?? '' ),
 							(string) ( $event['status'] ?? '' ),
+							(string) ( $event['summary'] ?? '' ),
+							(string) ( $event['title'] ?? '' ),
 							(string) ( $event['event_type'] ?? '' ),
 							(string) ( $event['code'] ?? '' ),
 						)
@@ -955,8 +1063,8 @@ class CK_OWS_Tracking {
 		usort(
 			$events,
 			static function ( $a, $b ): int {
-				$a_time = is_array( $a ) ? strtotime( (string) ( $a['date'] ?? $a['event_time'] ?? $a['datetime'] ?? '' ) ) : false;
-				$b_time = is_array( $b ) ? strtotime( (string) ( $b['date'] ?? $b['event_time'] ?? $b['datetime'] ?? '' ) ) : false;
+				$a_time = is_array( $a ) ? strtotime( (string) ( $a['date'] ?? $a['event_time'] ?? $a['datetime'] ?? $a['time'] ?? $a['timestamp'] ?? '' ) ) : false;
+				$b_time = is_array( $b ) ? strtotime( (string) ( $b['date'] ?? $b['event_time'] ?? $b['datetime'] ?? $b['time'] ?? $b['timestamp'] ?? '' ) ) : false;
 
 				$a_ts = false === $a_time ? 0 : (int) $a_time;
 				$b_ts = false === $b_time ? 0 : (int) $b_time;

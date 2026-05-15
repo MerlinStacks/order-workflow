@@ -306,7 +306,7 @@ class CK_OWS_Order_Timeline {
 				continue;
 			}
 
-			$description = strtolower( trim( (string) ( $event['description'] ?? $event['event_description'] ?? $event['event'] ?? '' ) ) );
+			$description = strtolower( trim( (string) ( $event['description'] ?? $event['event_description'] ?? $event['event'] ?? $event['summary'] ?? $event['title'] ?? '' ) ) );
 			$status      = strtolower( trim( (string) ( $event['status'] ?? '' ) ) );
 			$haystack    = trim( $description . ' ' . $status );
 
@@ -315,7 +315,7 @@ class CK_OWS_Order_Timeline {
 			}
 
 			$event_ts = $this->resolve_event_timestamp(
-				(string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? '' )
+				(string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? $event['time'] ?? $event['timestamp'] ?? '' )
 			);
 
 			foreach ( $milestones as $key => $milestone ) {

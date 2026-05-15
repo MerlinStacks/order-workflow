@@ -11,6 +11,8 @@ class CK_OWS_Settings {
 	public const OPTION_KEY = 'ck_ows_settings';
 	private const TRACKING_SYNC_NONCE       = 'ck_ows_run_tracking_sync';
 	private const TRACKING_SYNC_NONCE_FIELD = 'ck_ows_tracking_sync_nonce';
+	private const TRACKING_NUMBER_TEST_NONCE       = 'ck_ows_test_tracking_number';
+	private const TRACKING_NUMBER_TEST_NONCE_FIELD = 'ck_ows_test_tracking_number_nonce';
 	private const TEST_CONNECTION_NONCE       = 'ck_ows_test_connections';
 	private const TEST_CONNECTION_NONCE_FIELD = 'ck_ows_test_connections_nonce';
 	private const EXPORT_SETTINGS_NONCE       = 'ck_ows_export_settings';
@@ -41,6 +43,7 @@ class CK_OWS_Settings {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_post_ck_ows_run_tracking_sync', array( $this, 'run_tracking_sync_now' ) );
+		add_action( 'admin_post_ck_ows_test_tracking_number', array( $this, 'test_tracking_number' ) );
 		add_action( 'admin_post_ck_ows_test_connections', array( $this, 'test_connections' ) );
 		add_action( 'admin_post_ck_ows_export_settings', array( $this, 'export_settings' ) );
 		add_action( 'admin_post_ck_ows_import_settings', array( $this, 'import_settings' ) );
@@ -418,6 +421,15 @@ class CK_OWS_Settings {
 		submit_button( __( 'Run tracking sync now', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
 		echo '</form>';
 		echo '<hr>';
+		echo '<p>' . esc_html__( 'Test a single AusPost tracking number and inspect the parsed payload used by My Account tracking.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="ck_ows_test_tracking_number">';
+		wp_nonce_field( self::TRACKING_NUMBER_TEST_NONCE, self::TRACKING_NUMBER_TEST_NONCE_FIELD );
+		echo '<p><label for="ck_ows_tracking_number"><strong>' . esc_html__( 'Tracking number', 'ck-order-workflow-suite' ) . '</strong></label></p>';
+		echo '<p><input type="text" id="ck_ows_tracking_number" name="ck_ows_tracking_number" class="regular-text" autocomplete="off" placeholder="997207509728"></p>';
+		submit_button( __( 'Test tracking number', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
+		echo '</form>';
+		echo '<hr>';
 		echo '<p>' . esc_html__( 'Run live connection checks against current AusPost and webhook settings.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		echo '<input type="hidden" name="action" value="ck_ows_test_connections">';
@@ -453,6 +465,10 @@ class CK_OWS_Settings {
 
 		if ( isset( $_GET['ck_ows_tested'] ) ) {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Connection tests complete. See diagnostics panel for latest results.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_tracking_number_tested'] ) ) {
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Tracking number test complete. See diagnostics panel for the latest result.', 'ck-order-workflow-suite' ) . '</p></div>';
 		}
 
 		if ( isset( $_GET['ck_ows_imported'] ) ) {
@@ -518,6 +534,50 @@ class CK_OWS_Settings {
 			array(
 				'page'          => 'ck-ows-settings',
 				'ck_ows_tested' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function test_tracking_number(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::TRACKING_NUMBER_TEST_NONCE, self::TRACKING_NUMBER_TEST_NONCE_FIELD );
+
+		$tracking_number = isset( $_POST['ck_ows_tracking_number'] ) ? sanitize_text_field( wp_unslash( $_POST['ck_ows_tracking_number'] ) ) : '';
+		$result          = array(
+			'ran_at'          => time(),
+			'tracking_number' => $tracking_number,
+			'ok'              => false,
+			'message'         => __( 'Tracking module is not available.', 'ck-order-workflow-suite' ),
+			'payload'         => array(),
+		);
+
+		if ( '' === trim( $tracking_number ) ) {
+			$result['message'] = __( 'Enter a tracking number to test.', 'ck-order-workflow-suite' );
+		} elseif ( class_exists( 'CK_OWS_Tracking' ) ) {
+			$result = CK_OWS_Tracking::instance()->debug_fetch_tracking_number( $tracking_number );
+		}
+
+		update_option( 'ck_ows_last_tracking_number_test', $result, false );
+		CK_OWS_Audit::log_system_event(
+			'tracking_number_tested',
+			array(
+				'tracking_number' => $tracking_number,
+				'ok'              => ! empty( $result['ok'] ) ? 'yes' : 'no',
+				'message'         => (string) ( $result['message'] ?? '' ),
+			)
+		);
+
+		$redirect = add_query_arg(
+			array(
+				'page'                         => 'ck-ows-settings',
+				'ck_ows_tracking_number_tested' => 1,
 			),
 			admin_url( 'admin.php' )
 		);
@@ -1154,6 +1214,7 @@ class CK_OWS_Settings {
 		$next_sync     = wp_next_scheduled( 'ck_ows_tracking_sync_event' );
 		$cron_enabled  = 'yes' === CK_OWS_Settings::get( 'tracking_sync_enabled', 'yes' );
 		$last_tests    = get_option( 'ck_ows_last_connection_tests', array() );
+		$last_tracking_test = get_option( 'ck_ows_last_tracking_number_test', array() );
 		$last_webhook  = get_option( 'ck_ows_last_webhook_delivery', array() );
 		$dead_letters  = get_option( 'ck_ows_tracking_event_dead_letters', array() );
 		$audit_entries = CK_OWS_Audit::read_recent( 10 );
@@ -1169,6 +1230,7 @@ class CK_OWS_Settings {
 		echo '<li><strong>' . esc_html__( 'Last webhook delivery', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_webhook ) ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Dead-letter queue size', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( is_array( $dead_letters ) ? (string) count( $dead_letters ) : '0' ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Last connection tests', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_tests ) ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Last tracking number test', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_tracking_number_test_summary( $last_tracking_test ) ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Invoice provider mode', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $invoice_mode ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'OverSeek invoice API detected', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $invoice_api ) . '</li>';
 		echo '</ul>';
@@ -1183,6 +1245,38 @@ class CK_OWS_Settings {
 			}
 			echo '</ul>';
 		}
+
+		$this->render_tracking_number_test_log( $last_tracking_test );
+	}
+
+	private function format_tracking_number_test_summary( $row ): string {
+		if ( ! is_array( $row ) || empty( $row ) ) {
+			return 'n/a';
+		}
+
+		$tracking_number = isset( $row['tracking_number'] ) ? (string) $row['tracking_number'] : '';
+		$ok              = ! empty( $row['ok'] ) ? 'ok' : 'failed';
+		$ts              = isset( $row['ran_at'] ) ? absint( $row['ran_at'] ) : 0;
+		$when            = $ts > 0 ? wp_date( 'Y-m-d H:i:s', $ts ) : 'available';
+
+		return trim( $tracking_number . ' - ' . $ok . ' - ' . $when, ' -' );
+	}
+
+	private function render_tracking_number_test_log( $row ): void {
+		if ( ! is_array( $row ) || empty( $row ) ) {
+			return;
+		}
+
+		$payload = isset( $row['payload'] ) && is_array( $row['payload'] ) ? $row['payload'] : array();
+		$json    = wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+
+		echo '<details class="ck-ows-diagnostics-detail" style="margin-top:12px;">';
+		echo '<summary><strong>' . esc_html__( 'Last tracking number test payload', 'ck-order-workflow-suite' ) . '</strong></summary>';
+		echo '<p><strong>' . esc_html__( 'Tracking number:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( (string) ( $row['tracking_number'] ?? '' ) ) . '</p>';
+		echo '<p><strong>' . esc_html__( 'Result:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( ! empty( $row['ok'] ) ? __( 'Success', 'ck-order-workflow-suite' ) : __( 'Failed', 'ck-order-workflow-suite' ) ) . '</p>';
+		echo '<p><strong>' . esc_html__( 'Message:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( (string) ( $row['message'] ?? '' ) ) . '</p>';
+		echo '<pre style="max-height:420px;overflow:auto;background:#111;color:#f5f5f5;padding:12px;white-space:pre-wrap;">' . esc_html( is_string( $json ) ? $json : '{}' ) . '</pre>';
+		echo '</details>';
 	}
 
 	private function render_dead_letters_panel(): void {
