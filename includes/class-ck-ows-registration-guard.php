@@ -35,7 +35,7 @@ class CK_OWS_Registration_Guard {
 		$token = wp_generate_password( 24, false );
 		set_transient( 'ckrg_ts_' . $token, time(), 30 * MINUTE_IN_SECONDS );
 
-		echo '<div style="position:absolute;left:-9999px;height:0;overflow:hidden;" aria-hidden="true">';
+		echo '<div class="ck-ows-reg-guard-trap" aria-hidden="true">';
 		echo '<label for="ck_website_url">Website</label>';
 		echo '<input type="text" id="ck_website_url" name="ck_website_url" tabindex="-1" autocomplete="off" value="">';
 		echo '<input type="text" id="ck_company_name" name="ck_company_name" tabindex="-1" autocomplete="off" value="">';
@@ -100,17 +100,18 @@ class CK_OWS_Registration_Guard {
 	}
 
 	public function register_admin_page(): void {
-		add_management_page(
+		add_submenu_page(
+			'ck-ows-settings',
 			esc_html__( 'CK Registration Guard', 'ck-order-workflow-suite' ),
-			esc_html__( 'CK Reg Guard', 'ck-order-workflow-suite' ),
-			'manage_options',
+			esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ),
+			'manage_woocommerce',
 			'ck-reg-guard',
 			array( $this, 'render_admin_page' )
 		);
 	}
 
 	public function render_admin_page(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
 			wp_die( esc_html__( 'No permission.', 'ck-order-workflow-suite' ) );
 		}
 
@@ -147,9 +148,15 @@ class CK_OWS_Registration_Guard {
 			}
 		}
 
-		echo '<div class="wrap">';
-		echo '<h1>' . esc_html__( 'CK Registration Guard', 'ck-order-workflow-suite' ) . '</h1>';
-		echo '<p style="color:#666;">' . esc_html__( 'Blocked registration attempts (latest entries).', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<div class="wrap ck-ows-admin">';
+		echo '<div class="ck-ows-hero">';
+		echo '<h1>' . esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Review blocked WooCommerce registration attempts and tune anti-bot rules.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '</div>';
+
+		echo '<div class="ck-ows-card">';
+		echo '<h2>' . esc_html__( 'Block Summary', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Blocked registration attempts (latest entries).', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<p>' . esc_html( sprintf( __( 'Total blocked: %d', 'ck-order-workflow-suite' ), count( $log ) ) ) . '</p>';
 		echo '<p>' . esc_html( sprintf( __( 'Honeypot: %1$d | Too fast: %2$d | Bad domain: %3$d | Bad username: %4$d | Rate limit: %5$d', 'ck-order-workflow-suite' ), $tally['honeypot'], $tally['too_fast'], $tally['blocked_domain'], $tally['username'], $tally['rate_limit'] ) ) . '</p>';
 
@@ -160,6 +167,7 @@ class CK_OWS_Registration_Guard {
 			echo '<button class="button button-secondary" onclick="return confirm(\'' . esc_js( __( 'Clear all block logs?', 'ck-order-workflow-suite' ) ) . '\');">' . esc_html__( 'Clear Log', 'ck-order-workflow-suite' ) . '</button>';
 			echo '</form>';
 
+			echo '<div style="overflow-x:auto;">';
 			echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Time', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'Email', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'Username', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'Reason', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'IP', 'ck-order-workflow-suite' ) . '</th></tr></thead><tbody>';
 			foreach ( $log as $entry ) {
 				echo '<tr>';
@@ -171,10 +179,12 @@ class CK_OWS_Registration_Guard {
 				echo '</tr>';
 			}
 			echo '</tbody></table>';
+			echo '</div>';
 		} else {
 			echo '<p>' . esc_html__( 'No blocks logged yet.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
+		echo '</div>';
 		echo '</div>';
 	}
 
@@ -246,6 +256,22 @@ class CK_OWS_Registration_Guard {
 			'msg.telus.com',
 			'msg.koodomobile.com',
 		);
+
+		$custom_domains_raw = CK_OWS_Settings::get( 'registration_blocked_domains', '' );
+		$custom_domains     = preg_split( '/\r\n|\r|\n/', (string) $custom_domains_raw );
+
+		if ( is_array( $custom_domains ) && ! empty( $custom_domains ) ) {
+			$custom_domains = array_values(
+				array_filter(
+					array_map(
+						'strtolower',
+						array_map( 'trim', array_map( 'strval', $custom_domains ) )
+					)
+				)
+			);
+
+			$domains = array_values( array_unique( array_merge( $domains, $custom_domains ) ) );
+		}
 
 		return apply_filters( 'ck_ows_registration_blocked_domains', $domains );
 	}

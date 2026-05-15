@@ -644,7 +644,7 @@ class CK_OWS_Artwork_Proof {
 				$order->update_status( 'in-production', __( 'Artwork approved by customer. Order moved to In Production.', 'ck-order-workflow-suite' ), true );
 			}
 
-			$this->redirect_customer_with_notice( $order, __( 'Thanks, your artwork has been approved.', 'ck-order-workflow-suite' ), 'success' );
+			$this->redirect_customer_with_notice( $order, '', 'success' );
 		}
 
 		if ( 'request_changes' === $action ) {
@@ -682,6 +682,11 @@ class CK_OWS_Artwork_Proof {
 	}
 
 	private function redirect_customer_with_notice( WC_Order $order, string $message, string $type ): void {
+		if ( '' === trim( $message ) ) {
+			wp_safe_redirect( $order->get_view_order_url() );
+			exit;
+		}
+
 		if ( function_exists( 'wc_add_notice' ) ) {
 			wc_add_notice( $message, $type );
 			wp_safe_redirect( $order->get_view_order_url() );

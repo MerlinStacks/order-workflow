@@ -439,6 +439,154 @@
   min-height: 42px;
 }
 
+.woocommerce-account #customer_login {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.woocommerce-account #customer_login .u-column1,
+.woocommerce-account #customer_login .u-column2 {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+.woocommerce-account #customer_login .woocommerce-form,
+.woocommerce-account #customer_login form.register,
+.woocommerce-account #customer_login form.login {
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.woocommerce-account #customer_login h2 {
+  margin: 0 0 12px;
+  color: var(--ck-ows-text);
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+}
+
+.woocommerce-account #customer_login .form-row {
+  margin: 0 0 12px;
+}
+
+.woocommerce-account #customer_login .form-row label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ck-ows-text);
+  font-weight: 600;
+}
+
+.woocommerce-account #customer_login .form-row input.input-text,
+.woocommerce-account #customer_login .form-row select,
+.woocommerce-account #customer_login .form-row textarea {
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 8px;
+  min-height: 42px;
+  width: 100%;
+}
+
+.woocommerce-account #customer_login .woocommerce-button,
+.woocommerce-account #customer_login button.button,
+.woocommerce-account #customer_login input.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 18px;
+  border: 1px solid var(--ck-ows-accent);
+  border-radius: 999px;
+  background: var(--ck-ows-accent);
+  color: #121212;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.woocommerce-account #customer_login .woocommerce-form-login__submit,
+.woocommerce-account #customer_login .woocommerce-form-register__submit {
+  margin-top: 4px;
+}
+
+.woocommerce-account #customer_login .woocommerce-form__label-for-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ck-ows-text);
+}
+
+.woocommerce-account #customer_login .woocommerce-form__label-for-checkbox input[type="checkbox"] {
+  margin: 0;
+}
+
+.woocommerce-account #customer_login .woocommerce-LostPassword {
+  margin-top: 10px;
+}
+
+.woocommerce-account #customer_login .woocommerce-password-strength {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+
+.woocommerce-account #customer_login .woocommerce-password-strength.good,
+.woocommerce-account #customer_login .woocommerce-password-strength.strong {
+  background: #e8f7ec;
+  color: #1f6b3b;
+}
+
+.woocommerce-account #customer_login .woocommerce-password-strength.short,
+.woocommerce-account #customer_login .woocommerce-password-strength.bad {
+  background: #fce9ea;
+  color: #9f2f2f;
+}
+
+.woocommerce-account #customer_login .woocommerce-password-hint {
+  margin-top: 8px;
+  color: var(--ck-ows-muted);
+  font-size: 0.82rem;
+}
+
+.woocommerce-account #customer_login .woocommerce-form-row .required {
+  color: #c63b3b;
+}
+
+.woocommerce-account #customer_login .woocommerce-error,
+.woocommerce-account #customer_login .woocommerce-info,
+.woocommerce-account #customer_login .woocommerce-message {
+  margin: 0 0 12px;
+  border-radius: 10px;
+}
+
+.woocommerce-account #customer_login .flatsome-invalid,
+.woocommerce-account #customer_login .woocommerce-invalid {
+  color: #9f2f2f;
+}
+
+.woocommerce-account #customer_login .flatsome-invalid input.input-text,
+.woocommerce-account #customer_login .woocommerce-invalid input.input-text {
+  border-color: #d46a6a;
+}
+
+.woocommerce-account #customer_login .woocommerce-button:hover,
+.woocommerce-account #customer_login button.button:hover,
+.woocommerce-account #customer_login input.button:hover {
+  border-color: #121212;
+  background: #121212;
+  color: #fff;
+}
+
+.woocommerce-account .ck-ows-reg-guard-trap {
+  position: absolute;
+  left: -9999px;
+  height: 0;
+  overflow: hidden;
+}
+
 .woocommerce-account .ck-ows-order-card,
 .woocommerce-account .ck-ows-security__card,
 .woocommerce-account .ck-invoices__row,
@@ -1044,5 +1192,12 @@ body.woocommerce-account p.order-info {
 
   .woocommerce-view-order .ck-ows-shipping-edit__field.ck-ows-shipping-edit__field--half {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 850px) {
+  .woocommerce-account #customer_login {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }
 }

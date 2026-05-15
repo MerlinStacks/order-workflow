@@ -61,7 +61,10 @@ class CK_OWS_Settings {
 	}
 
 	public function enqueue_admin_assets( string $hook_suffix ): void {
-		if ( '' === $this->settings_page_hook || $hook_suffix !== $this->settings_page_hook ) {
+		$is_settings_page = '' !== $this->settings_page_hook && $hook_suffix === $this->settings_page_hook;
+		$is_settings_submenu = str_ends_with( $hook_suffix, '_page_ck-reg-guard' );
+
+		if ( ! $is_settings_page && ! $is_settings_submenu ) {
 			return;
 		}
 
@@ -128,6 +131,15 @@ class CK_OWS_Settings {
 			'ck-ows-settings'
 		);
 
+		add_settings_section(
+			'ck_ows_registration_guard_section',
+			esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ),
+			static function (): void {
+				echo '<p>' . esc_html__( 'Control anti-bot registration rules for the WooCommerce My Account registration form.', 'ck-order-workflow-suite' ) . '</p>';
+			},
+			'ck-ows-settings'
+		);
+
 		$this->register_field( 'show_account_dashboard_tab', __( 'Show Dashboard tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 		$this->register_field( 'show_account_orders_tab', __( 'Show Orders tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 		$this->register_field( 'show_account_downloads_tab', __( 'Show Downloads tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
@@ -137,6 +149,7 @@ class CK_OWS_Settings {
 		$this->register_field( 'show_account_security_tab', __( 'Show Security tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 		$this->register_field( 'show_account_email_preferences_tab', __( 'Show Email preferences tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 		$this->register_field( 'show_account_logout_tab', __( 'Show Logout tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
+		$this->register_field( 'registration_blocked_domains', __( 'Blocked email domains', 'ck-order-workflow-suite' ), 'textarea', 'ck_ows_registration_guard_section' );
 	}
 
 	public function sanitize_settings( array $input ): array {
@@ -183,6 +196,7 @@ class CK_OWS_Settings {
 		$current['show_account_security_tab']   = $this->is_enabled_input( $input, 'show_account_security_tab' ) ? 'yes' : 'no';
 		$current['show_account_email_preferences_tab'] = $this->is_enabled_input( $input, 'show_account_email_preferences_tab' ) ? 'yes' : 'no';
 		$current['show_account_logout_tab']     = $this->is_enabled_input( $input, 'show_account_logout_tab' ) ? 'yes' : 'no';
+		$current['registration_blocked_domains'] = isset( $input['registration_blocked_domains'] ) ? $this->sanitize_blocked_domain_list( (string) $input['registration_blocked_domains'] ) : '';
 
 		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
 			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
@@ -406,6 +420,17 @@ class CK_OWS_Settings {
 			return;
 		}
 
+		if ( 'textarea' === $type ) {
+			echo '<textarea id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="large-text code" rows="8" spellcheck="false">' . esc_textarea( (string) $value ) . '</textarea>';
+
+			if ( 'registration_blocked_domains' === $key ) {
+				echo '<p class="description">' . esc_html__( 'One domain per line, for example: mailinator.com', 'ck-order-workflow-suite' ) . '</p>';
+				echo '<p class="description">' . esc_html__( 'These custom domains are added to the built-in disposable domain list.', 'ck-order-workflow-suite' ) . '</p>';
+			}
+
+			return;
+		}
+
 		if ( $is_sensitive_field ) {
 			$display_value = '' !== (string) $value ? '********' : '';
 			echo '<input type="password" name="' . esc_attr( $name ) . '" value="' . esc_attr( $display_value ) . '" class="regular-text" autocomplete="new-password">';
@@ -625,6 +650,34 @@ class CK_OWS_Settings {
 		);
 
 		return in_array( $host, $allowed_hosts, true );
+	}
+
+	private function sanitize_blocked_domain_list( string $value ): string {
+		$lines = preg_split( '/\r\n|\r|\n/', $value );
+
+		if ( ! is_array( $lines ) ) {
+			return '';
+		}
+
+		$domains = array();
+
+		foreach ( $lines as $line ) {
+			$domain = strtolower( trim( sanitize_text_field( (string) $line ) ) );
+
+			if ( '' === $domain ) {
+				continue;
+			}
+
+			if ( false === preg_match( '/^[a-z0-9.-]+\.[a-z]{2,}$/', $domain ) ) {
+				continue;
+			}
+
+			$domains[] = $domain;
+		}
+
+		$domains = array_values( array_unique( $domains ) );
+
+		return implode( "\n", $domains );
 	}
 
 	private static function sensitive_keys(): array {
