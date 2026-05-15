@@ -410,6 +410,7 @@ class CK_OWS_Artwork_Proof {
 
 		$order->save();
 		$order->add_order_note( sprintf( __( 'Artwork proof %s deleted by staff.', 'ck-order-workflow-suite' ), $deleted_version ) );
+		CK_OWS_Audit::log_order_event( $order, 'artwork_revision_deleted', array( 'version' => $deleted_version ) );
 
 		$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
 		$redirect = add_query_arg( 'ck_ows_artwork_delete_success', 1, $redirect );
@@ -512,6 +513,7 @@ class CK_OWS_Artwork_Proof {
 		$order->save();
 
 		$order->add_order_note( __( 'Artwork proof PDF uploaded and approval requested.', 'ck-order-workflow-suite' ) );
+		CK_OWS_Audit::log_order_event( $order, 'artwork_uploaded' );
 
 		if ( 'awaiting-artwork' !== $order->get_status() ) {
 			$order->update_status( 'awaiting-artwork', __( 'Order moved to Awaiting Artwork Approval after proof upload.', 'ck-order-workflow-suite' ), true );
@@ -639,6 +641,7 @@ class CK_OWS_Artwork_Proof {
 			$order->update_meta_data( self::META_APPROVED_BY, get_current_user_id() );
 			$order->save();
 			$order->add_order_note( __( 'Customer approved artwork proof.', 'ck-order-workflow-suite' ) );
+			CK_OWS_Audit::log_order_event( $order, 'artwork_approved_by_customer' );
 
 			if ( 'awaiting-artwork' === $order->get_status() ) {
 				$order->update_status( 'in-production', __( 'Artwork approved by customer. Order moved to In Production.', 'ck-order-workflow-suite' ), true );
@@ -675,6 +678,7 @@ class CK_OWS_Artwork_Proof {
 				$order->update_status( 'awaiting-artwork', __( 'Order moved back to Awaiting Artwork Approval after customer change request.', 'ck-order-workflow-suite' ), true );
 			}
 
+			CK_OWS_Audit::log_order_event( $order, 'artwork_changes_requested' );
 			$this->redirect_customer_with_notice( $order, __( 'Thanks, we have sent your change request to our team.', 'ck-order-workflow-suite' ), 'success' );
 		}
 
@@ -762,6 +766,7 @@ class CK_OWS_Artwork_Proof {
 		$order->save();
 
 		$order->add_order_note( sprintf( __( 'Staff override approved artwork and moved to production. Reason: %s', 'ck-order-workflow-suite' ), $reason ) );
+		CK_OWS_Audit::log_order_event( $order, 'artwork_staff_override', array( 'reason' => $reason ) );
 		$order->update_status( 'in-production', __( 'Staff override moved order to In Production.', 'ck-order-workflow-suite' ), true );
 
 		$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );

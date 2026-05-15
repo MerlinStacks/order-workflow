@@ -188,6 +188,7 @@ class CK_OWS_Plugin {
 	 * @return void
 	 */
 	private function load_dependencies(): void {
+		require_once CK_OWS_PATH . 'includes/class-ck-ows-audit.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-account-menu-helper.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-statuses.php';
 		require_once CK_OWS_PATH . 'includes/class-ck-ows-admin-order-actions.php';

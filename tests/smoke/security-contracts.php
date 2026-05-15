@@ -46,6 +46,36 @@ $checks = array(
 		'require' => array( 'check_admin_referer', 'current_user_can' ),
 	),
 	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'test_connections',
+		'require' => array( 'check_admin_referer', 'current_user_can' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'export_settings',
+		'require' => array( 'check_admin_referer', 'current_user_can' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'import_settings',
+		'require' => array( 'check_admin_referer', 'current_user_can' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'retry_dead_letter',
+		'require' => array( 'check_admin_referer', 'current_user_can' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'clear_dead_letters',
+		'require' => array( 'check_admin_referer', 'current_user_can' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'retry_all_dead_letters',
+		'require' => array( 'check_admin_referer', 'current_user_can' ),
+	),
+	array(
 		'file'    => $root . '/includes/class-ck-ows-account-email-preferences.php',
 		'method'  => 'handle_update',
 		'require' => array( 'check_admin_referer', 'is_user_logged_in' ),
@@ -76,6 +106,31 @@ $redirect_checks = array(
 	array(
 		'file'    => $root . '/includes/class-ck-ows-settings.php',
 		'method'  => 'run_tracking_sync_now',
+		'require' => array( 'wp_safe_redirect' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'test_connections',
+		'require' => array( 'wp_safe_redirect' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'import_settings',
+		'require' => array( 'wp_safe_redirect' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'retry_dead_letter',
+		'require' => array( 'wp_safe_redirect' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'clear_dead_letters',
+		'require' => array( 'wp_safe_redirect' ),
+	),
+	array(
+		'file'    => $root . '/includes/class-ck-ows-settings.php',
+		'method'  => 'retry_all_dead_letters',
 		'require' => array( 'wp_safe_redirect' ),
 	),
 );

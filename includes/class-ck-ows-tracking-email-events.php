@@ -9,6 +9,7 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Tracking_Email_Events {
 	private const TRANSIENT_DEDUP_PREFIX = 'ck_ows_track_evt_';
+	private const RETRY_HOOK             = 'ck_ows_tracking_event_retry';
 
 	private static ?CK_OWS_Tracking_Email_Events $instance = null;
 
@@ -22,6 +23,7 @@ class CK_OWS_Tracking_Email_Events {
 
 	private function __construct() {
 		add_action( 'ck_ows_tracking_updated', array( $this, 'forward_event_to_email_platform' ), 10, 2 );
+		add_action( self::RETRY_HOOK, array( $this, 'retry_event_delivery' ), 10, 1 );
 	}
 
 	public function forward_event_to_email_platform( int $order_id, array $tracking_payload ): void {
@@ -74,17 +76,61 @@ class CK_OWS_Tracking_Email_Events {
 		);
 
 		if ( is_wp_error( $response ) ) {
+			$this->track_delivery_result( false, $order_id, $normalized_event, $response->get_error_message() );
+			$this->schedule_retry( $order_id, $normalized_event, 1, $response->get_error_message() );
 			do_action( 'ck_ows_tracking_event_delivery_failed', $order_id, $normalized_event, $response->get_error_message() );
 			return;
 		}
 
 		$status_code = (int) wp_remote_retrieve_response_code( $response );
 		if ( $status_code < 200 || $status_code >= 300 ) {
+			$this->track_delivery_result( false, $order_id, $normalized_event, 'HTTP ' . $status_code );
+			$this->schedule_retry( $order_id, $normalized_event, 1, 'HTTP ' . $status_code );
 			do_action( 'ck_ows_tracking_event_delivery_failed', $order_id, $normalized_event, 'HTTP ' . $status_code );
 			return;
 		}
 
+		$this->track_delivery_result( true, $order_id, $normalized_event, 'HTTP ' . $status_code );
 		do_action( 'ck_ows_tracking_event_delivered', $order_id, $normalized_event, $status_code );
+	}
+
+	public function retry_event_delivery( array $payload ): void {
+		$order_id         = isset( $payload['order_id'] ) ? absint( $payload['order_id'] ) : 0;
+		$attempt          = isset( $payload['attempt'] ) ? absint( $payload['attempt'] ) : 1;
+		$normalized_event = isset( $payload['event'] ) && is_array( $payload['event'] ) ? $payload['event'] : array();
+
+		if ( $order_id <= 0 || empty( $normalized_event ) ) {
+			return;
+		}
+
+		$webhook_url = $this->sanitize_https_url( (string) CK_OWS_Settings::get( 'tracking_email_events_webhook_url', '' ) );
+		if ( '' === $webhook_url ) {
+			return;
+		}
+
+		$response = wp_remote_post(
+			$webhook_url,
+			array(
+				'timeout' => max( 3, min( 30, absint( CK_OWS_Settings::get( 'tracking_email_events_timeout_seconds', 10 ) ) ) ),
+				'headers' => $this->build_headers(),
+				'body'    => wp_json_encode( array( 'event' => $normalized_event ) ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			$this->track_delivery_result( false, $order_id, $normalized_event, $response->get_error_message() );
+			$this->schedule_retry( $order_id, $normalized_event, $attempt + 1, $response->get_error_message() );
+			return;
+		}
+
+		$status_code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $status_code < 200 || $status_code >= 300 ) {
+			$this->track_delivery_result( false, $order_id, $normalized_event, 'HTTP ' . $status_code );
+			$this->schedule_retry( $order_id, $normalized_event, $attempt + 1, 'HTTP ' . $status_code );
+			return;
+		}
+
+		$this->track_delivery_result( true, $order_id, $normalized_event, 'HTTP ' . $status_code );
 	}
 
 	private function build_normalized_event( WC_Order $order, array $tracking_payload ): array {
@@ -205,5 +251,75 @@ class CK_OWS_Tracking_Email_Events {
 		}
 
 		return esc_url_raw( $sanitized );
+	}
+
+	private function build_headers(): array {
+		$headers = array(
+			'Content-Type' => 'application/json',
+			'Accept'       => 'application/json',
+		);
+
+		$token = trim( (string) CK_OWS_Settings::get( 'tracking_email_events_auth_token', '' ) );
+		if ( '' !== $token ) {
+			$headers['Authorization'] = 'Bearer ' . $token;
+		}
+
+		return $headers;
+	}
+
+	private function schedule_retry( int $order_id, array $normalized_event, int $attempt, string $last_error ): void {
+		$max_attempts = max( 0, min( 5, absint( CK_OWS_Settings::get( 'tracking_email_events_retry_attempts', 3 ) ) ) );
+
+		if ( $attempt > $max_attempts ) {
+			$this->push_dead_letter( $order_id, $normalized_event, $last_error, $attempt - 1 );
+			return;
+		}
+
+		$base_backoff_minutes = max( 1, min( 60, absint( CK_OWS_Settings::get( 'tracking_email_events_retry_backoff_minutes', 5 ) ) ) );
+		$delay                = $base_backoff_minutes * MINUTE_IN_SECONDS * $attempt;
+
+		wp_schedule_single_event(
+			time() + $delay,
+			self::RETRY_HOOK,
+			array(
+				array(
+					'order_id' => $order_id,
+					'event'    => $normalized_event,
+					'attempt'  => $attempt,
+				),
+			)
+		);
+	}
+
+	private function push_dead_letter( int $order_id, array $normalized_event, string $last_error, int $attempts ): void {
+		$rows = get_option( 'ck_ows_tracking_event_dead_letters', array() );
+		$rows = is_array( $rows ) ? $rows : array();
+		$rows[] = array(
+			'ts'         => time(),
+			'order_id'   => $order_id,
+			'attempts'   => $attempts,
+			'last_error' => $last_error,
+			'event'      => $normalized_event,
+		);
+
+		if ( count( $rows ) > 100 ) {
+			$rows = array_slice( $rows, -100 );
+		}
+
+		update_option( 'ck_ows_tracking_event_dead_letters', $rows, false );
+	}
+
+	private function track_delivery_result( bool $ok, int $order_id, array $event, string $message ): void {
+		update_option(
+			'ck_ows_last_webhook_delivery',
+			array(
+				'ts'       => time(),
+				'ok'       => $ok,
+				'order_id' => $order_id,
+				'message'  => $message,
+				'event'    => $event,
+			),
+			false
+		);
 	}
 }

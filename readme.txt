@@ -3,7 +3,7 @@ Contributors: ck
 Requires at least: 6.4
 Tested up to: 6.6
 Requires PHP: 8.0
-Stable tag: 0.1.1
+Stable tag: 0.1.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce
@@ -26,6 +26,10 @@ Current feature set includes:
 - Registration guard anti-bot protections.
 - Shipment tracking display with AusPost live sync support.
 - Optional forwarding of tracking lifecycle events to email platform webhooks.
+- Webhook retries with backoff and dead-letter queue for failed deliveries.
+- Diagnostics panel for cron health, delivery health, and connection test history.
+- Settings import/export and one-click integration connection tests.
+- Optional data retention toggle for uninstall cleanup behavior.
 
 For external automations, custom statuses and tracking update hooks are available.
 

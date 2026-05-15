@@ -144,6 +144,7 @@ class CK_OWS_Customer_Shipping_Edit {
 		$latest_order->set_address( $address, 'shipping' );
 		$latest_order->add_order_note( __( 'Customer updated shipping address from My Account.', 'ck-order-workflow-suite' ) );
 		$latest_order->save();
+		CK_OWS_Audit::log_order_event( $latest_order, 'customer_shipping_updated' );
 
 		$this->redirect_with_notice( $latest_order, __( 'Shipping address updated successfully.', 'ck-order-workflow-suite' ), 'success' );
 	}

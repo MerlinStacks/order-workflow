@@ -11,6 +11,18 @@ class CK_OWS_Settings {
 	public const OPTION_KEY = 'ck_ows_settings';
 	private const TRACKING_SYNC_NONCE       = 'ck_ows_run_tracking_sync';
 	private const TRACKING_SYNC_NONCE_FIELD = 'ck_ows_tracking_sync_nonce';
+	private const TEST_CONNECTION_NONCE       = 'ck_ows_test_connections';
+	private const TEST_CONNECTION_NONCE_FIELD = 'ck_ows_test_connections_nonce';
+	private const EXPORT_SETTINGS_NONCE       = 'ck_ows_export_settings';
+	private const EXPORT_SETTINGS_NONCE_FIELD = 'ck_ows_export_settings_nonce';
+	private const IMPORT_SETTINGS_NONCE       = 'ck_ows_import_settings';
+	private const IMPORT_SETTINGS_NONCE_FIELD = 'ck_ows_import_settings_nonce';
+	private const DLQ_RETRY_NONCE             = 'ck_ows_retry_dead_letter';
+	private const DLQ_RETRY_NONCE_FIELD       = 'ck_ows_retry_dead_letter_nonce';
+	private const DLQ_CLEAR_NONCE             = 'ck_ows_clear_dead_letters';
+	private const DLQ_CLEAR_NONCE_FIELD       = 'ck_ows_clear_dead_letters_nonce';
+	private const DLQ_RETRY_ALL_NONCE         = 'ck_ows_retry_all_dead_letters';
+	private const DLQ_RETRY_ALL_NONCE_FIELD   = 'ck_ows_retry_all_dead_letters_nonce';
 
 	private static ?CK_OWS_Settings $instance = null;
 
@@ -29,6 +41,12 @@ class CK_OWS_Settings {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_post_ck_ows_run_tracking_sync', array( $this, 'run_tracking_sync_now' ) );
+		add_action( 'admin_post_ck_ows_test_connections', array( $this, 'test_connections' ) );
+		add_action( 'admin_post_ck_ows_export_settings', array( $this, 'export_settings' ) );
+		add_action( 'admin_post_ck_ows_import_settings', array( $this, 'import_settings' ) );
+		add_action( 'admin_post_ck_ows_retry_dead_letter', array( $this, 'retry_dead_letter' ) );
+		add_action( 'admin_post_ck_ows_clear_dead_letters', array( $this, 'clear_dead_letters' ) );
+		add_action( 'admin_post_ck_ows_retry_all_dead_letters', array( $this, 'retry_all_dead_letters' ) );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'filter_account_menu_items' ), 1000 );
 	}
 
@@ -150,6 +168,19 @@ class CK_OWS_Settings {
 		$this->register_field( 'show_account_email_preferences_tab', __( 'Show Email preferences tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 		$this->register_field( 'show_account_logout_tab', __( 'Show Logout tab', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_account_menu_section' );
 		$this->register_field( 'registration_blocked_domains', __( 'Blocked email domains', 'ck-order-workflow-suite' ), 'textarea', 'ck_ows_registration_guard_section' );
+
+		add_settings_section(
+			'ck_ows_operations_section',
+			esc_html__( 'Operations & Safety', 'ck-order-workflow-suite' ),
+			static function (): void {
+				echo '<p>' . esc_html__( 'Retention, retries, and operational controls for production stores.', 'ck-order-workflow-suite' ) . '</p>';
+			},
+			'ck-ows-settings'
+		);
+
+		$this->register_field( 'keep_data_on_uninstall', __( 'Keep plugin data on uninstall', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
+		$this->register_field( 'tracking_email_events_retry_attempts', __( 'Webhook retry attempts', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
+		$this->register_field( 'tracking_email_events_retry_backoff_minutes', __( 'Retry backoff (minutes)', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
 	}
 
 	public function sanitize_settings( array $input ): array {
@@ -176,6 +207,8 @@ class CK_OWS_Settings {
 		}
 		$current['tracking_email_events_auth_token'] = $this->sanitize_sensitive_setting( $input, $current, 'tracking_email_events_auth_token' );
 		$current['tracking_email_events_timeout_seconds'] = isset( $input['tracking_email_events_timeout_seconds'] ) ? max( 3, min( 30, absint( $input['tracking_email_events_timeout_seconds'] ) ) ) : 10;
+		$current['tracking_email_events_retry_attempts'] = isset( $input['tracking_email_events_retry_attempts'] ) ? max( 0, min( 5, absint( $input['tracking_email_events_retry_attempts'] ) ) ) : 3;
+		$current['tracking_email_events_retry_backoff_minutes'] = isset( $input['tracking_email_events_retry_backoff_minutes'] ) ? max( 1, min( 60, absint( $input['tracking_email_events_retry_backoff_minutes'] ) ) ) : 5;
 		$current['email_preferences_api_base_url'] = isset( $input['email_preferences_api_base_url'] ) ? $this->sanitize_https_base_url( (string) $input['email_preferences_api_base_url'] ) : '';
 		if ( '' !== $raw_email_preferences_base_url && '' === $current['email_preferences_api_base_url'] ) {
 			add_settings_error(
@@ -197,6 +230,7 @@ class CK_OWS_Settings {
 		$current['show_account_email_preferences_tab'] = $this->is_enabled_input( $input, 'show_account_email_preferences_tab' ) ? 'yes' : 'no';
 		$current['show_account_logout_tab']     = $this->is_enabled_input( $input, 'show_account_logout_tab' ) ? 'yes' : 'no';
 		$current['registration_blocked_domains'] = isset( $input['registration_blocked_domains'] ) ? $this->sanitize_blocked_domain_list( (string) $input['registration_blocked_domains'] ) : '';
+		$current['keep_data_on_uninstall'] = $this->is_enabled_input( $input, 'keep_data_on_uninstall' ) ? 'yes' : 'no';
 
 		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
 			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
@@ -229,6 +263,7 @@ class CK_OWS_Settings {
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-email-preferences" aria-controls="ck-ows-panel-email-preferences" aria-selected="false" tabindex="-1" data-target="email-preferences">' . esc_html__( 'Email Preferences', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-account-tabs" aria-controls="ck-ows-panel-account-tabs" aria-selected="false" tabindex="-1" data-target="account-tabs">' . esc_html__( 'My Account Tabs', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-registration-guard" aria-controls="ck-ows-panel-registration-guard" aria-selected="false" tabindex="-1" data-target="registration-guard">' . esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-operations" aria-controls="ck-ows-panel-operations" aria-selected="false" tabindex="-1" data-target="operations">' . esc_html__( 'Operations', 'ck-order-workflow-suite' ) . '</button>';
 		echo '</h2>';
 
 		echo '<div id="ck-ows-panel-tracking" class="ck-ows-panel is-active" role="tabpanel" aria-labelledby="ck-ows-tab-tracking">';
@@ -265,6 +300,13 @@ class CK_OWS_Settings {
 		echo '</table>';
 		echo '</div>';
 
+		echo '<div id="ck-ows-panel-operations" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-operations" hidden>';
+		echo '<p>' . esc_html__( 'Configure operational safety controls, retries, and data retention behavior.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_operations_section' );
+		echo '</table>';
+		echo '</div>';
+
 		submit_button( __( 'Save settings', 'ck-order-workflow-suite' ) );
 		echo '</form>';
 		echo '</div>';
@@ -277,10 +319,64 @@ class CK_OWS_Settings {
 		wp_nonce_field( self::TRACKING_SYNC_NONCE, self::TRACKING_SYNC_NONCE_FIELD );
 		submit_button( __( 'Run tracking sync now', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
 		echo '</form>';
+		echo '<hr>';
+		echo '<p>' . esc_html__( 'Run live connection checks against current AusPost and webhook settings.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="ck_ows_test_connections">';
+		wp_nonce_field( self::TEST_CONNECTION_NONCE, self::TEST_CONNECTION_NONCE_FIELD );
+		submit_button( __( 'Test connections', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
+		echo '</form>';
+		echo '</div>';
+
+		echo '<div class="ck-ows-card">';
+		echo '<h2>' . esc_html__( 'Settings Import/Export', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="ck_ows_export_settings">';
+		wp_nonce_field( self::EXPORT_SETTINGS_NONCE, self::EXPORT_SETTINGS_NONCE_FIELD );
+		submit_button( __( 'Export settings JSON', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
+		echo '</form>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="margin-top:14px;">';
+		echo '<input type="hidden" name="action" value="ck_ows_import_settings">';
+		wp_nonce_field( self::IMPORT_SETTINGS_NONCE, self::IMPORT_SETTINGS_NONCE_FIELD );
+		echo '<p><label for="ck_ows_import_json"><strong>' . esc_html__( 'Paste settings JSON', 'ck-order-workflow-suite' ) . '</strong></label></p>';
+		echo '<textarea id="ck_ows_import_json" name="ck_ows_import_json" class="large-text code" rows="8" spellcheck="false"></textarea>';
+		submit_button( __( 'Import settings JSON', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
+		echo '</form>';
+		echo '</div>';
+
+		echo '<div class="ck-ows-card">';
+		echo '<h2>' . esc_html__( 'Diagnostics', 'ck-order-workflow-suite' ) . '</h2>';
+		$this->render_diagnostics_panel();
+		echo '</div>';
+
+		echo '<div class="ck-ows-card">';
+		echo '<h2>' . esc_html__( 'Dead Letters', 'ck-order-workflow-suite' ) . '</h2>';
+		$this->render_dead_letters_panel();
 		echo '</div>';
 
 		if ( isset( $_GET['ck_ows_sync_ran'] ) ) {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Tracking sync completed. Check order tracking panels for latest data.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_tested'] ) ) {
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Connection tests complete. See diagnostics panel for latest results.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_imported'] ) ) {
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings imported and saved successfully.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_dead_retried'] ) ) {
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Dead-letter event queued for retry.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_dead_cleared'] ) ) {
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Dead-letter queue cleared.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_dead_retried_all'] ) ) {
+			$count = absint( wp_unslash( $_GET['ck_ows_dead_retried_all'] ) );
+			echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Queued %d dead-letter event(s) for retry.', 'ck-order-workflow-suite' ), $count ) ) . '</p></div>';
 		}
 		echo '</div>';
 	}
@@ -300,6 +396,211 @@ class CK_OWS_Settings {
 			array(
 				'page'            => 'ck-ows-settings',
 				'ck_ows_sync_ran' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function test_connections(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::TEST_CONNECTION_NONCE, self::TEST_CONNECTION_NONCE_FIELD );
+
+		$results = array(
+			'ran_at'        => time(),
+			'auspost'       => $this->test_auspost_connection(),
+			'email_webhook' => $this->test_webhook_connection(),
+		);
+
+		update_option( 'ck_ows_last_connection_tests', $results, false );
+		CK_OWS_Audit::log_system_event( 'test_connections', array( 'result' => $results ) );
+
+		$redirect = add_query_arg(
+			array(
+				'page'          => 'ck-ows-settings',
+				'ck_ows_tested' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function export_settings(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::EXPORT_SETTINGS_NONCE, self::EXPORT_SETTINGS_NONCE_FIELD );
+
+		$settings = get_option( self::OPTION_KEY, array() );
+		$payload  = is_array( $settings ) ? $settings : array();
+		$json     = wp_json_encode( $payload, JSON_PRETTY_PRINT );
+
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="ck-ows-settings-' . gmdate( 'Ymd-His' ) . '.json"' );
+		echo is_string( $json ) ? $json : '{}';
+		exit;
+	}
+
+	public function import_settings(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::IMPORT_SETTINGS_NONCE, self::IMPORT_SETTINGS_NONCE_FIELD );
+
+		$raw = isset( $_POST['ck_ows_import_json'] ) ? (string) wp_unslash( $_POST['ck_ows_import_json'] ) : '';
+		$data = json_decode( $raw, true );
+
+		if ( ! is_array( $data ) ) {
+			$redirect = add_query_arg( 'page', 'ck-ows-settings', admin_url( 'admin.php' ) );
+			wp_safe_redirect( $redirect );
+			exit;
+		}
+
+		$sanitized = $this->sanitize_settings( $data );
+		update_option( self::OPTION_KEY, $sanitized, false );
+		CK_OWS_Audit::log_system_event( 'settings_imported', array( 'keys' => array_keys( $sanitized ) ) );
+
+		$redirect = add_query_arg(
+			array(
+				'page'            => 'ck-ows-settings',
+				'ck_ows_imported' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function retry_dead_letter(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::DLQ_RETRY_NONCE, self::DLQ_RETRY_NONCE_FIELD );
+
+		$index = isset( $_POST['dead_letter_index'] ) ? absint( wp_unslash( $_POST['dead_letter_index'] ) ) : -1;
+		$rows  = get_option( 'ck_ows_tracking_event_dead_letters', array() );
+		$rows  = is_array( $rows ) ? $rows : array();
+
+		if ( ! isset( $rows[ $index ] ) || ! is_array( $rows[ $index ] ) ) {
+			$redirect = add_query_arg( array( 'page' => 'ck-ows-settings' ), admin_url( 'admin.php' ) );
+			wp_safe_redirect( $redirect );
+			exit;
+		}
+
+		$row       = $rows[ $index ];
+		$order_id  = isset( $row['order_id'] ) ? absint( $row['order_id'] ) : 0;
+		$event     = isset( $row['event'] ) && is_array( $row['event'] ) ? $row['event'] : array();
+		$attempt   = 1;
+
+		if ( $order_id > 0 && ! empty( $event ) ) {
+			wp_schedule_single_event(
+				time() + 5,
+				'ck_ows_tracking_event_retry',
+				array(
+					array(
+						'order_id' => $order_id,
+						'event'    => $event,
+						'attempt'  => $attempt,
+					),
+				)
+			);
+
+			unset( $rows[ $index ] );
+			$rows = array_values( $rows );
+			update_option( 'ck_ows_tracking_event_dead_letters', $rows, false );
+			CK_OWS_Audit::log_system_event( 'dead_letter_retried', array( 'order_id' => $order_id ) );
+		}
+
+		$redirect = add_query_arg(
+			array(
+				'page'               => 'ck-ows-settings',
+				'ck_ows_dead_retried' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function clear_dead_letters(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::DLQ_CLEAR_NONCE, self::DLQ_CLEAR_NONCE_FIELD );
+
+		delete_option( 'ck_ows_tracking_event_dead_letters' );
+		CK_OWS_Audit::log_system_event( 'dead_letters_cleared' );
+
+		$redirect = add_query_arg(
+			array(
+				'page'               => 'ck-ows-settings',
+				'ck_ows_dead_cleared' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function retry_all_dead_letters(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::DLQ_RETRY_ALL_NONCE, self::DLQ_RETRY_ALL_NONCE_FIELD );
+
+		$rows = get_option( 'ck_ows_tracking_event_dead_letters', array() );
+		$rows = is_array( $rows ) ? array_values( $rows ) : array();
+		$queued = 0;
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$order_id = isset( $row['order_id'] ) ? absint( $row['order_id'] ) : 0;
+			$event    = isset( $row['event'] ) && is_array( $row['event'] ) ? $row['event'] : array();
+
+			if ( $order_id <= 0 || empty( $event ) ) {
+				continue;
+			}
+
+			wp_schedule_single_event(
+				time() + 5,
+				'ck_ows_tracking_event_retry',
+				array(
+					array(
+						'order_id' => $order_id,
+						'event'    => $event,
+						'attempt'  => 1,
+					),
+				)
+			);
+
+			$queued++;
+		}
+
+		delete_option( 'ck_ows_tracking_event_dead_letters' );
+		CK_OWS_Audit::log_system_event( 'dead_letters_retried_all', array( 'queued' => $queued ) );
+
+		$redirect = add_query_arg(
+			array(
+				'page'                   => 'ck-ows-settings',
+				'ck_ows_dead_retried_all' => $queued,
 			),
 			admin_url( 'admin.php' )
 		);
@@ -382,6 +683,10 @@ class CK_OWS_Settings {
 			$default = 6;
 		} elseif ( 'tracking_email_events_timeout_seconds' === $key ) {
 			$default = 10;
+		} elseif ( 'tracking_email_events_retry_attempts' === $key ) {
+			$default = 3;
+		} elseif ( 'tracking_email_events_retry_backoff_minutes' === $key ) {
+			$default = 5;
 		}
 
 		$value = self::get( $key, $default );
@@ -418,12 +723,22 @@ class CK_OWS_Settings {
 			if ( 'tracking_email_events_timeout_seconds' === $key ) {
 				$min = '3';
 				$max = '30';
+			} elseif ( 'tracking_email_events_retry_attempts' === $key ) {
+				$min = '0';
+				$max = '5';
+			} elseif ( 'tracking_email_events_retry_backoff_minutes' === $key ) {
+				$min = '1';
+				$max = '60';
 			}
 
 			echo '<input type="number" min="' . esc_attr( $min ) . '" max="' . esc_attr( $max ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="small-text">';
 
 			if ( 'tracking_email_events_timeout_seconds' === $key ) {
 				echo '<p class="description">' . esc_html__( 'Recommended: 10 seconds. Used when sending events to your email platform webhook.', 'ck-order-workflow-suite' ) . '</p>';
+			} elseif ( 'tracking_email_events_retry_attempts' === $key ) {
+				echo '<p class="description">' . esc_html__( 'Retries after initial delivery fails. Set to 0 to disable retries.', 'ck-order-workflow-suite' ) . '</p>';
+			} elseif ( 'tracking_email_events_retry_backoff_minutes' === $key ) {
+				echo '<p class="description">' . esc_html__( 'Base delay before retrying failed webhook deliveries.', 'ck-order-workflow-suite' ) . '</p>';
 			}
 			return;
 		}
@@ -693,6 +1008,149 @@ class CK_OWS_Settings {
 		$domains = array_values( array_unique( $domains ) );
 
 		return implode( "\n", $domains );
+	}
+
+	private function render_diagnostics_panel(): void {
+		$next_sync     = wp_next_scheduled( 'ck_ows_tracking_sync_event' );
+		$cron_enabled  = 'yes' === CK_OWS_Settings::get( 'tracking_sync_enabled', 'yes' );
+		$last_tests    = get_option( 'ck_ows_last_connection_tests', array() );
+		$last_webhook  = get_option( 'ck_ows_last_webhook_delivery', array() );
+		$dead_letters  = get_option( 'ck_ows_tracking_event_dead_letters', array() );
+		$audit_entries = CK_OWS_Audit::read_recent( 10 );
+
+		echo '<ul>';
+		echo '<li><strong>' . esc_html__( 'WordPress', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( get_bloginfo( 'version' ) ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'WooCommerce', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( defined( 'WC_VERSION' ) ? WC_VERSION : 'unknown' ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'HPOS compatibility declared', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html__( 'yes', 'ck-order-workflow-suite' ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Tracking cron enabled', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $cron_enabled ? 'yes' : 'no' ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Next tracking sync', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $next_sync ? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $next_sync ) : 'not scheduled' ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Last webhook delivery', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_webhook ) ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Dead-letter queue size', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( is_array( $dead_letters ) ? (string) count( $dead_letters ) : '0' ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Last connection tests', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_tests ) ) . '</li>';
+		echo '</ul>';
+
+		if ( ! empty( $audit_entries ) ) {
+			echo '<p><strong>' . esc_html__( 'Recent audit events', 'ck-order-workflow-suite' ) . '</strong></p>';
+			echo '<ul>';
+			foreach ( $audit_entries as $entry ) {
+				$action = isset( $entry['action'] ) ? (string) $entry['action'] : 'unknown';
+				$ts     = isset( $entry['ts'] ) ? absint( $entry['ts'] ) : 0;
+				echo '<li>' . esc_html( $action . ' - ' . ( $ts > 0 ? wp_date( 'Y-m-d H:i:s', $ts ) : '' ) ) . '</li>';
+			}
+			echo '</ul>';
+		}
+	}
+
+	private function render_dead_letters_panel(): void {
+		$rows = get_option( 'ck_ows_tracking_event_dead_letters', array() );
+		$rows = is_array( $rows ) ? array_values( $rows ) : array();
+
+		if ( empty( $rows ) ) {
+			echo '<p>' . esc_html__( 'No dead-letter events currently queued.', 'ck-order-workflow-suite' ) . '</p>';
+			return;
+		}
+
+		echo '<p>' . esc_html__( 'Failed webhook events that exceeded retries. You can retry individual events or clear the queue.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<table class="widefat striped" role="presentation">';
+		echo '<thead><tr><th>' . esc_html__( 'Time', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'Order', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'Attempts', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'Error', 'ck-order-workflow-suite' ) . '</th><th>' . esc_html__( 'Action', 'ck-order-workflow-suite' ) . '</th></tr></thead>';
+		echo '<tbody>';
+
+		foreach ( $rows as $index => $row ) {
+			$ts       = isset( $row['ts'] ) ? absint( $row['ts'] ) : 0;
+			$order_id = isset( $row['order_id'] ) ? absint( $row['order_id'] ) : 0;
+			$attempts = isset( $row['attempts'] ) ? absint( $row['attempts'] ) : 0;
+			$error    = isset( $row['last_error'] ) ? sanitize_text_field( (string) $row['last_error'] ) : '';
+
+			echo '<tr>';
+			echo '<td>' . esc_html( $ts > 0 ? wp_date( 'Y-m-d H:i:s', $ts ) : '-' ) . '</td>';
+			echo '<td>#' . esc_html( (string) $order_id ) . '</td>';
+			echo '<td>' . esc_html( (string) $attempts ) . '</td>';
+			echo '<td>' . esc_html( $error ) . '</td>';
+			echo '<td>';
+			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+			echo '<input type="hidden" name="action" value="ck_ows_retry_dead_letter">';
+			echo '<input type="hidden" name="dead_letter_index" value="' . esc_attr( (string) $index ) . '">';
+			wp_nonce_field( self::DLQ_RETRY_NONCE, self::DLQ_RETRY_NONCE_FIELD );
+			submit_button( __( 'Retry', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
+			echo '</form>';
+			echo '</td>';
+			echo '</tr>';
+		}
+
+		echo '</tbody>';
+		echo '</table>';
+
+		echo '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="ck_ows_retry_all_dead_letters">';
+		wp_nonce_field( self::DLQ_RETRY_ALL_NONCE, self::DLQ_RETRY_ALL_NONCE_FIELD );
+		echo '<button type="submit" class="button button-secondary" onclick="return confirm(\'' . esc_js( __( 'Queue retries for all dead-letter events?', 'ck-order-workflow-suite' ) ) . '\');">' . esc_html__( 'Retry all', 'ck-order-workflow-suite' ) . '</button>';
+		echo '</form>';
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="margin-top:12px;">';
+		echo '<input type="hidden" name="action" value="ck_ows_clear_dead_letters">';
+		wp_nonce_field( self::DLQ_CLEAR_NONCE, self::DLQ_CLEAR_NONCE_FIELD );
+		echo '<button type="submit" class="button button-link-delete" onclick="return confirm(\'' . esc_js( __( 'Permanently clear all dead-letter events?', 'ck-order-workflow-suite' ) ) . '\');">' . esc_html__( 'Clear dead-letter queue', 'ck-order-workflow-suite' ) . '</button>';
+		echo '</form>';
+		echo '</div>';
+	}
+
+	private function test_auspost_connection(): array {
+		$api_key = trim( (string) self::get( 'auspost_api_key', '' ) );
+
+		if ( '' === $api_key ) {
+			return array( 'ok' => false, 'message' => 'Missing API key' );
+		}
+
+		$response = wp_remote_get(
+			'https://digitalapi.auspost.com.au/postcode/search.json?q=2000',
+			array(
+				'timeout' => 10,
+				'headers' => array( 'AUTH-KEY' => $api_key ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return array( 'ok' => false, 'message' => $response->get_error_message() );
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		return array( 'ok' => $code >= 200 && $code < 300, 'message' => 'HTTP ' . $code );
+	}
+
+	private function test_webhook_connection(): array {
+		$url = trim( (string) self::get( 'tracking_email_events_webhook_url', '' ) );
+
+		if ( '' === $url ) {
+			return array( 'ok' => false, 'message' => 'Missing webhook URL' );
+		}
+
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => 8,
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body'    => wp_json_encode( array( 'event' => 'ck_ows_connection_test', 'ts' => time() ) ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return array( 'ok' => false, 'message' => $response->get_error_message() );
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		return array( 'ok' => $code >= 200 && $code < 300, 'message' => 'HTTP ' . $code );
+	}
+
+	private function format_diagnostic_row( $row ): string {
+		if ( ! is_array( $row ) || empty( $row ) ) {
+			return 'n/a';
+		}
+
+		$ts = isset( $row['ran_at'] ) ? absint( $row['ran_at'] ) : ( isset( $row['ts'] ) ? absint( $row['ts'] ) : 0 );
+		return $ts > 0 ? wp_date( 'Y-m-d H:i:s', $ts ) : 'available';
 	}
 
 	private static function sensitive_keys(): array {

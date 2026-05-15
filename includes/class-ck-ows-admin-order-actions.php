@@ -77,6 +77,7 @@ class CK_OWS_Admin_Order_Actions {
 				__( 'Order status updated from bulk action.', 'ck-order-workflow-suite' ),
 				true
 			);
+			CK_OWS_Audit::log_order_event( $order, 'bulk_status_update', array( 'status' => $status ) );
 			$updated++;
 		}
 
@@ -162,6 +163,7 @@ class CK_OWS_Admin_Order_Actions {
 		}
 
 		$order->update_status( $status, __( 'Order status updated from quick action.', 'ck-order-workflow-suite' ), true );
+		CK_OWS_Audit::log_order_event( $order, 'quick_status_update', array( 'status' => $status ) );
 
 		$redirect = $this->get_redirect_url();
 		$redirect = add_query_arg(

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.4 - 2026-05-15
+
+### Added
+
+- Added uninstall cleanup support with configurable keep-data toggle.
+- Added operational settings for webhook retries and retry backoff.
+- Added webhook retry scheduler with dead-letter queue capture for failed deliveries.
+- Added settings import/export actions and connection test actions in admin.
+- Added diagnostics panel with cron schedule visibility, webhook health, and recent audit events.
+- Added audit logging for sensitive order workflow actions.
+
+### Changed
+
+- Extended smoke security contracts to cover new privileged admin actions.
+
+## 0.1.3 - 2026-05-15
+
+### Changed
+
+- Fixed My Account login/register layout sizing so form cards no longer render as narrow columns.
+- Centered Flatsome popup auth panel and removed empty side space in login-only mode.
+- Added popup login/register toggle behavior to show one form at a time.
+
 ## 0.1.2 - 2026-05-15
 
 ### Changed
