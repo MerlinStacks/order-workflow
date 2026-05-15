@@ -27,7 +27,6 @@ class CK_OWS_Registration_Guard {
 	private function __construct() {
 		add_action( 'woocommerce_register_form', array( $this, 'inject_fields' ) );
 		add_action( 'register_form', array( $this, 'inject_fields' ) );
-		add_action( 'woocommerce_login_form_end', array( $this, 'render_register_link' ) );
 		add_filter( 'woocommerce_process_registration_errors', array( $this, 'validate_registration' ), 10, 4 );
 		add_filter( 'registration_errors', array( $this, 'validate_wp_registration' ), 10, 3 );
 
@@ -63,35 +62,6 @@ class CK_OWS_Registration_Guard {
 		echo '<input type="text" id="ck_company_name" name="ck_company_name" tabindex="-1" autocomplete="off" value="">';
 		echo '</div>';
 		echo '<input type="hidden" name="ck_reg_ts_token" value="' . esc_attr( $token ) . '">';
-	}
-
-	public function render_register_link(): void {
-		$register_url   = '';
-		$wc_registration = 'yes' === get_option( 'woocommerce_enable_myaccount_registration', 'no' );
-
-		if ( $wc_registration && function_exists( 'is_account_page' ) && is_account_page() ) {
-			return;
-		}
-
-		if ( $wc_registration ) {
-			$register_url = wc_get_page_permalink( 'myaccount' );
-			$register_url = is_string( $register_url ) ? $register_url . '#register' : '';
-		} elseif ( get_option( 'users_can_register', '0' ) ) {
-			$register_url = wp_registration_url();
-		}
-
-		if ( '' === $register_url ) {
-			return;
-		}
-
-		echo '<div class="ck-ows-login-actions">';
-		echo '<a class="button ck-ows-login-actions__register" href="' . esc_url( $register_url ) . '">' . esc_html__( 'Register', 'ck-order-workflow-suite' ) . '</a>';
-		echo '</div>';
-
-		echo '<p class="ck-ows-register-link">';
-		echo esc_html__( 'New customer?', 'ck-order-workflow-suite' ) . ' ';
-		echo '<a href="' . esc_url( $register_url ) . '">' . esc_html__( 'Create an account', 'ck-order-workflow-suite' ) . '</a>';
-		echo '</p>';
 	}
 
 	public function validate_registration( WP_Error $errors, string $username, string $password, string $email ): WP_Error {

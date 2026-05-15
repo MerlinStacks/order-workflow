@@ -228,6 +228,7 @@ class CK_OWS_Settings {
 		echo '<button type="button" class="nav-tab nav-tab-active ck-ows-tab" role="tab" id="ck-ows-tab-tracking" aria-controls="ck-ows-panel-tracking" aria-selected="true" data-target="tracking">' . esc_html__( 'Tracking', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-email-preferences" aria-controls="ck-ows-panel-email-preferences" aria-selected="false" tabindex="-1" data-target="email-preferences">' . esc_html__( 'Email Preferences', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-account-tabs" aria-controls="ck-ows-panel-account-tabs" aria-selected="false" tabindex="-1" data-target="account-tabs">' . esc_html__( 'My Account Tabs', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-registration-guard" aria-controls="ck-ows-panel-registration-guard" aria-selected="false" tabindex="-1" data-target="registration-guard">' . esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ) . '</button>';
 		echo '</h2>';
 
 		echo '<div id="ck-ows-panel-tracking" class="ck-ows-panel is-active" role="tabpanel" aria-labelledby="ck-ows-tab-tracking">';
@@ -254,6 +255,13 @@ class CK_OWS_Settings {
 		echo '<p>' . esc_html__( 'Choose which default WooCommerce tabs are visible in My Account navigation.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<table class="form-table" role="presentation">';
 		do_settings_fields( 'ck-ows-settings', 'ck_ows_account_menu_section' );
+		echo '</table>';
+		echo '</div>';
+
+		echo '<div id="ck-ows-panel-registration-guard" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-registration-guard" hidden>';
+		echo '<p>' . esc_html__( 'Control anti-bot registration rules for the WooCommerce My Account registration form.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_registration_guard_section' );
 		echo '</table>';
 		echo '</div>';
 
