@@ -89,6 +89,10 @@
       }
 
       if (target instanceof Element && target.closest("#" + MODAL_ID + " [data-ck-ows-confirm='1']")) {
+        const confirmLink = target.closest("[data-ck-ows-confirm='1']");
+        if (confirmLink instanceof HTMLAnchorElement && confirmLink.href) {
+          window.location.assign(confirmLink.href);
+        }
         closeModal();
         return;
       }

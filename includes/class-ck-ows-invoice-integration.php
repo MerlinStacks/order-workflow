@@ -13,10 +13,20 @@ class CK_OWS_Invoice_Integration {
 
 	public static function get_invoice_view_url( WC_Order $order ): string {
 		if ( self::PROVIDER_NEW === self::get_provider() ) {
-			$invoice = self::get_new_invoice_data( $order->get_id() );
+			$order_id = $order->get_id();
+			$invoice  = self::get_new_invoice_data( $order_id );
 
 			if ( is_array( $invoice ) && ! empty( $invoice['invoice_url'] ) ) {
 				return (string) $invoice['invoice_url'];
+			}
+
+			$status = is_array( $invoice ) && isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
+			if ( 'ready' === $status ) {
+				return self::build_rest_download_url( $order_id );
+			}
+
+			if ( function_exists( 'overseek_invoice_is_available' ) && overseek_invoice_is_available( $order_id ) ) {
+				return self::build_rest_download_url( $order_id );
 			}
 
 			return '';
@@ -33,7 +43,8 @@ class CK_OWS_Invoice_Integration {
 
 	public static function get_invoice_download_url( WC_Order $order ): string {
 		if ( self::PROVIDER_NEW === self::get_provider() ) {
-			$invoice = self::get_new_invoice_data( $order->get_id() );
+			$order_id = $order->get_id();
+			$invoice  = self::get_new_invoice_data( $order_id );
 
 			if ( is_array( $invoice ) ) {
 				if ( ! empty( $invoice['pdf_url'] ) ) {
@@ -43,6 +54,15 @@ class CK_OWS_Invoice_Integration {
 				if ( ! empty( $invoice['invoice_url'] ) ) {
 					return (string) $invoice['invoice_url'];
 				}
+
+				$status = isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
+				if ( 'ready' === $status ) {
+					return self::build_rest_download_url( $order_id );
+				}
+			}
+
+			if ( function_exists( 'overseek_invoice_is_available' ) && overseek_invoice_is_available( $order_id ) ) {
+				return self::build_rest_download_url( $order_id );
 			}
 
 			return '';
@@ -66,12 +86,10 @@ class CK_OWS_Invoice_Integration {
 			return null;
 		}
 
-		if ( function_exists( 'overseek_invoice_is_available' ) && ! overseek_invoice_is_available( $order_id ) ) {
-			return null;
-		}
+		$user_id = is_user_logged_in() ? get_current_user_id() : null;
 
 		try {
-			$invoice = overseek_get_invoice_for_order( $order_id );
+			$invoice = overseek_get_invoice_for_order( $order_id, $user_id );
 		} catch ( Throwable $throwable ) {
 			unset( $throwable );
 			return null;
@@ -81,11 +99,15 @@ class CK_OWS_Invoice_Integration {
 			return null;
 		}
 
-		$status = isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
-		if ( '' !== $status && 'ready' !== $status ) {
-			return null;
-		}
-
 		return $invoice;
+	}
+
+	private static function build_rest_download_url( int $order_id ): string {
+		return (string) add_query_arg(
+			array(
+				'order_id' => $order_id,
+			),
+			home_url( '/wp-json/overseek/v1/invoices/download' )
+		);
 	}
 }
