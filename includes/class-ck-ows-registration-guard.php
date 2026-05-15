@@ -31,7 +31,7 @@ class CK_OWS_Registration_Guard {
 		add_filter( 'woocommerce_process_registration_errors', array( $this, 'validate_registration' ), 10, 4 );
 		add_filter( 'registration_errors', array( $this, 'validate_wp_registration' ), 10, 3 );
 
-		add_action( 'admin_menu', array( $this, 'register_admin_page' ) );
+		add_action( 'admin_menu', array( $this, 'register_admin_page' ), 99 );
 		add_action( 'admin_init', array( $this, 'redirect_legacy_admin_path' ) );
 	}
 
@@ -57,7 +57,7 @@ class CK_OWS_Registration_Guard {
 		$token = wp_generate_password( 24, false );
 		set_transient( 'ckrg_ts_' . $token, time(), 30 * MINUTE_IN_SECONDS );
 
-		echo '<div class="ck-ows-reg-guard-trap" aria-hidden="true">';
+		echo '<div class="ck-ows-reg-guard-trap" style="position:absolute;left:-9999px;height:0;overflow:hidden;" aria-hidden="true">';
 		echo '<label for="ck_website_url">Website</label>';
 		echo '<input type="text" id="ck_website_url" name="ck_website_url" tabindex="-1" autocomplete="off" value="">';
 		echo '<input type="text" id="ck_company_name" name="ck_company_name" tabindex="-1" autocomplete="off" value="">';
@@ -68,6 +68,10 @@ class CK_OWS_Registration_Guard {
 	public function render_register_link(): void {
 		$register_url   = '';
 		$wc_registration = 'yes' === get_option( 'woocommerce_enable_myaccount_registration', 'no' );
+
+		if ( $wc_registration && function_exists( 'is_account_page' ) && is_account_page() ) {
+			return;
+		}
 
 		if ( $wc_registration ) {
 			$register_url = wc_get_page_permalink( 'myaccount' );
