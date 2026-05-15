@@ -146,7 +146,7 @@ class CK_OWS_Account_Invoices {
 		$actions = wc_get_account_orders_actions( $order );
 
 		if ( isset( $actions['invoice']['url'] ) && '' !== (string) $actions['invoice']['url'] ) {
-			return (string) $actions['invoice']['url'];
+			return html_entity_decode( (string) $actions['invoice']['url'], ENT_QUOTES, 'UTF-8' );
 		}
 
 		return '';
