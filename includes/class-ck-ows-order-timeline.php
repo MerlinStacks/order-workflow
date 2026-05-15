@@ -93,16 +93,16 @@ class CK_OWS_Order_Timeline {
 			'ts'    => (int) $order->get_meta( self::META_TS_IN_DISPATCH, true ),
 		);
 
+		$stages[] = array(
+			'key'   => 'completed',
+			'label' => __( 'Dispatched', 'ck-order-workflow-suite' ),
+			'ts'    => (int) $order->get_meta( self::META_TS_DELIVERED, true ),
+		);
+
 		$tracking_stages = $this->resolve_auspost_tracking_stages( $order );
 		if ( ! empty( $tracking_stages ) ) {
 			$stages = array_merge( $stages, $tracking_stages );
 		}
-
-		$stages[] = array(
-			'key'   => 'completed',
-			'label' => __( 'Delivered', 'ck-order-workflow-suite' ),
-			'ts'    => (int) $order->get_meta( self::META_TS_DELIVERED, true ),
-		);
 
 		$current_status = $order->get_status();
 
@@ -283,6 +283,10 @@ class CK_OWS_Order_Timeline {
 				'label'    => __( 'Out for Delivery', 'ck-order-workflow-suite' ),
 				'patterns' => array( 'out for delivery', 'onboard for delivery', 'with driver for delivery' ),
 			),
+			'delivered'           => array(
+				'label'    => __( 'Delivered', 'ck-order-workflow-suite' ),
+				'patterns' => array( 'delivered', 'proof of delivery', 'item delivered', 'successfully delivered' ),
+			),
 			'return-to-sender'    => array(
 				'label'    => __( 'Returning to CustomKings', 'ck-order-workflow-suite' ),
 				'patterns' => array( 'return to sender', 'returning to sender', 'returned to sender' ),
@@ -321,7 +325,7 @@ class CK_OWS_Order_Timeline {
 		}
 
 		$stages = array();
-		foreach ( array( 'received-by-auspost', 'in-transit', 'out-for-delivery' ) as $key ) {
+		foreach ( array( 'received-by-auspost', 'in-transit', 'out-for-delivery', 'delivered' ) as $key ) {
 			if ( isset( $found_timestamps[ $key ] ) ) {
 				$stages[] = array(
 					'key'   => $key,
@@ -359,8 +363,12 @@ class CK_OWS_Order_Timeline {
 	}
 
 	private function get_stage_icon_svg( string $stage_key ): string {
-		if ( 'completed' === $stage_key ) {
+		if ( 'delivered' === $stage_key ) {
 			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M20 6L9 17l-5-5"/></svg>';
+		}
+
+		if ( 'completed' === $stage_key ) {
+			return '<svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8 12h8M8 16h5"/></svg>';
 		}
 
 		if ( 'received-by-auspost' === $stage_key ) {

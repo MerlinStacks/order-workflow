@@ -100,6 +100,10 @@ class CK_OWS_Account_Invoices {
 				echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
 				echo esc_html__( 'Download PDF', 'ck-order-workflow-suite' );
 				echo '</a>';
+			} elseif ( CK_OWS_Invoice_Integration::PROVIDER_NEW === CK_OWS_Invoice_Integration::get_provider() ) {
+				$invoice_status = CK_OWS_Invoice_Integration::get_invoice_status( $order );
+				$label          = 'failed' === $invoice_status ? esc_html__( 'Invoice Unavailable', 'ck-order-workflow-suite' ) : esc_html__( 'Invoice Pending', 'ck-order-workflow-suite' );
+				echo '<span class="ck-invoices__state">' . esc_html( $label ) . '</span>';
 			} else {
 				echo '<a href="' . esc_url( $order->get_view_order_url() ) . '" class="ck-invoices__dl">' . esc_html__( 'View Order', 'ck-order-workflow-suite' ) . '</a>';
 			}

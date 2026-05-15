@@ -128,7 +128,7 @@ class CK_OWS_Shortcodes {
 
 		$pdf_url = CK_OWS_Invoice_Integration::get_invoice_download_url( $order );
 
-		if ( '' === $pdf_url ) {
+		if ( '' === $pdf_url && CK_OWS_Invoice_Integration::PROVIDER_NEW !== CK_OWS_Invoice_Integration::get_provider() ) {
 			$nonce = wp_create_nonce( 'wpo_wcpdf' );
 
 			$pdf_url = add_query_arg(
@@ -141,6 +141,10 @@ class CK_OWS_Shortcodes {
 				),
 				admin_url( 'admin-ajax.php' )
 			);
+		}
+
+		if ( '' === $pdf_url ) {
+			return '';
 		}
 
 		return sprintf(

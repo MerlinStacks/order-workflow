@@ -97,6 +97,10 @@ class CK_OWS_Account_Order_Cards {
 		$invoice_url = $this->get_invoice_url( $order );
 		if ( '' !== $invoice_url ) {
 			echo '<a class="button" href="' . esc_url( $invoice_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'Invoice', 'ck-order-workflow-suite' ) . '</a>';
+		} elseif ( CK_OWS_Invoice_Integration::PROVIDER_NEW === CK_OWS_Invoice_Integration::get_provider() ) {
+			$invoice_status = CK_OWS_Invoice_Integration::get_invoice_status( $order );
+			$label          = 'failed' === $invoice_status ? esc_html__( 'Invoice Unavailable', 'ck-order-workflow-suite' ) : esc_html__( 'Invoice Pending', 'ck-order-workflow-suite' );
+			echo '<span class="ck-ows-order-card__state">' . esc_html( $label ) . '</span>';
 		}
 
 		$tracking_url = $this->get_tracking_url( $order );

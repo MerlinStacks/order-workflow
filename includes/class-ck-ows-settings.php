@@ -1145,6 +1145,8 @@ class CK_OWS_Settings {
 		$last_webhook  = get_option( 'ck_ows_last_webhook_delivery', array() );
 		$dead_letters  = get_option( 'ck_ows_tracking_event_dead_letters', array() );
 		$audit_entries = CK_OWS_Audit::read_recent( 10 );
+		$invoice_mode  = CK_OWS_Invoice_Integration::PROVIDER_NEW === CK_OWS_Invoice_Integration::get_provider() ? 'new' : 'legacy';
+		$invoice_api   = function_exists( 'overseek_get_invoice_for_order' ) && function_exists( 'overseek_invoice_is_available' ) ? 'yes' : 'no';
 
 		echo '<ul>';
 		echo '<li><strong>' . esc_html__( 'WordPress', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( get_bloginfo( 'version' ) ) . '</li>';
@@ -1155,6 +1157,8 @@ class CK_OWS_Settings {
 		echo '<li><strong>' . esc_html__( 'Last webhook delivery', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_webhook ) ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Dead-letter queue size', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( is_array( $dead_letters ) ? (string) count( $dead_letters ) : '0' ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Last connection tests', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_tests ) ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Invoice provider mode', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $invoice_mode ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'OverSeek invoice API detected', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $invoice_api ) . '</li>';
 		echo '</ul>';
 
 		if ( ! empty( $audit_entries ) ) {

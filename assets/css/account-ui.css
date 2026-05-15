@@ -175,6 +175,23 @@
   font-size: 0.88rem;
 }
 
+.woocommerce-account .ck-invoices__state,
+.woocommerce-account .ck-ows-order-card__state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid #d7d7d7;
+  border-radius: 999px;
+  background: #f3f3f3;
+  color: #4f4f4f;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .woocommerce-account .ck-ows-security {
   display: flex;
   flex-direction: column;

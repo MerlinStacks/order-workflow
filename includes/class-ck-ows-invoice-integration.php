@@ -49,6 +49,26 @@ class CK_OWS_Invoice_Integration {
 		return self::get_invoice_view_url( $order );
 	}
 
+	public static function get_invoice_status( WC_Order $order ): string {
+		if ( self::PROVIDER_NEW === self::get_provider() ) {
+			$invoice = self::get_new_invoice_data( $order->get_id() );
+
+			if ( ! is_array( $invoice ) ) {
+				return 'unavailable';
+			}
+
+			$status = isset( $invoice['status'] ) ? strtolower( (string) $invoice['status'] ) : '';
+
+			if ( in_array( $status, array( 'pending', 'ready', 'failed' ), true ) ) {
+				return $status;
+			}
+
+			return 'unavailable';
+		}
+
+		return '' !== self::get_invoice_view_url( $order ) ? 'ready' : 'unavailable';
+	}
+
 	public static function get_provider(): string {
 		$use_new_provider = (string) CK_OWS_Settings::get( 'use_new_invoice_plugin', 'no' );
 
