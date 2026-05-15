@@ -146,13 +146,18 @@ class CK_OWS_Account_Invoices {
 	}
 
 	private function get_invoice_url( WC_Order $order ): string {
+		$legacy_nonce = wp_create_nonce( 'wpo_wcpdf' );
+		$ajax_nonce   = wp_create_nonce( 'generate_wpo_wcpdf' );
+
 		return (string) add_query_arg(
 			array(
 				'action'        => 'generate_wpo_wcpdf',
 				'document_type' => 'invoice',
 				'order_ids'     => $order->get_id(),
 				'order_key'     => $order->get_order_key(),
-				'nonce'         => wp_create_nonce( 'wpo_wcpdf' ),
+				'nonce'         => $legacy_nonce,
+				'_wpnonce'      => $ajax_nonce,
+				'security'      => $ajax_nonce,
 			),
 			admin_url( 'admin-ajax.php' )
 		);
