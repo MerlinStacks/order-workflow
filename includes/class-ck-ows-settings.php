@@ -394,6 +394,9 @@ class CK_OWS_Settings {
 		echo '</table>';
 		echo '</div>';
 
+		submit_button( __( 'Save settings', 'ck-order-workflow-suite' ) );
+		echo '</form>';
+
 		echo '<div id="ck-ows-panel-tools" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-tools" hidden>';
 		echo '<p>' . esc_html__( 'Run operational actions, import or export settings, and review diagnostics.', 'ck-order-workflow-suite' ) . '</p>';
 
@@ -432,9 +435,6 @@ class CK_OWS_Settings {
 		echo '<h3>' . esc_html__( 'Dead Letters', 'ck-order-workflow-suite' ) . '</h3>';
 		$this->render_dead_letters_panel();
 		echo '</div>';
-
-		submit_button( __( 'Save settings', 'ck-order-workflow-suite' ) );
-		echo '</form>';
 		echo '</div>';
 
 		if ( isset( $_GET['ck_ows_sync_ran'] ) ) {

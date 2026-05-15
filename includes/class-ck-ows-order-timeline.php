@@ -26,7 +26,7 @@ class CK_OWS_Order_Timeline {
 
 	private function __construct() {
 		add_action( 'woocommerce_order_status_changed', array( $this, 'capture_stage_timestamp' ), 30, 4 );
-		add_action( 'woocommerce_order_details_before_order_table', array( $this, 'render_timeline' ), 5 );
+		add_action( 'woocommerce_thankyou', array( $this, 'render_timeline' ), 15 );
 	}
 
 	public function capture_stage_timestamp( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
@@ -40,7 +40,15 @@ class CK_OWS_Order_Timeline {
 		$order->save();
 	}
 
-	public function render_timeline( WC_Order $order ): void {
+	public function render_timeline( $order ): void {
+		if ( is_numeric( $order ) ) {
+			$order = wc_get_order( (int) $order );
+		}
+
+		if ( ! $order instanceof WC_Order ) {
+			return;
+		}
+
 		if ( ! is_user_logged_in() ) {
 			return;
 		}
@@ -201,7 +209,7 @@ class CK_OWS_Order_Timeline {
 	}
 
 	private function is_non_progress_status( string $order_status ): bool {
-		return in_array( $order_status, array( 'pending', 'failed', 'cancelled', 'on-hold', 'draft', 'checkout-draft' ), true );
+		return in_array( $order_status, array( 'pending', 'failed', 'cancelled', 'refunded', 'on-hold', 'draft', 'checkout-draft' ), true );
 	}
 
 	private function render_non_progress_notice( WC_Order $order, string $order_status ): void {
@@ -210,6 +218,7 @@ class CK_OWS_Order_Timeline {
 			'pending'        => __( 'This order is waiting for payment confirmation before it can move into fulfilment.', 'ck-order-workflow-suite' ),
 			'failed'         => __( 'We could not complete payment for this order.', 'ck-order-workflow-suite' ),
 			'cancelled'      => __( 'This order was cancelled and will not continue through production or dispatch.', 'ck-order-workflow-suite' ),
+			'refunded'       => __( 'This order was refunded and is no longer progressing through production or dispatch.', 'ck-order-workflow-suite' ),
 			'on-hold'        => __( 'This order is currently on hold and is waiting for review before it can continue.', 'ck-order-workflow-suite' ),
 			'draft'          => __( 'This order is still a draft and has not been placed yet.', 'ck-order-workflow-suite' ),
 			'checkout-draft' => __( 'Checkout has not been completed for this order yet.', 'ck-order-workflow-suite' ),
