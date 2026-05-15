@@ -142,7 +142,9 @@ class CK_OWS_Tracking {
 	}
 
 	public function render_live_tracking_panel( WC_Order $order ): void {
-		if ( ! is_user_logged_in() || (int) $order->get_user_id() !== get_current_user_id() ) {
+		$is_store_manager = current_user_can( 'manage_woocommerce' );
+
+		if ( ! is_user_logged_in() || ( ! $is_store_manager && (int) $order->get_user_id() !== get_current_user_id() ) ) {
 			return;
 		}
 
@@ -243,6 +245,26 @@ class CK_OWS_Tracking {
 				echo '<a class="button" target="_blank" rel="noopener" href="' . esc_url( $url ) . '">' . esc_html( 0 === $index ? __( 'Track shipment', 'ck-order-workflow-suite' ) : __( 'Track another parcel', 'ck-order-workflow-suite' ) ) . '</a> ';
 			}
 			echo '</p>';
+		}
+
+		$debug_enabled = isset( $_GET['ck_ows_tracking_debug'] ) && '1' === sanitize_text_field( wp_unslash( (string) $_GET['ck_ows_tracking_debug'] ) );
+		if ( $is_store_manager && $debug_enabled && is_array( $tracking ) && ! empty( $tracking ) ) {
+			$events = $this->extract_tracking_events_from_article( is_array( $tracking['raw'] ?? null ) ? $tracking['raw'] : array() );
+			$events = $this->sort_tracking_events_newest_first( $events );
+			$events = array_slice( $events, 0, 10 );
+
+			$debug = array(
+				'order_id'        => $order->get_id(),
+				'tracking_number' => (string) ( $tracking['tracking_number'] ?? '' ),
+				'status'          => (string) ( $tracking['status'] ?? '' ),
+				'eta'             => (string) ( $tracking['eta'] ?? '' ),
+				'last_event'      => $tracking['last_event'] ?? array(),
+				'events_sample'   => $events,
+			);
+
+			echo '<details class="ck-ows-tracking-debug"><summary>' . esc_html__( 'Tracking debug (admin only)', 'ck-order-workflow-suite' ) . '</summary>';
+			echo '<pre>' . esc_html( wp_json_encode( $debug, JSON_PRETTY_PRINT ) ) . '</pre>';
+			echo '</details>';
 		}
 
 		echo '</section>';
@@ -480,6 +502,10 @@ class CK_OWS_Tracking {
 			$status = trim( (string) ( $last_event['description'] ?? $last_event['event_description'] ?? $last_event['event'] ?? '' ) );
 		}
 
+		if ( $this->contains_delivered_event( $events ) ) {
+			$status = 'Delivered';
+		}
+
 		return array(
 			'provider'        => 'auspost',
 			'tracking_number' => $tracking_number,
@@ -588,6 +614,7 @@ class CK_OWS_Tracking {
 	private function resolve_latest_tracking_event( array $events ): array {
 		$latest_event = array();
 		$latest_ts    = 0;
+		$has_valid_ts = false;
 
 		foreach ( $events as $event ) {
 			if ( ! is_array( $event ) ) {
@@ -596,20 +623,59 @@ class CK_OWS_Tracking {
 
 			$event_ts = strtotime( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? '' ) );
 			$event_ts = false === $event_ts ? 0 : (int) $event_ts;
+			if ( $event_ts > 0 ) {
+				$has_valid_ts = true;
+			}
 
-			if ( $event_ts >= $latest_ts ) {
+			if ( $event_ts > $latest_ts ) {
 				$latest_ts    = $event_ts;
 				$latest_event = $event;
 			}
 		}
 
-		if ( ! empty( $latest_event ) ) {
+		if ( $has_valid_ts && ! empty( $latest_event ) ) {
 			return $latest_event;
 		}
 
 		$first = $events[0] ?? array();
 
 		return is_array( $first ) ? $first : array();
+	}
+
+	private function contains_delivered_event( array $events ): bool {
+		foreach ( $events as $event ) {
+			if ( ! is_array( $event ) ) {
+				continue;
+			}
+
+			$haystack = strtolower(
+				trim(
+					implode(
+						' ',
+						array(
+							(string) ( $event['description'] ?? '' ),
+							(string) ( $event['event_description'] ?? '' ),
+							(string) ( $event['event'] ?? '' ),
+							(string) ( $event['status'] ?? '' ),
+							(string) ( $event['event_type'] ?? '' ),
+							(string) ( $event['code'] ?? '' ),
+						)
+					)
+				)
+			);
+
+			if ( '' === $haystack ) {
+				continue;
+			}
+
+			foreach ( array( 'delivered', 'delivery complete', 'proof of delivery', 'item delivered', 'successfully delivered', 'collected by customer', 'awaiting collection', 'left in a safe place' ) as $needle ) {
+				if ( false !== strpos( $haystack, $needle ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	private function sort_tracking_events_newest_first( array $events ): array {
