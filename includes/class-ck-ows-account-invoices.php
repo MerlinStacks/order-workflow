@@ -83,7 +83,6 @@ class CK_OWS_Account_Invoices {
 				continue;
 			}
 
-			$order_id     = $order->get_id();
 			$order_number = $order->get_order_number();
 			$order_date   = wc_format_datetime( $order->get_date_created() );
 			$order_total  = $order->get_formatted_order_total();
@@ -97,7 +96,6 @@ class CK_OWS_Account_Invoices {
 			$pdf_url = $this->get_invoice_proxy_url( $order );
 
 			if ( '' !== $pdf_url ) {
-
 				echo '<a href="' . esc_url( $pdf_url ) . '" class="ck-invoices__dl" target="_blank" rel="noopener">';
 				echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
 				echo esc_html__( 'Download PDF', 'ck-order-workflow-suite' );
@@ -153,7 +151,9 @@ class CK_OWS_Account_Invoices {
 	}
 
 	private function get_invoice_proxy_url( WC_Order $order ): string {
-		if ( '' === $this->get_invoice_url( $order ) ) {
+		$invoice_url = $this->get_invoice_url( $order );
+
+		if ( '' === $invoice_url ) {
 			return '';
 		}
 
