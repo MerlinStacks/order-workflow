@@ -147,7 +147,7 @@ class CK_OWS_Account_Order_Cards {
 			return '';
 		}
 
-		$nonce = wp_create_nonce( 'generate_wpo_wcpdf' );
+		$nonce = wp_create_nonce( 'wpo_wcpdf' );
 
 		return (string) add_query_arg(
 			array(
@@ -156,7 +156,6 @@ class CK_OWS_Account_Order_Cards {
 				'order_ids'     => $order->get_id(),
 				'order_key'     => $order->get_order_key(),
 				'nonce'         => $nonce,
-				'_wpnonce'      => $nonce,
 			),
 			admin_url( 'admin-ajax.php' )
 		);

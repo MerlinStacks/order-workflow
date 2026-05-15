@@ -96,7 +96,7 @@ class CK_OWS_Account_Invoices {
 			echo '</div>';
 
 			if ( $has_pdf ) {
-				$nonce   = wp_create_nonce( 'generate_wpo_wcpdf' );
+				$nonce   = wp_create_nonce( 'wpo_wcpdf' );
 				$pdf_url = add_query_arg(
 					array(
 						'action'        => 'generate_wpo_wcpdf',
@@ -104,7 +104,6 @@ class CK_OWS_Account_Invoices {
 						'order_ids'     => $order_id,
 						'order_key'     => $order->get_order_key(),
 						'nonce'         => $nonce,
-						'_wpnonce'      => $nonce,
 					),
 					admin_url( 'admin-ajax.php' )
 				);
