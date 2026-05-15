@@ -29,6 +29,25 @@ class CK_OWS_Registration_Guard {
 		add_filter( 'woocommerce_process_registration_errors', array( $this, 'validate_registration' ), 10, 4 );
 
 		add_action( 'admin_menu', array( $this, 'register_admin_page' ) );
+		add_action( 'admin_init', array( $this, 'redirect_legacy_admin_path' ) );
+	}
+
+	public function redirect_legacy_admin_path(): void {
+		if ( wp_doing_ajax() ) {
+			return;
+		}
+
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+		if ( '' === $uri || ! preg_match( '#/wp-admin/ck-reg-guard/?(?:\?|$)#', $uri ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return;
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=ck-reg-guard' ) );
+		exit;
 	}
 
 	public function inject_fields(): void {

@@ -572,6 +572,89 @@
   border-color: #d46a6a;
 }
 
+/* Fallback for Flatsome single-form login/register layouts (no #customer_login wrapper). */
+.woocommerce-account .woocommerce > h2,
+.woocommerce-account .woocommerce .col2-set > h2,
+.woocommerce-account .woocommerce .u-column1 > h2,
+.woocommerce-account .woocommerce .u-column2 > h2 {
+  margin: 0 auto 10px;
+  max-width: 560px;
+  color: var(--ck-ows-text);
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+}
+
+.woocommerce-account .woocommerce form.login,
+.woocommerce-account .woocommerce form.register,
+.woocommerce-account .woocommerce .woocommerce-form-login,
+.woocommerce-account .woocommerce .woocommerce-form-register {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto 16px;
+  padding: 20px;
+  border: 1px solid var(--ck-ows-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 28px -24px rgba(22, 34, 48, 0.45);
+}
+
+.woocommerce-account .woocommerce form.login .form-row,
+.woocommerce-account .woocommerce form.register .form-row,
+.woocommerce-account .woocommerce .woocommerce-form-login .form-row,
+.woocommerce-account .woocommerce .woocommerce-form-register .form-row {
+  margin: 0 0 12px;
+}
+
+.woocommerce-account .woocommerce form.login label,
+.woocommerce-account .woocommerce form.register label,
+.woocommerce-account .woocommerce .woocommerce-form-login label,
+.woocommerce-account .woocommerce .woocommerce-form-register label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ck-ows-text);
+  font-weight: 600;
+}
+
+.woocommerce-account .woocommerce form.login input.input-text,
+.woocommerce-account .woocommerce form.register input.input-text,
+.woocommerce-account .woocommerce .woocommerce-form-login input.input-text,
+.woocommerce-account .woocommerce .woocommerce-form-register input.input-text {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #cfd8e3;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.woocommerce-account .woocommerce form.login .button,
+.woocommerce-account .woocommerce form.register .button,
+.woocommerce-account .woocommerce .woocommerce-form-login .button,
+.woocommerce-account .woocommerce .woocommerce-form-register .button {
+  min-height: 40px;
+  padding: 9px 18px;
+  border-radius: 999px;
+}
+
+.woocommerce-account .woocommerce form.login .woocommerce-form-login__submit,
+.woocommerce-account .woocommerce .woocommerce-form-login .woocommerce-form-login__submit,
+.woocommerce-account .woocommerce form.register .woocommerce-form-register__submit,
+.woocommerce-account .woocommerce .woocommerce-form-register .woocommerce-form-register__submit {
+  min-width: 140px;
+}
+
+.woocommerce-account .woocommerce form.login .woocommerce-form__label-for-checkbox,
+.woocommerce-account .woocommerce .woocommerce-form-login .woocommerce-form__label-for-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.woocommerce-account .woocommerce form.login .woocommerce-LostPassword,
+.woocommerce-account .woocommerce .woocommerce-form-login .woocommerce-LostPassword {
+  margin-top: 10px;
+}
+
 .woocommerce-account #customer_login .woocommerce-button:hover,
 .woocommerce-account #customer_login button.button:hover,
 .woocommerce-account #customer_login input.button:hover {
