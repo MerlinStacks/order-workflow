@@ -59,11 +59,91 @@ class CK_OWS_Settings {
 
 		$value = $options[ $key ] ?? $default;
 
+		if ( self::is_empty_setting_value( $value ) ) {
+			$fallback = self::get_overseek_fallback_value( $key );
+
+			if ( ! self::is_empty_setting_value( $fallback ) ) {
+				$value = $fallback;
+			}
+		}
+
 		if ( in_array( $key, self::sensitive_keys(), true ) && is_string( $value ) ) {
 			return self::decrypt_sensitive_value( $value );
 		}
 
 		return $value;
+	}
+
+	private static function is_empty_setting_value( $value ): bool {
+		return ! is_string( $value ) || '' === trim( $value );
+	}
+
+	private static function get_overseek_fallback_value( string $key ): string {
+		if ( ! self::is_overseek_fallback_key( $key ) ) {
+			return '';
+		}
+
+		if ( ! class_exists( 'OverSeek_Main' ) && ! defined( 'OVERSEEK_WC_VERSION' ) ) {
+			return '';
+		}
+
+		if ( 'email_preferences_api_base_url' === $key ) {
+			$api_url = trim( (string) get_option( 'overseek_api_url', '' ) );
+
+			if ( '' !== $api_url ) {
+				return $api_url;
+			}
+
+			$connection = self::read_overseek_connection_config();
+
+			return isset( $connection['apiUrl'] ) ? trim( (string) $connection['apiUrl'] ) : '';
+		}
+
+		if ( 'email_preferences_account_id' === $key ) {
+			$account_id = trim( (string) get_option( 'overseek_account_id', '' ) );
+
+			if ( '' !== $account_id ) {
+				return $account_id;
+			}
+
+			$connection = self::read_overseek_connection_config();
+
+			return isset( $connection['accountId'] ) ? trim( (string) $connection['accountId'] ) : '';
+		}
+
+		if ( 'email_preferences_webhook_secret' === $key ) {
+			return trim( (string) get_option( 'overseek_relay_api_key', '' ) );
+		}
+
+		return '';
+	}
+
+	private static function is_overseek_fallback_key( string $key ): bool {
+		return in_array(
+			$key,
+			array(
+				'email_preferences_api_base_url',
+				'email_preferences_account_id',
+				'email_preferences_webhook_secret',
+			),
+			true
+		);
+	}
+
+	private static function read_overseek_connection_config(): array {
+		$raw = trim( (string) get_option( 'overseek_connection_config', '' ) );
+
+		if ( '' === $raw ) {
+			return array();
+		}
+
+		$decoded = json_decode( $raw, true );
+
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+
+		return $decoded;
 	}
 
 	public function register_admin_page(): void {
@@ -266,6 +346,7 @@ class CK_OWS_Settings {
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-account-tabs" aria-controls="ck-ows-panel-account-tabs" aria-selected="false" tabindex="-1" data-target="account-tabs">' . esc_html__( 'My Account Tabs', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-registration-guard" aria-controls="ck-ows-panel-registration-guard" aria-selected="false" tabindex="-1" data-target="registration-guard">' . esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-operations" aria-controls="ck-ows-panel-operations" aria-selected="false" tabindex="-1" data-target="operations">' . esc_html__( 'Operations', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-tools" aria-controls="ck-ows-panel-tools" aria-selected="false" tabindex="-1" data-target="tools">' . esc_html__( 'Tools', 'ck-order-workflow-suite' ) . '</button>';
 		echo '</h2>';
 
 		echo '<div id="ck-ows-panel-tracking" class="ck-ows-panel is-active" role="tabpanel" aria-labelledby="ck-ows-tab-tracking">';
@@ -304,17 +385,19 @@ class CK_OWS_Settings {
 
 		echo '<div id="ck-ows-panel-operations" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-operations" hidden>';
 		echo '<p>' . esc_html__( 'Configure operational safety controls, retries, and data retention behavior.', 'ck-order-workflow-suite' ) . '</p>';
+		$current_invoice_provider = 'yes' === (string) self::get( 'use_new_invoice_plugin', 'no' )
+			? esc_html__( 'New invoice plugin', 'ck-order-workflow-suite' )
+			: esc_html__( 'Legacy invoice setup', 'ck-order-workflow-suite' );
+		echo '<p><strong>' . esc_html__( 'Current invoice provider:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $current_invoice_provider ) . '</p>';
 		echo '<table class="form-table" role="presentation">';
 		do_settings_fields( 'ck-ows-settings', 'ck_ows_operations_section' );
 		echo '</table>';
 		echo '</div>';
 
-		submit_button( __( 'Save settings', 'ck-order-workflow-suite' ) );
-		echo '</form>';
-		echo '</div>';
+		echo '<div id="ck-ows-panel-tools" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-tools" hidden>';
+		echo '<p>' . esc_html__( 'Run operational actions, import or export settings, and review diagnostics.', 'ck-order-workflow-suite' ) . '</p>';
 
-		echo '<div class="ck-ows-card">';
-		echo '<h2>' . esc_html__( 'Manual Actions', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<h3>' . esc_html__( 'Manual Actions', 'ck-order-workflow-suite' ) . '</h3>';
 		echo '<p>' . esc_html__( 'Use this to run an immediate tracking sync without waiting for the scheduled cron.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		echo '<input type="hidden" name="action" value="ck_ows_run_tracking_sync">';
@@ -328,10 +411,8 @@ class CK_OWS_Settings {
 		wp_nonce_field( self::TEST_CONNECTION_NONCE, self::TEST_CONNECTION_NONCE_FIELD );
 		submit_button( __( 'Test connections', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
 		echo '</form>';
-		echo '</div>';
 
-		echo '<div class="ck-ows-card">';
-		echo '<h2>' . esc_html__( 'Settings Import/Export', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<h3>' . esc_html__( 'Settings Import/Export', 'ck-order-workflow-suite' ) . '</h3>';
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		echo '<input type="hidden" name="action" value="ck_ows_export_settings">';
 		wp_nonce_field( self::EXPORT_SETTINGS_NONCE, self::EXPORT_SETTINGS_NONCE_FIELD );
@@ -344,16 +425,16 @@ class CK_OWS_Settings {
 		echo '<textarea id="ck_ows_import_json" name="ck_ows_import_json" class="large-text code" rows="8" spellcheck="false"></textarea>';
 		submit_button( __( 'Import settings JSON', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
 		echo '</form>';
-		echo '</div>';
 
-		echo '<div class="ck-ows-card">';
-		echo '<h2>' . esc_html__( 'Diagnostics', 'ck-order-workflow-suite' ) . '</h2>';
+		echo '<h3>' . esc_html__( 'Diagnostics', 'ck-order-workflow-suite' ) . '</h3>';
 		$this->render_diagnostics_panel();
+
+		echo '<h3>' . esc_html__( 'Dead Letters', 'ck-order-workflow-suite' ) . '</h3>';
+		$this->render_dead_letters_panel();
 		echo '</div>';
 
-		echo '<div class="ck-ows-card">';
-		echo '<h2>' . esc_html__( 'Dead Letters', 'ck-order-workflow-suite' ) . '</h2>';
-		$this->render_dead_letters_panel();
+		submit_button( __( 'Save settings', 'ck-order-workflow-suite' ) );
+		echo '</form>';
 		echo '</div>';
 
 		if ( isset( $_GET['ck_ows_sync_ran'] ) ) {
@@ -774,6 +855,7 @@ class CK_OWS_Settings {
 
 		if ( 'tracking_email_events_webhook_url' === $key ) {
 			echo '<p class="description">' . esc_html__( 'HTTPS endpoint that receives normalized tracking lifecycle events for automation.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'If left blank, this plugin auto-discovers the OverSeek tracking endpoint from store health or falls back to: https://<store>/wp-json/overseek/v1/tracking-email-events', 'ck-order-workflow-suite' ) . '</p>';
 			$this->render_field_error( $key );
 		}
 
@@ -781,8 +863,25 @@ class CK_OWS_Settings {
 			echo '<p class="description">' . esc_html__( 'If set, requests include Authorization: Bearer {token}.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
+		if ( self::is_overseek_fallback_key( $key ) ) {
+			$stored_options = get_option( self::OPTION_KEY, array() );
+			$stored_options = is_array( $stored_options ) ? $stored_options : array();
+			$uses_fallback  = ! array_key_exists( $key, $stored_options ) || '' === trim( (string) $stored_options[ $key ] );
+
+			if ( $uses_fallback && ! self::is_empty_setting_value( self::get_overseek_fallback_value( $key ) ) ) {
+				if ( 'email_preferences_api_base_url' === $key ) {
+					echo '<p class="description">' . esc_html__( 'Auto-filled from the installed OverSeek plugin connection settings.', 'ck-order-workflow-suite' ) . '</p>';
+				} elseif ( 'email_preferences_account_id' === $key ) {
+					echo '<p class="description">' . esc_html__( 'Auto-filled from the installed OverSeek plugin account settings.', 'ck-order-workflow-suite' ) . '</p>';
+				} elseif ( 'email_preferences_webhook_secret' === $key ) {
+					echo '<p class="description">' . esc_html__( 'Auto-filled from the installed OverSeek plugin relay API key.', 'ck-order-workflow-suite' ) . '</p>';
+				}
+			}
+		}
+
 		if ( 'use_new_invoice_plugin' === $key ) {
 			echo '<p class="description">' . esc_html__( 'Enable to read invoice links from the new provider API. Disable to keep the current WooCommerce invoice action behavior.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '<p class="description"><strong>' . esc_html__( 'Saved value:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( 'yes' === (string) self::get( 'use_new_invoice_plugin', 'no' ) ? __( 'Enabled', 'ck-order-workflow-suite' ) : __( 'Disabled', 'ck-order-workflow-suite' ) ) . '</p>';
 		}
 
 		if ( 'email_preferences_api_base_url' === $key ) {

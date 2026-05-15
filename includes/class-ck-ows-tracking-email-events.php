@@ -31,7 +31,7 @@ class CK_OWS_Tracking_Email_Events {
 			return;
 		}
 
-		$webhook_url = $this->sanitize_https_url( (string) CK_OWS_Settings::get( 'tracking_email_events_webhook_url', '' ) );
+		$webhook_url = $this->resolve_tracking_events_webhook_url();
 		if ( '' === $webhook_url ) {
 			return;
 		}
@@ -103,7 +103,7 @@ class CK_OWS_Tracking_Email_Events {
 			return;
 		}
 
-		$webhook_url = $this->sanitize_https_url( (string) CK_OWS_Settings::get( 'tracking_email_events_webhook_url', '' ) );
+		$webhook_url = $this->resolve_tracking_events_webhook_url();
 		if ( '' === $webhook_url ) {
 			return;
 		}
@@ -260,11 +260,74 @@ class CK_OWS_Tracking_Email_Events {
 		);
 
 		$token = trim( (string) CK_OWS_Settings::get( 'tracking_email_events_auth_token', '' ) );
+
+		if ( '' === $token ) {
+			$token = $this->resolve_overseek_tracking_events_token();
+		}
+
 		if ( '' !== $token ) {
 			$headers['Authorization'] = 'Bearer ' . $token;
 		}
 
 		return $headers;
+	}
+
+	private function resolve_tracking_events_webhook_url(): string {
+		$configured_url = $this->sanitize_https_url( (string) CK_OWS_Settings::get( 'tracking_email_events_webhook_url', '' ) );
+
+		if ( '' !== $configured_url ) {
+			return $configured_url;
+		}
+
+		$health_url = home_url( '/wp-json/overseek/v1/health' );
+		$account_id = trim( (string) CK_OWS_Settings::get( 'email_preferences_account_id', '' ) );
+
+		if ( '' === $account_id ) {
+			$account_id = trim( (string) get_option( 'overseek_account_id', '' ) );
+		}
+
+		$health_url = add_query_arg( array( 'account_id' => $account_id ), $health_url );
+		$response   = wp_remote_get(
+			$health_url,
+			array(
+				'timeout' => 5,
+				'headers' => array( 'Accept' => 'application/json' ),
+			)
+		);
+
+		if ( ! is_wp_error( $response ) ) {
+			$code    = (int) wp_remote_retrieve_response_code( $response );
+			$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+			if ( $code >= 200 && $code < 300 && is_array( $decoded ) && ! empty( $decoded['trackingEventsWebhookUrl'] ) ) {
+				$discovered = $this->sanitize_https_url( (string) $decoded['trackingEventsWebhookUrl'] );
+
+				if ( '' !== $discovered ) {
+					return $discovered;
+				}
+			}
+		}
+
+		return $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/tracking-email-events' ) );
+	}
+
+	private function resolve_overseek_tracking_events_token(): string {
+		$keys = array(
+			'overseek_tracking_events_api_key',
+			'overseek_tracking_events_token',
+			'overseek_tracking_email_events_token',
+			'overseek_tracking_email_events_api_key',
+		);
+
+		foreach ( $keys as $key ) {
+			$token = trim( (string) get_option( $key, '' ) );
+
+			if ( '' !== $token ) {
+				return $token;
+			}
+		}
+
+		return '';
 	}
 
 	private function schedule_retry( int $order_id, array $normalized_event, int $attempt, string $last_error ): void {
