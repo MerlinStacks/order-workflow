@@ -248,6 +248,10 @@ class CK_OWS_Order_Timeline {
 	private function resolve_auspost_tracking_stages( WC_Order $order ): array {
 		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
 
+		if ( class_exists( 'CK_OWS_Tracking' ) ) {
+			$tracking = CK_OWS_Tracking::instance()->get_tracking_payload_for_order( $order );
+		}
+
 		if ( ! is_array( $tracking ) || empty( $tracking ) ) {
 			return array();
 		}

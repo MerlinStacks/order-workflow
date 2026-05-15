@@ -154,11 +154,7 @@ class CK_OWS_Tracking {
 			return;
 		}
 
-		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
-
-		if ( empty( $tracking ) || ! is_array( $tracking ) ) {
-			$tracking = $this->refresh_tracking_for_order_view( $order );
-		}
+		$tracking = $this->get_tracking_payload_for_order( $order );
 
 		$fallback = $this->extract_tracking_links( $order );
 
@@ -249,7 +245,7 @@ class CK_OWS_Tracking {
 			echo '<p>';
 			foreach ( $fallback as $index => $url ) {
 				$label = 0 === $index ? __( 'Track on AusPost', 'ck-order-workflow-suite' ) : __( 'Track another parcel', 'ck-order-workflow-suite' );
-				echo '<a class="button ck-ows-track-auspost" target="_blank" rel="noopener" href="' . esc_url( $url ) . '"><span class="ck-ows-track-auspost__logo" aria-hidden="true">AP</span>' . esc_html( $label ) . '</a> ';
+				echo '<a class="button ck-ows-track-auspost" target="_blank" rel="noopener" href="' . esc_url( $url ) . '"><span class="ck-ows-track-auspost__logo" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" role="presentation"><path d="M10 2A10 10 0 1 0 10 22V2Z"/><path d="M12 2h.5A10 10 0 0 1 12.5 22H12v-5h.5A5 5 0 0 0 12.5 7H12V2Z"/></svg></span>' . esc_html( $label ) . '</a> ';
 			}
 			echo '</p>';
 		}
@@ -280,6 +276,19 @@ class CK_OWS_Tracking {
 		$this->render_tracking_ui_styles_once();
 	}
 
+	public function get_tracking_payload_for_order( WC_Order $order, bool $force_refresh = false ): array {
+		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+
+		if ( $force_refresh || ! $this->is_tracking_payload_usable( $tracking ) ) {
+			$tracking = $this->refresh_tracking_for_order_view( $order );
+			if ( ! $this->is_tracking_payload_usable( $tracking ) ) {
+				$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+			}
+		}
+
+		return is_array( $tracking ) ? $tracking : array();
+	}
+
 	public function suppress_default_tracking_output(): void {
 		if ( class_exists( 'WC_Shipment_Tracking_Actions' ) ) {
 			remove_action( 'woocommerce_view_order', array( 'WC_Shipment_Tracking_Actions', 'display_tracking_info' ), 20 );
@@ -302,14 +311,15 @@ class CK_OWS_Tracking {
 
 		$printed = true;
 
-		echo '<style>.woocommerce table.my_account_tracking,.woocommerce table.my_account_tracking+.tracking_info{display:none!important}.ck-ows-track-auspost{display:inline-flex;align-items:center;gap:8px;background:#e4002b!important;border-color:#e4002b!important;color:#fff!important;font-weight:700}.ck-ows-track-auspost:hover,.ck-ows-track-auspost:focus{background:#bd0024!important;border-color:#bd0024!important;color:#fff!important}.ck-ows-track-auspost__logo{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:3px;background:#fff;color:#e4002b;font-size:11px;font-weight:800;line-height:1}</style>';
+		echo '<style>.woocommerce-account .woocommerce-MyAccount-content>section.woocommerce-customer-details+h2,.woocommerce-account .woocommerce-MyAccount-content>section.woocommerce-customer-details+h2+table.my_account_tracking,.woocommerce-account .woocommerce-MyAccount-content>h2:has(+table.my_account_tracking),.woocommerce-account .woocommerce-MyAccount-content>table.my_account_tracking{display:none!important}.ck-ows-track-auspost{display:inline-flex;align-items:center;gap:8px;background:#e4002b!important;border-color:#e4002b!important;color:#fff!important;font-weight:700}.ck-ows-track-auspost:hover,.ck-ows-track-auspost:focus{background:#bd0024!important;border-color:#bd0024!important;color:#fff!important}.ck-ows-track-auspost__logo{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px}.ck-ows-track-auspost__logo svg{display:block;width:22px;height:22px;fill:#fff}</style>';
 	}
 
 	private function refresh_tracking_for_order_view( WC_Order $order ): array {
-		$last_sync_ts = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
+		$last_sync_ts     = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
+		$existing_payload = $order->get_meta( self::META_LIVE_TRACKING, true );
 
-		if ( $last_sync_ts > 0 && ( time() - $last_sync_ts ) < ( 15 * MINUTE_IN_SECONDS ) ) {
-			return array();
+		if ( $last_sync_ts > 0 && ( time() - $last_sync_ts ) < ( 15 * MINUTE_IN_SECONDS ) && $this->is_tracking_payload_usable( $existing_payload ) ) {
+			return is_array( $existing_payload ) ? $existing_payload : array();
 		}
 
 		$api_key = trim( (string) CK_OWS_Settings::get( 'auspost_api_key', '' ) );
@@ -382,6 +392,44 @@ class CK_OWS_Tracking {
 		}
 
 		return true;
+	}
+
+	private function is_tracking_payload_usable( $tracking ): bool {
+		if ( ! is_array( $tracking ) || empty( $tracking ) ) {
+			return false;
+		}
+
+		$status = trim( (string) ( $tracking['status'] ?? $tracking['tracking_status'] ?? '' ) );
+		if ( '' !== $status ) {
+			return true;
+		}
+
+		$last_event = $tracking['last_event'] ?? array();
+		if ( is_array( $last_event ) ) {
+			$last_event_text = trim(
+				implode(
+					' ',
+					array(
+						(string) ( $last_event['description'] ?? '' ),
+						(string) ( $last_event['date'] ?? '' ),
+						(string) ( $last_event['location'] ?? '' ),
+					)
+				)
+			);
+
+			if ( '' !== $last_event_text ) {
+				return true;
+			}
+		}
+
+		$raw = $tracking['raw'] ?? array();
+		if ( ! is_array( $raw ) ) {
+			return false;
+		}
+
+		$events = $this->extract_tracking_events_from_article( $raw );
+
+		return ! empty( $events );
 	}
 
 	private function extract_tracking_numbers( WC_Order $order ): array {
