@@ -73,6 +73,9 @@ class CK_OWS_Plugin {
 		}
 
 		if ( $is_account_page ) {
+			$logout_redirect_url = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'myaccount' ) : home_url( '/' );
+			$logout_url          = wp_logout_url( $logout_redirect_url );
+
 			wp_enqueue_script(
 				'ck-ows-account-logout-confirm',
 				CK_OWS_URL . 'assets/js/account-logout-confirm.js',
@@ -89,6 +92,7 @@ class CK_OWS_Plugin {
 					'message' => __( 'Are you sure you want to log out of your account?', 'ck-order-workflow-suite' ),
 					'cancel'  => __( 'Cancel', 'ck-order-workflow-suite' ),
 					'confirm' => __( 'Confirm and log out', 'ck-order-workflow-suite' ),
+					'logoutUrl' => $logout_url,
 				)
 			);
 		}
@@ -201,6 +205,19 @@ class CK_OWS_Plugin {
 		';
 
 		wp_add_inline_style( 'ck-ows-account-ui', $nav_inline_css );
+
+		if ( function_exists( 'is_wc_endpoint_url' ) && is_wc_endpoint_url( 'view-order' ) ) {
+			$tracking_dedupe_css = '
+			.woocommerce-account .woocommerce-shipment-tracking,
+			.woocommerce-account .wc-shipment-tracking,
+			.woocommerce-account .track_info,
+			.woocommerce-account .tracking-info {
+				display: none !important;
+			}
+			';
+
+			wp_add_inline_style( 'ck-ows-account-ui', $tracking_dedupe_css );
+		}
 	}
 
 	/**

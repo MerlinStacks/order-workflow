@@ -141,6 +141,11 @@ class CK_OWS_Tracking {
 		}
 
 		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
+
+		if ( empty( $tracking ) || ! is_array( $tracking ) ) {
+			$tracking = $this->refresh_tracking_for_order_view( $order );
+		}
+
 		$fallback = $this->extract_tracking_links( $order );
 
 		if ( empty( $tracking ) && empty( $fallback ) ) {
@@ -171,6 +176,52 @@ class CK_OWS_Tracking {
 		}
 
 		echo '</section>';
+	}
+
+	private function refresh_tracking_for_order_view( WC_Order $order ): array {
+		$last_sync_ts = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
+
+		if ( $last_sync_ts > 0 && ( time() - $last_sync_ts ) < ( 15 * MINUTE_IN_SECONDS ) ) {
+			return array();
+		}
+
+		$api_key = trim( (string) CK_OWS_Settings::get( 'auspost_api_key', '' ) );
+		$username = trim( (string) CK_OWS_Settings::get( 'auspost_api_username', '' ) );
+		$password = trim( (string) CK_OWS_Settings::get( 'auspost_api_password', '' ) );
+
+		if ( '' === $api_key && ( '' === $username || '' === $password ) ) {
+			return array();
+		}
+
+		$tracking_numbers = $this->extract_tracking_numbers( $order );
+
+		if ( empty( $tracking_numbers ) ) {
+			return array();
+		}
+
+		foreach ( $tracking_numbers as $tracking_number ) {
+			if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
+				continue;
+			}
+
+			$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
+
+			if ( is_wp_error( $result ) ) {
+				continue;
+			}
+
+			$order->update_meta_data( self::META_LIVE_TRACKING, $result );
+			$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
+			$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
+			$order->save();
+
+			return $result;
+		}
+
+		$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
+		$order->save();
+
+		return array();
 	}
 
 	private function extract_tracking_numbers( WC_Order $order ): array {
@@ -291,25 +342,68 @@ class CK_OWS_Tracking {
 			return new WP_Error( 'ck_ows_auspost_parse_error', 'Invalid AusPost API response.' );
 		}
 
-		$article = $body['tracking_results'][0] ?? array();
+		$article = $this->extract_article_from_tracking_response( $body );
 		if ( ! is_array( $article ) || empty( $article ) ) {
 			return new WP_Error( 'ck_ows_auspost_no_result', 'No tracking data returned by AusPost.' );
 		}
 
-		$events     = isset( $article['events'] ) && is_array( $article['events'] ) ? $article['events'] : array();
+		$events     = $this->extract_tracking_events_from_article( $article );
 		$last_event = ! empty( $events ) ? $events[0] : array();
+
+		if ( empty( $last_event ) && ! empty( $events ) ) {
+			$last_event = end( $events );
+			if ( ! is_array( $last_event ) ) {
+				$last_event = array();
+			}
+		}
 
 		return array(
 			'provider'        => 'auspost',
 			'tracking_number' => $tracking_number,
-			'status'          => (string) ( $article['status'] ?? '' ),
+			'status'          => (string) ( $article['status'] ?? $article['tracking_status'] ?? $article['delivery_status'] ?? '' ),
 			'last_event'      => array(
-				'description' => (string) ( $last_event['description'] ?? '' ),
-				'date'        => (string) ( $last_event['date'] ?? '' ),
-				'location'    => (string) ( $last_event['location'] ?? '' ),
+				'description' => (string) ( $last_event['description'] ?? $last_event['event_description'] ?? $last_event['event'] ?? '' ),
+				'date'        => (string) ( $last_event['date'] ?? $last_event['event_time'] ?? $last_event['datetime'] ?? '' ),
+				'location'    => (string) ( $last_event['location'] ?? $last_event['location_name'] ?? $last_event['facility_name'] ?? '' ),
 			),
 			'eta'             => (string) ( $article['estimated_delivery_date'] ?? '' ),
 			'raw'             => $article,
 		);
+	}
+
+	private function extract_article_from_tracking_response( array $body ): array {
+		$tracking_results = $body['tracking_results'] ?? array();
+
+		if ( is_array( $tracking_results ) && isset( $tracking_results[0] ) && is_array( $tracking_results[0] ) ) {
+			$first = $tracking_results[0];
+
+			if ( isset( $first['articles'][0] ) && is_array( $first['articles'][0] ) ) {
+				return $first['articles'][0];
+			}
+
+			return $first;
+		}
+
+		if ( isset( $body['articles'][0] ) && is_array( $body['articles'][0] ) ) {
+			return $body['articles'][0];
+		}
+
+		if ( isset( $body['article'] ) && is_array( $body['article'] ) ) {
+			return $body['article'];
+		}
+
+		return array();
+	}
+
+	private function extract_tracking_events_from_article( array $article ): array {
+		$event_keys = array( 'events', 'tracking_events', 'article_events' );
+
+		foreach ( $event_keys as $key ) {
+			if ( isset( $article[ $key ] ) && is_array( $article[ $key ] ) ) {
+				return $article[ $key ];
+			}
+		}
+
+		return array();
 	}
 }

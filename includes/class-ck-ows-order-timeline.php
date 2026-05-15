@@ -27,7 +27,7 @@ class CK_OWS_Order_Timeline {
 	private function __construct() {
 		add_action( 'woocommerce_order_status_changed', array( $this, 'capture_stage_timestamp' ), 30, 4 );
 		add_action( 'woocommerce_thankyou', array( $this, 'render_timeline' ), 15 );
-		add_action( 'woocommerce_view_order', array( $this, 'render_timeline' ), 15 );
+		add_action( 'woocommerce_view_order', array( $this, 'render_timeline' ), 5 );
 	}
 
 	public function capture_stage_timestamp( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {

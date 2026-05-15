@@ -11,6 +11,7 @@
     cancel: i18n.cancel || "Cancel",
     confirm: i18n.confirm || "Confirm and log out",
   };
+  const directLogoutUrl = typeof i18n.logoutUrl === "string" ? i18n.logoutUrl : "";
 
   const getLogoutLink = (target) => {
     if (!(target instanceof Element)) {
@@ -59,7 +60,7 @@
     const modal = ensureModal();
     const confirmLink = modal.querySelector("[data-ck-ows-confirm='1']");
     if (confirmLink instanceof HTMLAnchorElement) {
-      confirmLink.href = href;
+      confirmLink.href = directLogoutUrl || href;
     }
 
     modal.classList.add("is-open");
