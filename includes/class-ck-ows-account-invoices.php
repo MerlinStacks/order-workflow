@@ -21,6 +21,7 @@ class CK_OWS_Account_Invoices {
 
 	private function __construct() {
 		add_action( 'init', array( $this, 'register_endpoint' ) );
+		add_action( 'template_redirect', array( $this, 'maybe_redirect_invoice_request' ) );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ), 99 );
 		add_action( 'woocommerce_account_invoices_endpoint', array( $this, 'render_endpoint' ) );
 		add_action( 'woocommerce_before_edit_account_address_form', array( $this, 'render_address_notice' ) );
@@ -96,7 +97,7 @@ class CK_OWS_Account_Invoices {
 			echo '</div>';
 
 			if ( $has_pdf ) {
-				$pdf_url = $this->get_invoice_url( $order );
+				$pdf_url = $this->get_invoice_proxy_url( $order );
 
 				echo '<a href="' . esc_url( $pdf_url ) . '" class="ck-invoices__dl" target="_blank" rel="noopener">';
 				echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
@@ -111,6 +112,29 @@ class CK_OWS_Account_Invoices {
 
 		echo '</div>';
 		echo '</div>';
+	}
+
+	public function maybe_redirect_invoice_request(): void {
+		if ( ! is_user_logged_in() || ! isset( $_GET['ck_ows_invoice_order'] ) ) {
+			return;
+		}
+
+		$order_id = absint( wp_unslash( $_GET['ck_ows_invoice_order'] ) );
+		if ( $order_id <= 0 ) {
+			return;
+		}
+
+		$order = wc_get_order( $order_id );
+		if ( ! $order instanceof WC_Order ) {
+			return;
+		}
+
+		if ( (int) $order->get_user_id() !== get_current_user_id() ) {
+			return;
+		}
+
+		wp_safe_redirect( $this->get_invoice_url( $order ) );
+		exit;
 	}
 
 	private function can_generate_invoice_pdf(): bool {
@@ -148,6 +172,15 @@ class CK_OWS_Account_Invoices {
 				'nonce'         => wp_create_nonce( 'wpo_wcpdf' ),
 			),
 			admin_url( 'admin-ajax.php' )
+		);
+	}
+
+	private function get_invoice_proxy_url( WC_Order $order ): string {
+		return (string) add_query_arg(
+			array(
+				'ck_ows_invoice_order' => $order->get_id(),
+			),
+			wc_get_page_permalink( 'myaccount' )
 		);
 	}
 }

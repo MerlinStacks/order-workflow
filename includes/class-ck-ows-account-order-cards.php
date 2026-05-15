@@ -147,34 +147,11 @@ class CK_OWS_Account_Order_Cards {
 			return '';
 		}
 
-		$actions = wc_get_account_orders_actions( $order );
-
-		if ( isset( $actions['invoice']['url'] ) && '' !== (string) $actions['invoice']['url'] ) {
-			return (string) $actions['invoice']['url'];
-		}
-
-		foreach ( $actions as $action ) {
-			if ( ! is_array( $action ) || empty( $action['url'] ) ) {
-				continue;
-			}
-
-			$action_name = isset( $action['name'] ) ? strtolower( (string) $action['name'] ) : '';
-			if ( false !== strpos( $action_name, 'invoice' ) ) {
-				return (string) $action['url'];
-			}
-		}
-
-		$nonce = wp_create_nonce( 'wpo_wcpdf' );
-
 		return (string) add_query_arg(
 			array(
-				'action'        => 'generate_wpo_wcpdf',
-				'document_type' => 'invoice',
-				'order_ids'     => $order->get_id(),
-				'order_key'     => $order->get_order_key(),
-				'nonce'         => $nonce,
+				'ck_ows_invoice_order' => $order->get_id(),
 			),
-			admin_url( 'admin-ajax.php' )
+			wc_get_page_permalink( 'myaccount' )
 		);
 	}
 
