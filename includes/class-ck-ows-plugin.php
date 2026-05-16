@@ -48,10 +48,11 @@ class CK_OWS_Plugin {
 	 */
 	public function enqueue_frontend_assets(): void {
 		$is_account_page = function_exists( 'is_account_page' ) && is_account_page();
+		$is_thankyou_page = function_exists( 'is_order_received_page' ) && is_order_received_page();
 		$is_flatsome     = function_exists( 'wp_get_theme' ) && 'flatsome' === strtolower( (string) wp_get_theme()->get_template() );
 		$needs_popup_css = $is_account_page && $is_flatsome && function_exists( 'is_user_logged_in' ) && ! is_user_logged_in();
 
-		if ( ! $is_account_page && ! $needs_popup_css ) {
+		if ( ! $is_account_page && ! $needs_popup_css && ! $is_thankyou_page ) {
 			return;
 		}
 
@@ -211,7 +212,10 @@ class CK_OWS_Plugin {
 			.woocommerce-account .woocommerce-shipment-tracking,
 			.woocommerce-account .wc-shipment-tracking,
 			.woocommerce-account .track_info,
-			.woocommerce-account .tracking-info {
+			.woocommerce-account .tracking-info,
+			.woocommerce-account p.order-again,
+			.woocommerce-account .order-again,
+			.woocommerce-account .woocommerce-Button.order-again {
 				display: none !important;
 			}
 			';

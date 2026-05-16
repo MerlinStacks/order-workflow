@@ -51,16 +51,22 @@ class CK_OWS_Order_Timeline {
 			return;
 		}
 
-		if ( ! is_user_logged_in() ) {
-			return;
+		echo $this->get_timeline_markup( $order, false );
+	}
+
+	public function get_timeline_markup( WC_Order $order, bool $allow_without_login = false ): string {
+		if ( ! $allow_without_login && ! is_user_logged_in() ) {
+			return '';
 		}
 
-		$is_owner = (int) $order->get_user_id() === get_current_user_id();
-		$is_staff = current_user_can( 'edit_shop_order', $order->get_id() ) || current_user_can( 'edit_shop_orders' );
+		$is_owner = is_user_logged_in() && (int) $order->get_user_id() === get_current_user_id();
+		$is_staff = is_user_logged_in() && ( current_user_can( 'edit_shop_order', $order->get_id() ) || current_user_can( 'edit_shop_orders' ) );
 
-		if ( ! $is_owner && ! $is_staff ) {
-			return;
+		if ( ! $allow_without_login && ! $is_owner && ! $is_staff ) {
+			return '';
 		}
+
+		ob_start();
 
 		$this->backfill_missing_timestamps( $order );
 
@@ -108,7 +114,7 @@ class CK_OWS_Order_Timeline {
 
 		if ( $this->is_non_progress_status( $current_status ) ) {
 			$this->render_non_progress_notice( $order, $current_status );
-			return;
+			return (string) ob_get_clean();
 		}
 
 		$current_index  = $this->resolve_current_index( $stages, $current_status );
@@ -152,6 +158,8 @@ class CK_OWS_Order_Timeline {
 
 		echo '</ol>';
 		echo '</section>';
+
+		return (string) ob_get_clean();
 	}
 
 	private function status_to_meta_key( string $status ): string {

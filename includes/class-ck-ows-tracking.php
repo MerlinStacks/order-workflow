@@ -183,11 +183,12 @@ class CK_OWS_Tracking {
 				$status = __( 'In transit', 'ck-order-workflow-suite' );
 			}
 
-			echo '<p><strong>' . esc_html__( 'Latest status:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $status ) . '</p>';
+			echo '<div class="ck-ows-live-tracking__summary">';
+			echo '<div class="ck-ows-live-tracking__row"><strong>' . esc_html__( 'Latest status:', 'ck-order-workflow-suite' ) . '</strong><span>' . esc_html( $status ) . '</span></div>';
 
 			$eta = trim( (string) ( $tracking['eta'] ?? '' ) );
 			if ( '' !== $eta ) {
-				echo '<p><strong>' . esc_html__( 'Estimated delivery:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $eta ) . '</p>';
+				echo '<p class="ck-ows-order-eta"><strong>' . esc_html__( 'Order estimated delivery date', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $eta ) . '</p>';
 			}
 
 			if ( ! empty( $tracking['last_event'] ) && is_array( $tracking['last_event'] ) ) {
@@ -196,24 +197,26 @@ class CK_OWS_Tracking {
 				$loc  = trim( (string) ( $tracking['last_event']['location'] ?? '' ) );
 
 				if ( '' !== $desc || '' !== $when || '' !== $loc ) {
-				echo '<p><strong>' . esc_html__( 'Latest scan:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( trim( $desc ) ) . '</p>';
+				echo '<div class="ck-ows-live-tracking__row"><strong>' . esc_html__( 'Latest scan:', 'ck-order-workflow-suite' ) . '</strong><span>' . esc_html( trim( $desc ) ) . '</span></div>';
 
 				if ( '' !== trim( $when ) ) {
-					echo '<p><strong>' . esc_html__( 'Scan time:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_tracking_datetime( $when ) ) . '</p>';
+					echo '<div class="ck-ows-live-tracking__row"><strong>' . esc_html__( 'Scan time:', 'ck-order-workflow-suite' ) . '</strong><span>' . esc_html( $this->format_tracking_datetime( $when ) ) . '</span></div>';
 				}
 
 				if ( '' !== trim( $loc ) ) {
-					echo '<p><strong>' . esc_html__( 'Scan location:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $loc ) . '</p>';
+					echo '<div class="ck-ows-live-tracking__row"><strong>' . esc_html__( 'Scan location:', 'ck-order-workflow-suite' ) . '</strong><span>' . esc_html( $loc ) . '</span></div>';
 				}
 				}
 			}
+			echo '</div>';
 
 			$recent_events = $this->extract_tracking_events_from_article( is_array( $tracking['raw'] ?? null ) ? $tracking['raw'] : array() );
 			$recent_events = $this->sort_tracking_events_newest_first( $recent_events );
 
 			if ( ! empty( $recent_events ) ) {
-				echo '<p><strong>' . esc_html__( 'Recent scans:', 'ck-order-workflow-suite' ) . '</strong></p>';
-				echo '<ul>';
+				echo '<div class="ck-ows-live-tracking__events-wrap">';
+				echo '<p class="ck-ows-live-tracking__events-title"><strong>' . esc_html__( 'Recent scans', 'ck-order-workflow-suite' ) . '</strong></p>';
+				echo '<ul class="ck-ows-live-tracking__events">';
 
 				$shown = 0;
 				foreach ( $recent_events as $event ) {
@@ -240,11 +243,12 @@ class CK_OWS_Tracking {
 						$parts[] = $loc;
 					}
 
-					echo '<li>' . esc_html( implode( ' | ', $parts ) ) . '</li>';
+					echo '<li><span>' . esc_html( implode( ' | ', $parts ) ) . '</span></li>';
 					$shown++;
 				}
 
 				echo '</ul>';
+				echo '</div>';
 			}
 		}
 
@@ -425,11 +429,7 @@ class CK_OWS_Tracking {
 		$styles = '.woocommerce-account .woocommerce-MyAccount-content table.my_account_tracking{display:none!important}'
 			. '.woocommerce-account .woocommerce-MyAccount-content h2 + table.my_account_tracking{display:none!important}'
 			. '.woocommerce-account .woocommerce-MyAccount-content h2:has(+table.my_account_tracking){display:none!important}'
-			. '.woocommerce-account .woocommerce-MyAccount-content h2.ck-ows-hide-tracking-title{display:none!important}'
-			. '.ck-ows-track-auspost{display:inline-flex;align-items:center;gap:8px;background:#e4002b!important;border-color:#e4002b!important;color:#fff!important;font-weight:700}'
-			. '.ck-ows-track-auspost:hover,.ck-ows-track-auspost:focus{background:#bd0024!important;border-color:#bd0024!important;color:#fff!important}'
-			. '.ck-ows-track-auspost__logo{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px}'
-			. '.ck-ows-track-auspost__logo svg{display:block;width:22px;height:22px;fill:#fff}';
+			. '.woocommerce-account .woocommerce-MyAccount-content h2.ck-ows-hide-tracking-title{display:none!important}';
 
 		$script = '(function(){'
 			. 'function hideTrackingHeader(){'

@@ -47,9 +47,81 @@ class CK_OWS_Shortcodes {
 			return '<p class="woocommerce-error">' . esc_html__( 'Invalid order key', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
-		$tracking_items = $order->get_meta( '_wc_shipment_tracking_items', true );
+		$status = (string) $order->get_status();
+		$eta_html = '';
 
-		if ( empty( $tracking_items ) || ! is_array( $tracking_items ) ) {
+		if ( class_exists( 'CK_OWS_Tracking' ) ) {
+			$tracking_payload = CK_OWS_Tracking::instance()->get_tracking_payload_for_order( $order );
+			$eta             = trim( (string) ( $tracking_payload['eta'] ?? '' ) );
+
+			if ( '' !== $eta ) {
+				$eta_html = $this->get_estimated_delivery_markup( $eta );
+			}
+		}
+
+		if ( 'processing' === $status ) {
+			return '<p class="woocommerce-info">' . esc_html__( 'Thanks for your order. We have received it and will start preparing it shortly.', 'ck-order-workflow-suite' ) . '</p>' . $eta_html;
+		}
+
+		if ( 'in-production' === $status ) {
+			return '<p class="woocommerce-info">' . esc_html__( 'Your order is now in production. Keep an eye on it, it will be dispatched soon.', 'ck-order-workflow-suite' ) . '</p>' . $eta_html;
+		}
+
+		if ( 'in-dispatch' === $status ) {
+			return '<p class="woocommerce-info">' . esc_html__( 'We are completing final quality checks and dispatching your order now.', 'ck-order-workflow-suite' ) . '</p>' . $eta_html;
+		}
+
+		$tracking_items = $order->get_meta( '_wc_shipment_tracking_items', true );
+		if ( ! is_array( $tracking_items ) ) {
+			$tracking_items = array();
+		}
+
+		if ( 'completed' === $status ) {
+			$timeline_markup = CK_OWS_Order_Timeline::instance()->get_timeline_markup( $order, true );
+
+			if ( '' === $timeline_markup ) {
+				return '<p class="woocommerce-info">' . esc_html__( 'Your order has been completed. Tracking information will appear shortly.', 'ck-order-workflow-suite' ) . '</p>';
+			}
+
+			$tracking_url = '';
+			foreach ( $tracking_items as $item ) {
+				if ( ! is_array( $item ) ) {
+					continue;
+				}
+
+				if ( ! empty( $item['formatted_tracking_link'] ) ) {
+					$tracking_url = (string) $item['formatted_tracking_link'];
+					break;
+				}
+
+				if ( ! empty( $item['custom_tracking_link'] ) ) {
+					$tracking_url = (string) $item['custom_tracking_link'];
+					break;
+				}
+			}
+
+			if ( '' === $tracking_url && ! empty( $tracking_items ) ) {
+				$first_item = reset( $tracking_items );
+				$provider   = strtolower( trim( (string) ( $first_item['custom_tracking_provider'] ?? $first_item['tracking_provider'] ?? '' ) ) );
+				$number     = trim( (string) ( $first_item['tracking_number'] ?? '' ) );
+
+				if ( '' !== $number && ( false !== strpos( $provider, 'auspost' ) || false !== strpos( $provider, 'australia post' ) ) ) {
+					$tracking_url = 'https://auspost.com.au/mypost/track/#/details/' . rawurlencode( $number );
+				}
+			}
+
+			ob_start();
+			echo $eta_html;
+			echo $timeline_markup;
+
+			if ( '' !== $tracking_url ) {
+				echo '<p><a class="button ck-ows-track-auspost" target="_blank" rel="noopener" href="' . esc_url( $tracking_url ) . '"><span class="ck-ows-track-auspost__logo" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" role="presentation"><path d="M10 2A10 10 0 1 0 10 22V2Z"/><path d="M12 2h.5A10 10 0 0 1 12.5 22H12v-5h.5A5 5 0 0 0 12.5 7H12V2Z"/></svg></span>' . esc_html__( 'Track on AusPost', 'ck-order-workflow-suite' ) . '</a></p>';
+			}
+
+			return (string) ob_get_clean();
+		}
+
+		if ( empty( $tracking_items ) ) {
 			return '<p class="woocommerce-info">' . esc_html__( 'Your order has been received. Tracking information will be added once your order has been shipped.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
@@ -95,6 +167,10 @@ class CK_OWS_Shortcodes {
 		echo '</div>';
 
 		return (string) ob_get_clean();
+	}
+
+	private function get_estimated_delivery_markup( string $eta ): string {
+		return '<p class="ck-ows-order-eta"><strong>' . esc_html__( 'Order estimated delivery date', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $eta ) . '</p>';
 	}
 
 	public function invoice_link( array $atts ): string {
