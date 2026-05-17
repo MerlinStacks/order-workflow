@@ -179,6 +179,9 @@ class CK_OWS_Admin_Order_Actions {
 		$current_status = $order->get_status();
 
 		echo '<div class="ck-ows-status-actions">';
+		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
+		echo '<input type="hidden" name="redirect" value="' . esc_url( $this->get_order_edit_redirect_url( $order ) ) . '">';
+		wp_nonce_field( self::STATUS_ACTION_NONCE, self::STATUS_ACTION_NONCE_FIELD, false );
 		echo '<p class="ck-ows-status-actions__current"><strong>' . esc_html__( 'Current status:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( $this->format_status_label( $current_status ) ) . '</p>';
 		echo '<div class="ck-ows-status-actions__buttons">';
 
@@ -193,7 +196,7 @@ class CK_OWS_Admin_Order_Actions {
 				continue;
 			}
 
-			echo '<a class="button button-secondary ck-ows-status-actions__button" href="' . esc_url( $this->build_row_action_url( $order->get_id(), $status ) ) . '">' . esc_html( $action['label'] ) . '</a>';
+			echo '<button type="submit" name="action" value="ck_ows_set_order_status" formmethod="post" formaction="' . esc_url( add_query_arg( 'status', $status, admin_url( 'admin-post.php' ) ) ) . '" class="button button-secondary ck-ows-status-actions__button" formnovalidate>' . esc_html( $action['label'] ) . '</button>';
 		}
 
 		echo '</div>';
@@ -202,9 +205,9 @@ class CK_OWS_Admin_Order_Actions {
 	}
 
 	public function handle_row_action(): void {
-		$order_id = isset( $_GET['order_id'] ) ? absint( wp_unslash( $_GET['order_id'] ) ) : 0;
-		$status   = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
-		$nonce    = isset( $_GET[ self::STATUS_ACTION_NONCE_FIELD ] ) ? sanitize_text_field( wp_unslash( $_GET[ self::STATUS_ACTION_NONCE_FIELD ] ) ) : '';
+		$order_id = absint( $this->get_request_value( 'order_id' ) );
+		$status   = $this->normalize_status_key( $this->get_request_value( 'status' ) );
+		$nonce    = sanitize_text_field( $this->get_request_value( self::STATUS_ACTION_NONCE_FIELD ) );
 
 		if ( ! wp_verify_nonce( $nonce, self::STATUS_ACTION_NONCE ) ) {
 			$this->redirect_with_flag( 'ck_ows_invalid_status_nonce', 1 );
@@ -351,6 +354,46 @@ class CK_OWS_Admin_Order_Actions {
 		exit;
 	}
 
+	private function get_request_value( string $key ): string {
+		if ( isset( $_POST[ $key ] ) ) {
+			$value = wp_unslash( $_POST[ $key ] );
+
+			return is_scalar( $value ) ? (string) $value : '';
+		}
+
+		if ( isset( $_GET[ $key ] ) ) {
+			$value = wp_unslash( $_GET[ $key ] );
+
+			return is_scalar( $value ) ? (string) $value : '';
+		}
+
+		return '';
+	}
+
+	private function normalize_status_key( string $status ): string {
+		$status = sanitize_key( $status );
+
+		if ( str_starts_with( $status, 'ck_ows_set_' ) ) {
+			$status = substr( $status, 11 );
+		}
+
+		if ( str_starts_with( $status, 'ck_ows_' ) ) {
+			$status = substr( $status, 7 );
+		}
+
+		if ( str_starts_with( $status, 'ck-ows-' ) ) {
+			$status = substr( $status, 7 );
+		}
+
+		if ( str_starts_with( $status, 'wc-' ) ) {
+			$status = substr( $status, 3 );
+		}
+
+		$status = str_replace( '_', '-', $status );
+
+		return $status;
+	}
+
 	private function current_user_can_edit_order( WC_Order $order ): bool {
 		return current_user_can( 'edit_shop_order', $order->get_id() ) || current_user_can( 'edit_shop_orders' );
 	}
@@ -382,8 +425,8 @@ class CK_OWS_Admin_Order_Actions {
 	private function get_redirect_url(): string {
 		$fallback = admin_url( 'edit.php?post_type=shop_order' );
 
-		if ( isset( $_GET['redirect'] ) ) {
-			$redirect = esc_url_raw( wp_unslash( $_GET['redirect'] ) );
+		if ( isset( $_POST['redirect'] ) || isset( $_GET['redirect'] ) ) {
+			$redirect = esc_url_raw( $this->get_request_value( 'redirect' ) );
 
 			return $this->sanitize_redirect_url( $redirect, $fallback );
 		}
@@ -395,6 +438,16 @@ class CK_OWS_Admin_Order_Actions {
 		}
 
 		return $fallback;
+	}
+
+	private function get_order_edit_redirect_url( WC_Order $order ): string {
+		$url = method_exists( $order, 'get_edit_order_url' ) ? $order->get_edit_order_url() : '';
+
+		if ( ! is_string( $url ) || '' === $url ) {
+			$url = get_edit_post_link( $order->get_id(), 'raw' );
+		}
+
+		return $this->sanitize_redirect_url( is_string( $url ) ? $url : '', admin_url( 'edit.php?post_type=shop_order' ) );
 	}
 
 	private function get_current_admin_url(): string {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 - 2026-05-17
+
+### Fixed
+
+- Fixed order-list quick status actions accepting prefixed action/status values.
+- Changed order-detail quick status actions to submit as short POST requests back to the order edit screen.
+
 ## 0.1.6 - 2026-05-17
 
 ### Fixed

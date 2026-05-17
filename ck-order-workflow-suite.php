@@ -3,7 +3,7 @@
  * Plugin Name: CK WooCommerce Order Workflow Suite
  * Plugin URI:  https://example.com
  * Description: Custom order workflow, customer account enhancements, artwork approvals, and tracking tools for WooCommerce.
- * Version:     0.1.6
+ * Version:     0.1.7
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * Author:      CK
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CK_OWS_VERSION', '0.1.6' );
+define( 'CK_OWS_VERSION', '0.1.7' );
 define( 'CK_OWS_FILE', __FILE__ );
 define( 'CK_OWS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CK_OWS_URL', plugin_dir_url( __FILE__ ) );
