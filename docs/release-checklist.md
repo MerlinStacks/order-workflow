@@ -1,4 +1,4 @@
-# Release Checklist (v0.1.0)
+# Release Checklist
 
 ## Pre-Release Setup
 
@@ -13,7 +13,8 @@
   - In Production
   - In Dispatch
   - Awaiting Artwork Approval
-- Quick row actions appear and work.
+- Quick row actions appear and move orders to the intended status.
+- Order-detail workflow quick actions appear and work separately from the artwork proof box.
 - Bulk actions work on both:
   - classic orders table
   - HPOS orders table
@@ -56,7 +57,7 @@
 
 - Honeypot/timing fields injected on My Account registration form.
 - Simulated bot attempts are blocked.
-- Tools -> CK Reg Guard log records blocked attempts.
+- CK Order Workflow -> Registration Guard records blocked attempts.
 - Clear log action works.
 
 ## Regression Checks

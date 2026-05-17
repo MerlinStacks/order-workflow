@@ -77,7 +77,7 @@ Arguments:
 
 Use WooCommerce status transition trigger:
 
-- from any -> `awaiting-artwork-approval`
+- from any -> `awaiting-artwork`
 
 ### Trigger webhook when tracking changes
 

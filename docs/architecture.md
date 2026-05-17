@@ -13,7 +13,7 @@
   - Registers custom statuses.
   - Injects statuses into WooCommerce status list.
 - `CK_OWS_Admin_Order_Actions`
-  - Adds row quick actions and bulk actions.
+  - Adds row quick actions, order-detail quick actions, and bulk actions.
   - Handles secure status updates and admin notices.
 - `CK_OWS_Customer_Shipping_Edit`
   - Renders shipping edit form on My Account order view.
@@ -22,7 +22,8 @@
   - Adds `invoices` endpoint and menu entry.
   - Renders customer invoice list with fallback actions.
 - `CK_OWS_Registration_Guard`
-  - Reserved module for anti-bot registration controls.
+  - Adds WooCommerce and WordPress registration anti-bot controls.
+  - Provides an admin block log for review and cleanup.
 - `CK_OWS_Shortcodes`
   - Registers `[order_tracking_summary]` and `[wc_invoice_link]`.
 - `CK_OWS_Order_Timeline`
@@ -46,10 +47,6 @@
   - Emits success/failure hooks for delivery observability.
 - `CK_OWS_Settings`
   - Provides WooCommerce admin settings and manual sync trigger.
-- `CK_OWS_Events`
-  - Reserved module for expanded event orchestration.
-- `CK_OWS_Helpers`
-  - Reserved shared helper utilities.
 
 ## Key Data Paths
 
@@ -57,7 +54,7 @@
 
 1. Admin uploads proof PDF on order.
 2. Order meta updated with proof file reference and `pending` state.
-3. Order auto-moves to `awaiting-artwork-approval`.
+3. Order auto-moves to `awaiting-artwork`.
 4. Customer approves or requests changes from My Account.
 5. Production transition allowed only with customer approval or staff override reason.
 

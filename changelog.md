@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.9 - 2026-05-17
+
+### Fixed
+
+- Hid backward workflow quick actions so In Dispatch orders cannot be moved back to In Production from quick actions.
+
+## 0.1.8 - 2026-05-17
+
+### Fixed
+
+- Fixed order-list quick action buttons using the wrong target status by switching to status-specific admin actions.
+
 ## 0.1.7 - 2026-05-17
 
 ### Fixed

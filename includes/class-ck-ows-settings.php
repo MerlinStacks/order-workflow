@@ -984,6 +984,8 @@ class CK_OWS_Settings {
 				array(
 					'api.overseek.com',
 					'staging-api.overseek.com',
+					'*.overseek.com',
+					'*.overseek.com.au',
 				)
 			);
 
@@ -1162,6 +1164,8 @@ class CK_OWS_Settings {
 			array(
 				'api.overseek.com',
 				'staging-api.overseek.com',
+				'*.overseek.com',
+				'*.overseek.com.au',
 			)
 		);
 
@@ -1179,7 +1183,27 @@ class CK_OWS_Settings {
 			)
 		);
 
-		return in_array( $host, $allowed_hosts, true );
+		foreach ( $allowed_hosts as $allowed_host ) {
+			if ( ! is_string( $allowed_host ) || '' === $allowed_host ) {
+				continue;
+			}
+
+			if ( 0 === strpos( $allowed_host, '*.' ) ) {
+				$domain = substr( $allowed_host, 2 );
+
+				if ( '' !== $domain && ( $host === $domain || str_ends_with( $host, '.' . $domain ) ) ) {
+					return true;
+				}
+
+				continue;
+			}
+
+			if ( $host === $allowed_host ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function sanitize_blocked_domain_list( string $value ): string {

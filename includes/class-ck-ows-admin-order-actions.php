@@ -34,7 +34,9 @@ class CK_OWS_Admin_Order_Actions {
 		add_filter( 'woocommerce_admin_order_actions', array( $this, 'add_row_actions' ), 20, 2 );
 		add_action( 'add_meta_boxes', array( $this, 'add_order_metabox' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
-		add_action( 'admin_post_ck_ows_set_order_status', array( $this, 'handle_row_action' ) );
+		add_action( 'admin_post_' . self::ACTION_SET_AWAITING_ARTWORK, array( $this, 'handle_row_action' ) );
+		add_action( 'admin_post_' . self::ACTION_SET_IN_PRODUCTION, array( $this, 'handle_row_action' ) );
+		add_action( 'admin_post_' . self::ACTION_SET_IN_DISPATCH, array( $this, 'handle_row_action' ) );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 	}
 
@@ -196,7 +198,7 @@ class CK_OWS_Admin_Order_Actions {
 				continue;
 			}
 
-			echo '<button type="submit" name="action" value="ck_ows_set_order_status" formmethod="post" formaction="' . esc_url( add_query_arg( 'status', $status, admin_url( 'admin-post.php' ) ) ) . '" class="button button-secondary ck-ows-status-actions__button" formnovalidate>' . esc_html( $action['label'] ) . '</button>';
+			echo '<button type="submit" name="action" value="' . esc_attr( $action['admin_action'] ) . '" formmethod="post" formaction="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="button button-secondary ck-ows-status-actions__button" formnovalidate>' . esc_html( $action['label'] ) . '</button>';
 		}
 
 		echo '</div>';
@@ -206,7 +208,8 @@ class CK_OWS_Admin_Order_Actions {
 
 	public function handle_row_action(): void {
 		$order_id = absint( $this->get_request_value( 'order_id' ) );
-		$status   = $this->normalize_status_key( $this->get_request_value( 'status' ) );
+		$action   = sanitize_key( $this->get_request_value( 'action' ) );
+		$status   = $this->action_to_status( $action );
 		$nonce    = sanitize_text_field( $this->get_request_value( self::STATUS_ACTION_NONCE_FIELD ) );
 
 		if ( ! wp_verify_nonce( $nonce, self::STATUS_ACTION_NONCE ) ) {
@@ -311,21 +314,28 @@ class CK_OWS_Admin_Order_Actions {
 	private function get_quick_status_actions(): array {
 		return array(
 			'awaiting-artwork' => array(
-				'label'  => __( 'Awaiting Artwork Approval', 'ck-order-workflow-suite' ),
-				'action' => 'ck-ows-awaiting-artwork',
+				'label'        => __( 'Awaiting Artwork Approval', 'ck-order-workflow-suite' ),
+				'action'       => 'ck-ows-awaiting-artwork',
+				'admin_action' => self::ACTION_SET_AWAITING_ARTWORK,
 			),
 			'in-production'    => array(
-				'label'  => __( 'In Production', 'ck-order-workflow-suite' ),
-				'action' => 'ck-ows-in-production',
+				'label'        => __( 'In Production', 'ck-order-workflow-suite' ),
+				'action'       => 'ck-ows-in-production',
+				'admin_action' => self::ACTION_SET_IN_PRODUCTION,
 			),
 			'in-dispatch'      => array(
-				'label'  => __( 'In Dispatch', 'ck-order-workflow-suite' ),
-				'action' => 'ck-ows-in-dispatch',
+				'label'        => __( 'In Dispatch', 'ck-order-workflow-suite' ),
+				'action'       => 'ck-ows-in-dispatch',
+				'admin_action' => self::ACTION_SET_IN_DISPATCH,
 			),
 		);
 	}
 
 	private function can_show_status_action( WC_Order $order, string $status ): bool {
+		if ( ! $this->is_forward_status_transition( $order->get_status(), $status ) ) {
+			return false;
+		}
+
 		if ( 'awaiting-artwork' === $status ) {
 			return $this->order_has_artwork_proof( $order );
 		}
@@ -335,6 +345,26 @@ class CK_OWS_Admin_Order_Actions {
 		}
 
 		return array_key_exists( $status, $this->get_quick_status_actions() );
+	}
+
+	private function is_forward_status_transition( string $current_status, string $target_status ): bool {
+		$workflow_order = array(
+			'processing'       => 10,
+			'awaiting-artwork' => 20,
+			'in-production'    => 30,
+			'in-dispatch'      => 40,
+			'completed'        => 50,
+		);
+
+		if ( ! isset( $workflow_order[ $target_status ] ) ) {
+			return false;
+		}
+
+		if ( ! isset( $workflow_order[ $current_status ] ) ) {
+			return true;
+		}
+
+		return $workflow_order[ $target_status ] > $workflow_order[ $current_status ];
 	}
 
 	private function get_status_blocked_message( string $status ): string {
@@ -370,30 +400,6 @@ class CK_OWS_Admin_Order_Actions {
 		return '';
 	}
 
-	private function normalize_status_key( string $status ): string {
-		$status = sanitize_key( $status );
-
-		if ( str_starts_with( $status, 'ck_ows_set_' ) ) {
-			$status = substr( $status, 11 );
-		}
-
-		if ( str_starts_with( $status, 'ck_ows_' ) ) {
-			$status = substr( $status, 7 );
-		}
-
-		if ( str_starts_with( $status, 'ck-ows-' ) ) {
-			$status = substr( $status, 7 );
-		}
-
-		if ( str_starts_with( $status, 'wc-' ) ) {
-			$status = substr( $status, 3 );
-		}
-
-		$status = str_replace( '_', '-', $status );
-
-		return $status;
-	}
-
 	private function current_user_can_edit_order( WC_Order $order ): bool {
 		return current_user_can( 'edit_shop_order', $order->get_id() ) || current_user_can( 'edit_shop_orders' );
 	}
@@ -409,11 +415,16 @@ class CK_OWS_Admin_Order_Actions {
 	}
 
 	private function build_row_action_url( int $order_id, string $status ): string {
+		$actions = $this->get_quick_status_actions();
+
+		if ( ! isset( $actions[ $status ] ) ) {
+			return admin_url( 'edit.php?post_type=shop_order' );
+		}
+
 		$url = add_query_arg(
 			array(
-				'action'   => 'ck_ows_set_order_status',
+				'action'   => $actions[ $status ]['admin_action'],
 				'order_id' => $order_id,
-				'status'   => $status,
 				'redirect' => $this->get_current_admin_url(),
 			),
 			admin_url( 'admin-post.php' )

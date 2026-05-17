@@ -65,7 +65,7 @@ Important: send the exact object under `event` (matching CK OWS sender contract)
     "order_currency": "AUD",
     "order_status": "in-dispatch",
     "source": "ck_order_workflow_suite",
-    "source_version": "0.1.0"
+    "source_version": "0.1.8"
   }
 }
 ```
