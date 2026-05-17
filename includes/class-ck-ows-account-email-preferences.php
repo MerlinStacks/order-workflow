@@ -159,7 +159,7 @@ class CK_OWS_Account_Email_Preferences {
 		);
 
 		$response = wp_remote_post(
-			$config['base_url'] . '/api/email/preferences/public',
+			$this->get_email_preferences_endpoint_url( $config['base_url'] ),
 			array(
 				'headers' => $this->build_headers( $config ),
 				'body'    => wp_json_encode( $payload ),
@@ -199,7 +199,7 @@ class CK_OWS_Account_Email_Preferences {
 				'accountId' => $config['account_id'],
 				'email'     => $email,
 			),
-			$config['base_url'] . '/api/email/preferences/public'
+			$this->get_email_preferences_endpoint_url( $config['base_url'] )
 		);
 
 		$response = wp_remote_get(
@@ -352,6 +352,23 @@ class CK_OWS_Account_Email_Preferences {
 		}
 
 		return $headers;
+	}
+
+	private function get_email_preferences_endpoint_url( string $base_url ): string {
+		$base_url = untrailingslashit( trim( $base_url ) );
+
+		if ( '' === $base_url ) {
+			return '';
+		}
+
+		$path = (string) wp_parse_url( $base_url, PHP_URL_PATH );
+		$path = '/' . trim( $path, '/' );
+
+		if ( '/api' === $path || str_ends_with( $path, '/api' ) ) {
+			return $base_url . '/email/preferences/public';
+		}
+
+		return $base_url . '/api/email/preferences/public';
 	}
 
 	private function redirect_to_page( bool $saved = false ): void {

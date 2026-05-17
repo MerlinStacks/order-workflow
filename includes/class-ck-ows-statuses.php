@@ -25,6 +25,20 @@ class CK_OWS_Statuses {
 	private function __construct() {
 		add_action( 'init', array( $this, 'register_statuses' ) );
 		add_filter( 'wc_order_statuses', array( $this, 'inject_statuses' ) );
+		add_filter( 'woocommerce_order_is_completed_statuses', array( $this, 'exclude_custom_fulfilment_statuses' ) );
+	}
+
+	public function exclude_custom_fulfilment_statuses( array $statuses ): array {
+		$blocked = array(
+			'awaiting-artwork',
+			'in-production',
+			'in-dispatch',
+			self::STATUS_AWAITING_ARTWORK,
+			self::STATUS_IN_PRODUCTION,
+			self::STATUS_IN_DISPATCH,
+		);
+
+		return array_values( array_diff( $statuses, $blocked ) );
 	}
 
 	public function register_statuses(): void {
