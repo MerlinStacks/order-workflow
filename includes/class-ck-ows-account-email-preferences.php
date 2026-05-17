@@ -284,15 +284,22 @@ class CK_OWS_Account_Email_Preferences {
 
 	private function get_api_config(): array {
 		$base_url = $this->normalize_api_base_url( (string) CK_OWS_Settings::get( 'email_preferences_api_base_url', '' ) );
-		$account  = (string) CK_OWS_Settings::get( 'email_preferences_account_id', '' );
-		$secret   = (string) CK_OWS_Settings::get( 'email_preferences_webhook_secret', '' );
+		$account  = trim( (string) CK_OWS_Settings::get( 'email_preferences_account_id', '' ) );
+		$token    = trim( (string) CK_OWS_Settings::get( 'email_preferences_auth_token', '' ) );
+
+		if ( '' === $token ) {
+			$token = trim( (string) CK_OWS_Settings::get( 'email_preferences_webhook_secret', '' ) );
+		}
+
+		$secret   = trim( (string) CK_OWS_Settings::get( 'email_preferences_webhook_secret', '' ) );
 		$allowed  = $this->is_allowed_api_base_url( $base_url );
 
 		return array(
 			'base_url'      => $base_url,
 			'account_id'    => $account,
+			'auth_token'    => $token,
 			'webhook_secret'=> $secret,
-			'is_configured' => '' !== $base_url && '' !== $account && $allowed,
+			'is_configured' => '' !== $base_url && '' !== $token && $this->is_valid_uuid( $account ) && $allowed,
 		);
 	}
 
@@ -319,7 +326,13 @@ class CK_OWS_Account_Email_Preferences {
 			return '';
 		}
 
-		return esc_url_raw( $base_url );
+		$normalized = $scheme . '://' . strtolower( (string) $parts['host'] );
+
+		if ( isset( $parts['port'] ) && is_numeric( $parts['port'] ) ) {
+			$normalized .= ':' . (string) $parts['port'];
+		}
+
+		return esc_url_raw( $normalized );
 	}
 
 	private function is_allowed_api_base_url( string $base_url ): bool {
@@ -385,11 +398,15 @@ class CK_OWS_Account_Email_Preferences {
 		$headers = array(
 			'Content-Type' => 'application/json',
 			'Accept'       => 'application/json',
+			'X-Account-ID' => (string) $config['account_id'],
 		);
+
+		if ( '' !== (string) $config['auth_token'] ) {
+			$headers['Authorization'] = 'Bearer ' . (string) $config['auth_token'];
+		}
 
 		if ( '' !== $config['webhook_secret'] ) {
 			$headers['x-overseek-webhook-secret'] = $config['webhook_secret'];
-			$headers['Authorization']             = 'Bearer ' . $config['webhook_secret'];
 		}
 
 		return $headers;
@@ -402,18 +419,11 @@ class CK_OWS_Account_Email_Preferences {
 			return array();
 		}
 
-		$with_api = $base_url . '/api/email/preferences/public';
-		$no_api   = $base_url . '/email/preferences/public';
+		return array( $base_url . '/api/email-preferences' );
+	}
 
-		$path = (string) wp_parse_url( $base_url, PHP_URL_PATH );
-		$path = '/' . trim( $path, '/' );
-
-		if ( '/api' === $path || str_ends_with( $path, '/api' ) ) {
-			$with_api = $base_url . '/email/preferences/public';
-			$no_api   = preg_replace( '#/api$#', '', $base_url ) . '/api/email/preferences/public';
-		}
-
-		return array_values( array_unique( array_filter( array( $with_api, $no_api ) ) ) );
+	private function is_valid_uuid( string $value ): bool {
+		return 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', trim( $value ) );
 	}
 
 	private function redirect_to_page( bool $saved = false ): void {

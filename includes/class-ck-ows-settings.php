@@ -118,6 +118,10 @@ class CK_OWS_Settings {
 			return trim( (string) get_option( 'overseek_relay_api_key', '' ) );
 		}
 
+		if ( 'email_preferences_auth_token' === $key ) {
+			return trim( (string) get_option( 'overseek_relay_api_key', '' ) );
+		}
+
 		return '';
 	}
 
@@ -127,6 +131,7 @@ class CK_OWS_Settings {
 			array(
 				'email_preferences_api_base_url',
 				'email_preferences_account_id',
+				'email_preferences_auth_token',
 				'email_preferences_webhook_secret',
 			),
 			true
@@ -224,6 +229,7 @@ class CK_OWS_Settings {
 
 		$this->register_field( 'email_preferences_api_base_url', __( 'API Base URL', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
 		$this->register_field( 'email_preferences_account_id', __( 'Account ID', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
+		$this->register_field( 'email_preferences_auth_token', __( 'API auth token', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
 		$this->register_field( 'email_preferences_webhook_secret', __( 'Webhook Secret (optional)', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
 
 		add_settings_section(
@@ -311,6 +317,7 @@ class CK_OWS_Settings {
 			);
 		}
 		$current['email_preferences_account_id'] = isset( $input['email_preferences_account_id'] ) ? sanitize_text_field( (string) $input['email_preferences_account_id'] ) : '';
+		$current['email_preferences_auth_token'] = $this->sanitize_sensitive_setting( $input, $current, 'email_preferences_auth_token' );
 		$current['email_preferences_webhook_secret'] = $this->sanitize_sensitive_setting( $input, $current, 'email_preferences_webhook_secret' );
 		$current['show_account_dashboard_tab']  = $this->is_enabled_input( $input, 'show_account_dashboard_tab' ) ? 'yes' : 'no';
 		$current['show_account_orders_tab']     = $this->is_enabled_input( $input, 'show_account_orders_tab' ) ? 'yes' : 'no';
@@ -961,8 +968,14 @@ class CK_OWS_Settings {
 					echo '<p class="description">' . esc_html__( 'Auto-filled from the installed OverSeek plugin account settings.', 'ck-order-workflow-suite' ) . '</p>';
 				} elseif ( 'email_preferences_webhook_secret' === $key ) {
 					echo '<p class="description">' . esc_html__( 'Auto-filled from the installed OverSeek plugin relay API key.', 'ck-order-workflow-suite' ) . '</p>';
+				} elseif ( 'email_preferences_auth_token' === $key ) {
+					echo '<p class="description">' . esc_html__( 'Auto-filled from the installed OverSeek plugin relay API key.', 'ck-order-workflow-suite' ) . '</p>';
 				}
 			}
+		}
+
+		if ( 'email_preferences_auth_token' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Used as Authorization: Bearer {token} for email preferences API calls.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
 		if ( 'use_new_invoice_plugin' === $key ) {
@@ -1441,6 +1454,7 @@ class CK_OWS_Settings {
 			'auspost_api_password',
 			'tracking_email_events_auth_token',
 			'artwork_events_auth_token',
+			'email_preferences_auth_token',
 			'email_preferences_webhook_secret',
 		);
 	}
