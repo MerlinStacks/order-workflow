@@ -204,8 +204,11 @@ class CK_OWS_Admin_Order_Actions {
 	public function handle_row_action(): void {
 		$order_id = isset( $_GET['order_id'] ) ? absint( wp_unslash( $_GET['order_id'] ) ) : 0;
 		$status   = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
+		$nonce    = isset( $_GET[ self::STATUS_ACTION_NONCE_FIELD ] ) ? sanitize_text_field( wp_unslash( $_GET[ self::STATUS_ACTION_NONCE_FIELD ] ) ) : '';
 
-		check_admin_referer( self::STATUS_ACTION_NONCE, self::STATUS_ACTION_NONCE_FIELD );
+		if ( ! wp_verify_nonce( $nonce, self::STATUS_ACTION_NONCE ) ) {
+			$this->redirect_with_flag( 'ck_ows_invalid_status_nonce', 1 );
+		}
 
 		$order = wc_get_order( $order_id );
 
@@ -229,8 +232,12 @@ class CK_OWS_Admin_Order_Actions {
 			$this->redirect_with_flag( 'ck_ows_artwork_approval_required', 1 );
 		}
 
-		$order->update_status( $status, __( 'Order status updated from quick action.', 'ck-order-workflow-suite' ), true );
-		CK_OWS_Audit::log_order_event( $order, 'quick_status_update', array( 'status' => $status ) );
+		try {
+			$order->update_status( $status, __( 'Order status updated from quick action.', 'ck-order-workflow-suite' ), true );
+			CK_OWS_Audit::log_order_event( $order, 'quick_status_update', array( 'status' => $status ) );
+		} catch ( Throwable $exception ) {
+			$this->redirect_with_flag( 'ck_ows_status_update_failed', 1 );
+		}
 
 		$redirect = $this->get_redirect_url();
 		$redirect = add_query_arg(
@@ -287,6 +294,14 @@ class CK_OWS_Admin_Order_Actions {
 
 		if ( isset( $_GET['ck_ows_invalid_status_action'] ) ) {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Invalid quick status action.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_invalid_status_nonce'] ) ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'The quick status action expired. Please refresh the orders page and try again.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_status_update_failed'] ) ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'The order status could not be changed. Please try again or update the status from the order edit screen.', 'ck-order-workflow-suite' ) . '</p></div>';
 		}
 	}
 

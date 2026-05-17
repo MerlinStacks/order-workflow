@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 - 2026-05-17
+
+### Fixed
+
+- Prevented admin quick status actions from showing blank error pages when a request expires or status update fails.
+
 ## 0.1.5 - 2026-05-17
 
 ### Fixed

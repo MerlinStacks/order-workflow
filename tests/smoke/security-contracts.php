@@ -38,7 +38,7 @@ $checks = array(
 	array(
 		'file'    => $root . '/includes/class-ck-ows-admin-order-actions.php',
 		'method'  => 'handle_row_action',
-		'require' => array( 'check_admin_referer', 'current_user_can' ),
+		'require' => array( 'wp_verify_nonce', 'current_user_can' ),
 	),
 	array(
 		'file'    => $root . '/includes/class-ck-ows-settings.php',
