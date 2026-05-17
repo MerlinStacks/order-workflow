@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5 - 2026-05-17
+
+### Fixed
+
+- Fixed admin quick status action icons and safer status-change redirects/notices.
+- Added separate workflow quick actions on the admin order detail page.
+
 ## 0.1.4 - 2026-05-15
 
 ### Added

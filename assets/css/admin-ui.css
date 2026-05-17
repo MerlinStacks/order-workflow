@@ -292,6 +292,61 @@
 	white-space: nowrap;
 }
 
+.wc-action-button-ck-ows-awaiting-artwork::after,
+.wc-action-button-ck-ows-in-production::after,
+.wc-action-button-ck-ows-in-dispatch::after {
+	font-family: Dashicons;
+	font-weight: 400;
+	line-height: 1;
+	speak: never;
+	text-indent: 0;
+}
+
+.wc-action-button-ck-ows-awaiting-artwork::after {
+	content: "\f123";
+}
+
+.wc-action-button-ck-ows-in-production::after {
+	content: "\f308";
+}
+
+.wc-action-button-ck-ows-in-dispatch::after {
+	content: "\f230";
+}
+
+.ck-ows-status-actions {
+	display: grid;
+	gap: 10px;
+}
+
+.ck-ows-status-actions__current,
+.ck-ows-status-actions__hint {
+	margin: 0;
+}
+
+.ck-ows-status-actions__hint {
+	color: #646970;
+	font-size: 12px;
+}
+
+.ck-ows-status-actions__buttons {
+	display: grid;
+	gap: 8px;
+}
+
+.ck-ows-status-actions__button {
+	justify-content: center;
+	text-align: center;
+	width: 100%;
+}
+
+.ck-ows-status-actions__button.is-current {
+	border-color: #0f766e;
+	color: #0f766e;
+	font-weight: 600;
+	opacity: 1;
+}
+
 .ck-ows-artwork-admin__divider {
 	margin: 10px 0;
 	border-top-color: #d8dddf;
