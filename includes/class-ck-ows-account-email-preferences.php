@@ -158,14 +158,28 @@ class CK_OWS_Account_Email_Preferences {
 			'reason'              => 'Updated via customer account page',
 		);
 
-		$response = wp_remote_post(
-			$this->get_email_preferences_endpoint_url( $config['base_url'] ),
-			array(
-				'headers' => $this->build_headers( $config ),
-				'body'    => wp_json_encode( $payload ),
-				'timeout' => 15,
-			)
-		);
+		$response = null;
+
+		foreach ( $this->get_email_preferences_endpoint_candidates( $config['base_url'] ) as $endpoint_url ) {
+			$response = wp_remote_post(
+				$endpoint_url,
+				array(
+					'headers' => $this->build_headers( $config ),
+					'body'    => wp_json_encode( $payload ),
+					'timeout' => 15,
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				continue;
+			}
+
+			$status_code = (int) wp_remote_retrieve_response_code( $response );
+
+			if ( $status_code >= 200 && $status_code < 300 ) {
+				break;
+			}
+		}
 
 		if ( is_wp_error( $response ) ) {
 			$this->redirect_to_page();
@@ -194,21 +208,35 @@ class CK_OWS_Account_Email_Preferences {
 			return $cached;
 		}
 
-		$url = add_query_arg(
-			array(
-				'accountId' => $config['account_id'],
-				'email'     => $email,
-			),
-			$this->get_email_preferences_endpoint_url( $config['base_url'] )
-		);
+		$response = null;
 
-		$response = wp_remote_get(
-			$url,
-			array(
-				'headers' => $this->build_headers( $config ),
-				'timeout' => 15,
-			)
-		);
+		foreach ( $this->get_email_preferences_endpoint_candidates( $config['base_url'] ) as $endpoint_url ) {
+			$url = add_query_arg(
+				array(
+					'accountId' => $config['account_id'],
+					'email'     => $email,
+				),
+				$endpoint_url
+			);
+
+			$response = wp_remote_get(
+				$url,
+				array(
+					'headers' => $this->build_headers( $config ),
+					'timeout' => 15,
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				continue;
+			}
+
+			$status_code = (int) wp_remote_retrieve_response_code( $response );
+
+			if ( $status_code >= 200 && $status_code < 300 ) {
+				break;
+			}
+		}
 
 		if ( is_wp_error( $response ) ) {
 			return new WP_Error( 'ck_ows_email_pref_api_error', __( 'Unable to load email preferences right now. Please try again later.', 'ck-order-workflow-suite' ) );
@@ -223,8 +251,19 @@ class CK_OWS_Account_Email_Preferences {
 		$body = wp_remote_retrieve_body( $response );
 		$data = json_decode( $body, true );
 
-		if ( ! is_array( $data ) || empty( $data['success'] ) ) {
+		if ( ! is_array( $data ) ) {
 			return new WP_Error( 'ck_ows_email_pref_api_invalid', __( 'Email preferences response was invalid.', 'ck-order-workflow-suite' ) );
+		}
+
+		if ( array_key_exists( 'success', $data ) && empty( $data['success'] ) ) {
+			return new WP_Error( 'ck_ows_email_pref_api_invalid', __( 'Email preferences response was invalid.', 'ck-order-workflow-suite' ) );
+		}
+
+		if ( ! isset( $data['preferences'] ) && isset( $data['globalSubscribed'] ) ) {
+			$data = array(
+				'success'     => true,
+				'preferences' => $data,
+			);
 		}
 
 		set_transient( $cache_key, $data, self::PREFS_CACHE_TTL );
@@ -345,30 +384,36 @@ class CK_OWS_Account_Email_Preferences {
 	private function build_headers( array $config ): array {
 		$headers = array(
 			'Content-Type' => 'application/json',
+			'Accept'       => 'application/json',
 		);
 
 		if ( '' !== $config['webhook_secret'] ) {
 			$headers['x-overseek-webhook-secret'] = $config['webhook_secret'];
+			$headers['Authorization']             = 'Bearer ' . $config['webhook_secret'];
 		}
 
 		return $headers;
 	}
 
-	private function get_email_preferences_endpoint_url( string $base_url ): string {
+	private function get_email_preferences_endpoint_candidates( string $base_url ): array {
 		$base_url = untrailingslashit( trim( $base_url ) );
 
 		if ( '' === $base_url ) {
-			return '';
+			return array();
 		}
+
+		$with_api = $base_url . '/api/email/preferences/public';
+		$no_api   = $base_url . '/email/preferences/public';
 
 		$path = (string) wp_parse_url( $base_url, PHP_URL_PATH );
 		$path = '/' . trim( $path, '/' );
 
 		if ( '/api' === $path || str_ends_with( $path, '/api' ) ) {
-			return $base_url . '/email/preferences/public';
+			$with_api = $base_url . '/email/preferences/public';
+			$no_api   = preg_replace( '#/api$#', '', $base_url ) . '/api/email/preferences/public';
 		}
 
-		return $base_url . '/api/email/preferences/public';
+		return array_values( array_unique( array_filter( array( $with_api, $no_api ) ) ) );
 	}
 
 	private function redirect_to_page( bool $saved = false ): void {
