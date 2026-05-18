@@ -15,6 +15,8 @@ class CK_OWS_Settings {
 	private const TRACKING_NUMBER_TEST_NONCE_FIELD = 'ck_ows_test_tracking_number_nonce';
 	private const TEST_CONNECTION_NONCE       = 'ck_ows_test_connections';
 	private const TEST_CONNECTION_NONCE_FIELD = 'ck_ows_test_connections_nonce';
+	private const ARTWORK_WEBHOOK_TEST_NONCE       = 'ck_ows_test_artwork_webhook';
+	private const ARTWORK_WEBHOOK_TEST_NONCE_FIELD = 'ck_ows_test_artwork_webhook_nonce';
 	private const EXPORT_SETTINGS_NONCE       = 'ck_ows_export_settings';
 	private const EXPORT_SETTINGS_NONCE_FIELD = 'ck_ows_export_settings_nonce';
 	private const IMPORT_SETTINGS_NONCE       = 'ck_ows_import_settings';
@@ -46,6 +48,7 @@ class CK_OWS_Settings {
 		add_action( 'admin_post_ck_ows_run_tracking_sync', array( $this, 'run_tracking_sync_now' ) );
 		add_action( 'admin_post_ck_ows_test_tracking_number', array( $this, 'test_tracking_number' ) );
 		add_action( 'admin_post_ck_ows_test_connections', array( $this, 'test_connections' ) );
+		add_action( 'admin_post_ck_ows_test_artwork_webhook', array( $this, 'test_artwork_webhook' ) );
 		add_action( 'admin_post_ck_ows_export_settings', array( $this, 'export_settings' ) );
 		add_action( 'admin_post_ck_ows_import_settings', array( $this, 'import_settings' ) );
 		add_action( 'admin_post_ck_ows_retry_dead_letter', array( $this, 'retry_dead_letter' ) );
@@ -132,6 +135,26 @@ class CK_OWS_Settings {
 			return '' !== $webhook_token ? $webhook_token : trim( (string) get_option( 'overseek_relay_api_key', '' ) );
 		}
 
+		if ( 'artwork_events_webhook_url' === $key ) {
+			$connection = self::read_overseek_connection_config();
+
+			if ( isset( $connection['siteUrl'] ) ) {
+				$site_url = trim( (string) $connection['siteUrl'] );
+
+				if ( '' !== $site_url ) {
+					return untrailingslashit( $site_url ) . '/wp-json/overseek/v1/artwork-events';
+				}
+			}
+
+			return home_url( '/wp-json/overseek/v1/artwork-events' );
+		}
+
+		if ( 'artwork_events_auth_token' === $key ) {
+			$webhook_token = trim( (string) get_option( 'overseek_webhook_auth_token', '' ) );
+
+			return '' !== $webhook_token ? $webhook_token : trim( (string) get_option( 'overseek_relay_api_key', '' ) );
+		}
+
 		return '';
 	}
 
@@ -143,6 +166,8 @@ class CK_OWS_Settings {
 				'email_preferences_account_id',
 				'email_preferences_auth_token',
 				'email_preferences_webhook_secret',
+				'artwork_events_webhook_url',
+				'artwork_events_auth_token',
 			),
 			true
 		);
@@ -461,6 +486,13 @@ class CK_OWS_Settings {
 		wp_nonce_field( self::TEST_CONNECTION_NONCE, self::TEST_CONNECTION_NONCE_FIELD );
 		submit_button( __( 'Test connections', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
 		echo '</form>';
+		echo '<hr>';
+		echo '<p>' . esc_html__( 'Send a synthetic artwork event to verify endpoint and token configuration.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="ck_ows_test_artwork_webhook">';
+		wp_nonce_field( self::ARTWORK_WEBHOOK_TEST_NONCE, self::ARTWORK_WEBHOOK_TEST_NONCE_FIELD );
+		submit_button( __( 'Test artwork webhook', 'ck-order-workflow-suite' ), 'secondary', 'submit', false );
+		echo '</form>';
 
 		echo '<h3>' . esc_html__( 'Settings Import/Export', 'ck-order-workflow-suite' ) . '</h3>';
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
@@ -494,6 +526,10 @@ class CK_OWS_Settings {
 
 		if ( isset( $_GET['ck_ows_tracking_number_tested'] ) ) {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Tracking number test complete. See diagnostics panel for the latest result.', 'ck-order-workflow-suite' ) . '</p></div>';
+		}
+
+		if ( isset( $_GET['ck_ows_artwork_tested'] ) ) {
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Artwork webhook test complete. See diagnostics panel for the latest result.', 'ck-order-workflow-suite' ) . '</p></div>';
 		}
 
 		if ( isset( $_GET['ck_ows_imported'] ) ) {
@@ -559,6 +595,39 @@ class CK_OWS_Settings {
 			array(
 				'page'          => 'ck-ows-settings',
 				'ck_ows_tested' => 1,
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	public function test_artwork_webhook(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
+		}
+
+		check_admin_referer( self::ARTWORK_WEBHOOK_TEST_NONCE, self::ARTWORK_WEBHOOK_TEST_NONCE_FIELD );
+
+		$result = $this->test_artwork_webhook_connection();
+
+		update_option(
+			'ck_ows_last_artwork_webhook_test',
+			array(
+				'ran_at'  => time(),
+				'ok'      => ! empty( $result['ok'] ),
+				'message' => (string) ( $result['message'] ?? '' ),
+			),
+			false
+		);
+
+		CK_OWS_Audit::log_system_event( 'artwork_webhook_tested', array( 'result' => $result ) );
+
+		$redirect = add_query_arg(
+			array(
+				'page'                 => 'ck-ows-settings',
+				'ck_ows_artwork_tested' => 1,
 			),
 			admin_url( 'admin.php' )
 		);
@@ -1280,7 +1349,10 @@ class CK_OWS_Settings {
 		$last_tests    = get_option( 'ck_ows_last_connection_tests', array() );
 		$last_tracking_test = get_option( 'ck_ows_last_tracking_number_test', array() );
 		$last_webhook  = get_option( 'ck_ows_last_webhook_delivery', array() );
+		$last_artwork_webhook = get_option( 'ck_ows_last_artwork_webhook_delivery', array() );
+		$last_artwork_webhook_test = get_option( 'ck_ows_last_artwork_webhook_test', array() );
 		$dead_letters  = get_option( 'ck_ows_tracking_event_dead_letters', array() );
+		$artwork_dead_letters = get_option( 'ck_ows_artwork_event_dead_letters', array() );
 		$audit_entries = CK_OWS_Audit::read_recent( 10 );
 		$invoice_mode  = CK_OWS_Invoice_Integration::PROVIDER_NEW === CK_OWS_Invoice_Integration::get_provider() ? 'new' : 'legacy';
 		$invoice_api   = function_exists( 'overseek_get_invoice_for_order' ) && function_exists( 'overseek_invoice_is_available' ) ? 'yes' : 'no';
@@ -1292,8 +1364,11 @@ class CK_OWS_Settings {
 		echo '<li><strong>' . esc_html__( 'Tracking cron enabled', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $cron_enabled ? 'yes' : 'no' ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Next tracking sync', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $next_sync ? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $next_sync ) : 'not scheduled' ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Last webhook delivery', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_webhook ) ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Last artwork webhook delivery', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_artwork_webhook ) ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Dead-letter queue size', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( is_array( $dead_letters ) ? (string) count( $dead_letters ) : '0' ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Artwork dead-letter queue size', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( is_array( $artwork_dead_letters ) ? (string) count( $artwork_dead_letters ) : '0' ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Last connection tests', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_tests ) ) . '</li>';
+		echo '<li><strong>' . esc_html__( 'Last artwork webhook test', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_diagnostic_row( $last_artwork_webhook_test ) ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Last tracking number test', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $this->format_tracking_number_test_summary( $last_tracking_test ) ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'Invoice provider mode', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $invoice_mode ) . '</li>';
 		echo '<li><strong>' . esc_html__( 'OverSeek invoice API detected', 'ck-order-workflow-suite' ) . ':</strong> ' . esc_html( $invoice_api ) . '</li>';
@@ -1454,6 +1529,52 @@ class CK_OWS_Settings {
 				'timeout' => 8,
 				'headers' => array( 'Content-Type' => 'application/json' ),
 				'body'    => wp_json_encode( array( 'event' => 'ck_ows_connection_test', 'ts' => time() ) ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return array( 'ok' => false, 'message' => $response->get_error_message() );
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		return array( 'ok' => $code >= 200 && $code < 300, 'message' => 'HTTP ' . $code );
+	}
+
+	private function test_artwork_webhook_connection(): array {
+		$url = trim( (string) self::get( 'artwork_events_webhook_url', '' ) );
+
+		if ( '' === $url ) {
+			return array( 'ok' => false, 'message' => 'Missing artwork webhook URL' );
+		}
+
+		$headers = array( 'Content-Type' => 'application/json' );
+		$token   = trim( (string) self::get( 'artwork_events_auth_token', '' ) );
+
+		if ( '' !== $token ) {
+			$headers['Authorization'] = 'Bearer ' . $token;
+		}
+
+		$body = array(
+			'event' => array(
+				'event_id'       => function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : md5( uniqid( 'ck-ows-artwork-test-', true ) ),
+				'schema_version' => '1',
+				'event_name'     => 'artwork_webhook_test',
+				'event_status'   => 'approval_requested',
+				'occurred_at'    => gmdate( 'c' ),
+				'order_id'       => 999999,
+				'order_number'   => 'webhook-test',
+				'source'         => 'ck_order_workflow_suite',
+				'source_version' => CK_OWS_VERSION,
+			),
+		);
+
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => 8,
+				'headers' => $headers,
+				'body'    => wp_json_encode( $body ),
 			)
 		);
 

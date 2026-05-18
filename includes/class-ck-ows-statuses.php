@@ -168,18 +168,18 @@ class CK_OWS_Statuses {
 		}
 
 		$order = wc_get_order( $resource_id );
-		if ( ! $order instanceof WC_Order || ! $this->should_mask_rest_status( $order, (string) $payload['status'] ) ) {
+		if ( ! $order instanceof WC_Order || ! $this->should_mask_cancelled_status( $order, (string) $payload['status'] ) ) {
 			return $payload;
 		}
 
-		$payload['status'] = $this->get_masked_rest_status( $order, (string) $payload['status'] );
+		$payload['status'] = $this->get_cancelled_status_mask( $order );
 
 		return $payload;
 	}
 
 	public function mask_paid_cancelled_status_in_rest_response( WP_REST_Response $response, WC_Order $order, WP_REST_Request $request ): WP_REST_Response {
 		$status = $order->get_status();
-		if ( ! $this->should_mask_rest_status( $order, $status ) ) {
+		if ( ! $this->should_mask_cancelled_status( $order, $status ) ) {
 			return $response;
 		}
 
@@ -188,17 +188,13 @@ class CK_OWS_Statuses {
 			return $response;
 		}
 
-		$data['status'] = $this->get_masked_rest_status( $order, $status );
+		$data['status'] = $this->get_cancelled_status_mask( $order );
 		$response->set_data( $data );
 
 		return $response;
 	}
 
-	private function should_mask_rest_status( WC_Order $order, string $status ): bool {
-		if ( $this->is_custom_workflow_status( $status ) ) {
-			return true;
-		}
-
+	private function should_mask_cancelled_status( WC_Order $order, string $status ): bool {
 		if ( 'cancelled' !== $status ) {
 			return false;
 		}
@@ -206,11 +202,7 @@ class CK_OWS_Statuses {
 		return $order->get_date_paid() || '' !== $this->get_saved_external_safe_status( $order );
 	}
 
-	private function get_masked_rest_status( WC_Order $order, string $status ): string {
-		if ( $this->is_custom_workflow_status( $status ) ) {
-			return $this->get_external_safe_status( $status );
-		}
-
+	private function get_cancelled_status_mask( WC_Order $order ): string {
 		$saved_status = $this->get_saved_external_safe_status( $order );
 		if ( '' !== $saved_status ) {
 			return $saved_status;

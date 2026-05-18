@@ -10,6 +10,7 @@ defined( 'ABSPATH' ) || exit;
 class CK_OWS_Artwork_Events {
 	private const ALLOWED_STATUSES      = array( 'uploaded', 'approval_requested', 'approved', 'changes_requested', 'override_used' );
 	private const DEDUPE_TRANSIENT_BASE = 'ck_ows_artwork_evt_';
+	private const RETRY_HOOK            = 'ck_ows_artwork_event_retry';
 
 	private static ?CK_OWS_Artwork_Events $instance = null;
 
@@ -23,6 +24,7 @@ class CK_OWS_Artwork_Events {
 
 	private function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+		add_action( self::RETRY_HOOK, array( $this, 'retry_event_delivery' ), 10, 1 );
 	}
 
 	public function register_routes(): void {
@@ -113,6 +115,9 @@ class CK_OWS_Artwork_Events {
 		);
 
 		if ( is_wp_error( $response ) ) {
+			$this->track_delivery_result( false, $order->get_id(), $event, $response->get_error_message() );
+			$this->schedule_retry( $order->get_id(), $event, 1, $response->get_error_message() );
+			do_action( 'ck_ows_artwork_event_delivery_failed', $order->get_id(), $event, $response->get_error_message() );
 			CK_OWS_Audit::log_order_event(
 				$order,
 				'artwork_event_dispatch_failed',
@@ -126,6 +131,9 @@ class CK_OWS_Artwork_Events {
 
 		$status_code = (int) wp_remote_retrieve_response_code( $response );
 		if ( $status_code < 200 || $status_code >= 300 ) {
+			$this->track_delivery_result( false, $order->get_id(), $event, 'HTTP ' . $status_code );
+			$this->schedule_retry( $order->get_id(), $event, 1, 'HTTP ' . $status_code );
+			do_action( 'ck_ows_artwork_event_delivery_failed', $order->get_id(), $event, 'HTTP ' . $status_code );
 			CK_OWS_Audit::log_order_event(
 				$order,
 				'artwork_event_dispatch_failed',
@@ -137,8 +145,50 @@ class CK_OWS_Artwork_Events {
 			return false;
 		}
 
+		$this->track_delivery_result( true, $order->get_id(), $event, 'HTTP ' . $status_code );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_event_dispatched', array( 'event_status' => $event_status, 'http' => $status_code ) );
+		do_action( 'ck_ows_artwork_event_delivered', $order->get_id(), $event, $status_code );
 		return true;
+	}
+
+	public function retry_event_delivery( array $payload ): void {
+		$order_id = isset( $payload['order_id'] ) ? absint( $payload['order_id'] ) : 0;
+		$attempt  = isset( $payload['attempt'] ) ? absint( $payload['attempt'] ) : 1;
+		$event    = isset( $payload['event'] ) && is_array( $payload['event'] ) ? $payload['event'] : array();
+
+		if ( $order_id <= 0 || empty( $event ) ) {
+			return;
+		}
+
+		$webhook_url = $this->resolve_artwork_events_webhook_url();
+		if ( '' === $webhook_url ) {
+			$this->schedule_retry( $order_id, $event, $attempt + 1, 'Missing webhook URL' );
+			return;
+		}
+
+		$response = wp_remote_post(
+			$webhook_url,
+			array(
+				'timeout' => max( 3, min( 30, absint( CK_OWS_Settings::get( 'tracking_email_events_timeout_seconds', 10 ) ) ) ),
+				'headers' => $this->build_headers(),
+				'body'    => wp_json_encode( array( 'event' => $event ) ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			$this->track_delivery_result( false, $order_id, $event, $response->get_error_message() );
+			$this->schedule_retry( $order_id, $event, $attempt + 1, $response->get_error_message() );
+			return;
+		}
+
+		$status_code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $status_code < 200 || $status_code >= 300 ) {
+			$this->track_delivery_result( false, $order_id, $event, 'HTTP ' . $status_code );
+			$this->schedule_retry( $order_id, $event, $attempt + 1, 'HTTP ' . $status_code );
+			return;
+		}
+
+		$this->track_delivery_result( true, $order_id, $event, 'HTTP ' . $status_code );
 	}
 
 	private function sanitize_event_payload( array $event ) {
@@ -243,6 +293,8 @@ class CK_OWS_Artwork_Events {
 		$notes = isset( $extra['notes'] ) ? sanitize_textarea_field( (string) $extra['notes'] ) : '';
 
 		return array(
+			'event_id'        => function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : md5( uniqid( 'ck-ows-artwork-', true ) ),
+			'schema_version'  => '1',
 			'event_name'      => $event_name_map[ $event_status ] ?? 'artwork_event',
 			'event_status'    => $event_status,
 			'occurred_at'     => gmdate( 'c' ),
@@ -256,6 +308,7 @@ class CK_OWS_Artwork_Events {
 			'notes'           => $notes,
 			'staff_user'      => $staff_user,
 			'source'          => 'ck_order_workflow_suite',
+			'source_site'     => home_url(),
 			'source_version'  => CK_OWS_VERSION,
 		);
 	}
@@ -347,6 +400,17 @@ class CK_OWS_Artwork_Events {
 	}
 
 	private function is_duplicate_event( array $event ): bool {
+		if ( isset( $event['event_id'] ) && '' !== trim( (string) $event['event_id'] ) ) {
+			$key = self::DEDUPE_TRANSIENT_BASE . md5( 'id|' . (string) $event['event_id'] );
+			if ( false !== get_transient( $key ) ) {
+				return true;
+			}
+
+			set_transient( $key, '1', 7 * DAY_IN_SECONDS );
+
+			return false;
+		}
+
 		$key_material = implode(
 			'|',
 			array(
@@ -369,5 +433,59 @@ class CK_OWS_Artwork_Events {
 		set_transient( $key, '1', 7 * DAY_IN_SECONDS );
 
 		return false;
+	}
+
+	private function track_delivery_result( bool $ok, int $order_id, array $event, string $message ): void {
+		update_option(
+			'ck_ows_last_artwork_webhook_delivery',
+			array(
+				'ts'           => time(),
+				'ok'           => $ok,
+				'order_id'     => $order_id,
+				'event_status' => isset( $event['event_status'] ) ? sanitize_key( (string) $event['event_status'] ) : '',
+				'event_id'     => isset( $event['event_id'] ) ? sanitize_text_field( (string) $event['event_id'] ) : '',
+				'message'      => sanitize_text_field( $message ),
+			),
+			false
+		);
+	}
+
+	private function schedule_retry( int $order_id, array $event, int $attempt, string $error_message ): void {
+		$max_attempts = max( 0, min( 5, absint( CK_OWS_Settings::get( 'tracking_email_events_retry_attempts', 3 ) ) ) );
+
+		if ( $attempt > $max_attempts ) {
+			$this->push_dead_letter( $order_id, $event, $attempt, $error_message );
+			return;
+		}
+
+		$backoff_minutes = max( 1, min( 60, absint( CK_OWS_Settings::get( 'tracking_email_events_retry_backoff_minutes', 5 ) ) ) );
+		$delay_seconds   = max( 60, $backoff_minutes * 60 * max( 1, $attempt ) );
+
+		wp_schedule_single_event(
+			time() + $delay_seconds,
+			self::RETRY_HOOK,
+			array(
+				array(
+					'order_id' => $order_id,
+					'event'    => $event,
+					'attempt'  => $attempt,
+				),
+			)
+		);
+	}
+
+	private function push_dead_letter( int $order_id, array $event, int $attempts, string $error_message ): void {
+		$rows = get_option( 'ck_ows_artwork_event_dead_letters', array() );
+		$rows = is_array( $rows ) ? $rows : array();
+
+		$rows[] = array(
+			'ts'         => time(),
+			'order_id'   => $order_id,
+			'attempts'   => max( 1, $attempts ),
+			'last_error' => sanitize_text_field( $error_message ),
+			'event'      => $event,
+		);
+
+		update_option( 'ck_ows_artwork_event_dead_letters', $rows, false );
 	}
 }
