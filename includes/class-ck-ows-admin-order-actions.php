@@ -527,8 +527,7 @@ class CK_OWS_Admin_Order_Actions {
 
 	private function get_current_order_list_url(): string {
 		$current = $this->get_current_admin_url();
-
-		return remove_query_arg(
+		$current = remove_query_arg(
 			array(
 				'action',
 				'action2',
@@ -546,6 +545,18 @@ class CK_OWS_Admin_Order_Actions {
 			),
 			$current
 		);
+
+		foreach ( array( 'status', 'post_status' ) as $query_key ) {
+			if ( isset( $_GET[ $query_key ] ) ) {
+				$query_value = sanitize_text_field( wp_unslash( $_GET[ $query_key ] ) );
+
+				if ( '' !== $query_value ) {
+					$current = add_query_arg( $query_key, $query_value, $current );
+				}
+			}
+		}
+
+		return $current;
 	}
 
 	private function sanitize_redirect_url( string $redirect, string $fallback ): string {

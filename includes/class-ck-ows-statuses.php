@@ -26,6 +26,7 @@ class CK_OWS_Statuses {
 		add_action( 'init', array( $this, 'register_statuses' ) );
 		add_filter( 'wc_order_statuses', array( $this, 'inject_statuses' ) );
 		add_filter( 'woocommerce_order_is_completed_statuses', array( $this, 'exclude_custom_fulfilment_statuses' ) );
+		add_filter( 'woocommerce_webhook_should_deliver', array( $this, 'prevent_webhooks_for_custom_status_transitions' ), 10, 3 );
 	}
 
 	public function exclude_custom_fulfilment_statuses( array $statuses ): array {
@@ -114,5 +115,36 @@ class CK_OWS_Statuses {
 		}
 
 		return $updated;
+	}
+
+	public function prevent_webhooks_for_custom_status_transitions( bool $should_deliver, $webhook, $arg ): bool {
+		if ( ! $should_deliver || ! is_array( $arg ) ) {
+			return $should_deliver;
+		}
+
+		$to_status = isset( $arg[2] ) ? (string) $arg[2] : '';
+		if ( '' === $to_status ) {
+			return $should_deliver;
+		}
+
+		if ( $this->is_custom_workflow_status( $to_status ) ) {
+			return false;
+		}
+
+		return $should_deliver;
+	}
+
+	private function is_custom_workflow_status( string $status ): bool {
+		$normalized = ( 0 === strpos( $status, 'wc-' ) ) ? substr( $status, 3 ) : $status;
+
+		return in_array(
+			$normalized,
+			array(
+				'awaiting-artwork',
+				'in-production',
+				'in-dispatch',
+			),
+			true
+		);
 	}
 }
