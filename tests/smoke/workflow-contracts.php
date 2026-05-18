@@ -20,11 +20,13 @@ $failures = array();
 $tracking_events_file = $root . '/includes/class-ck-ows-tracking-email-events.php';
 $tracking_file        = $root . '/includes/class-ck-ows-tracking.php';
 $settings_file        = $root . '/includes/class-ck-ows-settings.php';
+$statuses_file        = $root . '/includes/class-ck-ows-statuses.php';
 $uninstall_file       = $root . '/uninstall.php';
 
 $tracking_source = file_get_contents($tracking_events_file);
 $tracking_core_source = file_get_contents($tracking_file);
 $settings_source = file_get_contents($settings_file);
+$statuses_source = file_get_contents($statuses_file);
 $uninstall_source = file_get_contents($uninstall_file);
 
 if (! is_string($tracking_source) || '' === $tracking_source) {
@@ -37,6 +39,10 @@ if (! is_string($tracking_core_source) || '' === $tracking_core_source) {
 
 if (! is_string($settings_source) || '' === $settings_source) {
 	$failures[] = '[FAIL] Could not read settings source';
+}
+
+if (! is_string($statuses_source) || '' === $statuses_source) {
+	$failures[] = '[FAIL] Could not read statuses source';
 }
 
 if (! is_string($uninstall_source) || '' === $uninstall_source) {
@@ -60,6 +66,12 @@ if (empty($failures)) {
 	assert_contains($settings_source, 'check_admin_referer( self::DLQ_RETRY_ALL_NONCE', 'retry-all nonce verification', $failures);
 	assert_contains($settings_source, "'artwork_events_webhook_url'", 'artwork webhook URL setting', $failures);
 	assert_contains($settings_source, "'artwork_events_auth_token'", 'artwork auth token setting', $failures);
+	assert_contains($statuses_source, 'track_webhook_blocked_status_transition', 'status transition webhook block tracker', $failures);
+	assert_contains($statuses_source, 'is_blocked_external_status_transition', 'paid-to-cancelled external webhook block', $failures);
+	assert_contains($statuses_source, '\'cancelled\' !== $to_status', 'cancelled-only external status block guard', $failures);
+	assert_contains($statuses_source, 'woocommerce_rest_prepare_shop_order_object', 'REST order response status mask hook', $failures);
+	assert_contains($statuses_source, 'mask_paid_cancelled_status_in_rest_response', 'REST paid-cancelled status response mask', $failures);
+	assert_contains($statuses_source, '$data[\'status\'] = \'processing\'', 'REST paid-cancelled status reported as processing', $failures);
 
 	assert_contains($uninstall_source, "keep_data_on_uninstall", 'uninstall keep-data toggle', $failures);
 	assert_contains($uninstall_source, "delete_option( 'ckrg_block_log' )", 'registration guard cleanup on uninstall', $failures);

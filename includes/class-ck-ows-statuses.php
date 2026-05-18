@@ -11,6 +11,7 @@ class CK_OWS_Statuses {
 	public const STATUS_IN_PRODUCTION       = 'wc-in-production';
 	public const STATUS_IN_DISPATCH         = 'wc-in-dispatch';
 	public const STATUS_AWAITING_ARTWORK    = 'wc-awaiting-artwork';
+	private const WEBHOOK_BLOCK_TRANSIENT   = 'ck_ows_block_webhook_status_';
 
 	private static ?CK_OWS_Statuses $instance = null;
 
@@ -24,8 +25,10 @@ class CK_OWS_Statuses {
 
 	private function __construct() {
 		add_action( 'init', array( $this, 'register_statuses' ) );
+		add_action( 'woocommerce_order_status_changed', array( $this, 'track_webhook_blocked_status_transition' ), 5, 4 );
 		add_filter( 'wc_order_statuses', array( $this, 'inject_statuses' ) );
 		add_filter( 'woocommerce_order_is_completed_statuses', array( $this, 'exclude_custom_fulfilment_statuses' ) );
+		add_filter( 'woocommerce_rest_prepare_shop_order_object', array( $this, 'mask_paid_cancelled_status_in_rest_response' ), 10, 3 );
 		add_filter( 'woocommerce_webhook_should_deliver', array( $this, 'prevent_webhooks_for_custom_status_transitions' ), 10, 3 );
 	}
 
@@ -118,20 +121,49 @@ class CK_OWS_Statuses {
 	}
 
 	public function prevent_webhooks_for_custom_status_transitions( bool $should_deliver, $webhook, $arg ): bool {
-		if ( ! $should_deliver || ! is_array( $arg ) ) {
+		if ( ! $should_deliver ) {
 			return $should_deliver;
 		}
 
-		$to_status = isset( $arg[2] ) ? (string) $arg[2] : '';
-		if ( '' === $to_status ) {
+		if ( is_array( $arg ) ) {
+			$from_status = isset( $arg[1] ) ? (string) $arg[1] : '';
+			$to_status   = isset( $arg[2] ) ? (string) $arg[2] : '';
+
+			if ( '' !== $to_status && ( $this->is_custom_workflow_status( $to_status ) || $this->is_blocked_external_status_transition( $from_status, $to_status ) ) ) {
+				return false;
+			}
+
 			return $should_deliver;
 		}
 
-		if ( $this->is_custom_workflow_status( $to_status ) ) {
+		$order_id = is_numeric( $arg ) ? absint( $arg ) : 0;
+		if ( $order_id > 0 && false !== get_transient( self::WEBHOOK_BLOCK_TRANSIENT . $order_id ) ) {
 			return false;
 		}
 
 		return $should_deliver;
+	}
+
+	public function track_webhook_blocked_status_transition( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
+		if ( $this->is_custom_workflow_status( $to_status ) || $this->is_blocked_external_status_transition( $from_status, $to_status ) ) {
+			set_transient( self::WEBHOOK_BLOCK_TRANSIENT . $order_id, '1', 5 * MINUTE_IN_SECONDS );
+		}
+	}
+
+	public function mask_paid_cancelled_status_in_rest_response( WP_REST_Response $response, WC_Order $order, WP_REST_Request $request ): WP_REST_Response {
+		if ( 'cancelled' !== $order->get_status() || ! $order->get_date_paid() ) {
+			return $response;
+		}
+
+		$data = $response->get_data();
+		if ( ! is_array( $data ) ) {
+			return $response;
+		}
+
+		$data['status'] = 'processing';
+		$response->set_data( $data );
+
+		return $response;
 	}
 
 	private function is_custom_workflow_status( string $status ): bool {
@@ -143,6 +175,27 @@ class CK_OWS_Statuses {
 				'awaiting-artwork',
 				'in-production',
 				'in-dispatch',
+			),
+			true
+		);
+	}
+
+	private function is_blocked_external_status_transition( string $from_status, string $to_status ): bool {
+		$from_status = ( 0 === strpos( $from_status, 'wc-' ) ) ? substr( $from_status, 3 ) : $from_status;
+		$to_status   = ( 0 === strpos( $to_status, 'wc-' ) ) ? substr( $to_status, 3 ) : $to_status;
+
+		if ( 'cancelled' !== $to_status ) {
+			return false;
+		}
+
+		return in_array(
+			$from_status,
+			array(
+				'processing',
+				'awaiting-artwork',
+				'in-production',
+				'in-dispatch',
+				'completed',
 			),
 			true
 		);
