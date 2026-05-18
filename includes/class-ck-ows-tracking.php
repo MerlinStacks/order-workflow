@@ -10,6 +10,7 @@ defined( 'ABSPATH' ) || exit;
 class CK_OWS_Tracking {
 	private const CRON_HOOK               = 'ck_ows_tracking_sync_event';
 	private const SYNC_LOCK_KEY            = 'ck_ows_tracking_sync_lock';
+	private const SCHEDULE_CHECK_KEY       = 'ck_ows_tracking_schedule_check';
 	private const META_LIVE_TRACKING      = '_ck_ows_live_tracking';
 	private const META_LAST_SYNC_TS       = '_ck_ows_live_tracking_last_sync';
 	private const META_LAST_SYNC_ERROR    = '_ck_ows_live_tracking_last_error';
@@ -46,6 +47,12 @@ class CK_OWS_Tracking {
 	}
 
 	public function ensure_schedule(): void {
+		if ( false !== get_transient( self::SCHEDULE_CHECK_KEY ) ) {
+			return;
+		}
+
+		set_transient( self::SCHEDULE_CHECK_KEY, '1', HOUR_IN_SECONDS );
+
 		if ( 'yes' !== CK_OWS_Settings::get( 'tracking_sync_enabled', 'yes' ) ) {
 			wp_clear_scheduled_hook( self::CRON_HOOK );
 			return;

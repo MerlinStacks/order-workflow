@@ -27,6 +27,7 @@ class CK_OWS_Settings {
 	private const DLQ_RETRY_ALL_NONCE_FIELD   = 'ck_ows_retry_all_dead_letters_nonce';
 
 	private static ?CK_OWS_Settings $instance = null;
+	private static ?array $settings_cache = null;
 
 	private string $settings_page_hook = '';
 
@@ -54,7 +55,12 @@ class CK_OWS_Settings {
 	}
 
 	public static function get( string $key, $default = '' ) {
-		$options = get_option( self::OPTION_KEY, array() );
+		if ( null === self::$settings_cache ) {
+			$options              = get_option( self::OPTION_KEY, array() );
+			self::$settings_cache = is_array( $options ) ? $options : array();
+		}
+
+		$options = self::$settings_cache;
 
 		if ( ! is_array( $options ) ) {
 			return $default;
@@ -172,7 +178,7 @@ class CK_OWS_Settings {
 
 	public function enqueue_admin_assets( string $hook_suffix ): void {
 		$is_settings_page = '' !== $this->settings_page_hook && $hook_suffix === $this->settings_page_hook;
-		$is_settings_submenu = str_ends_with( $hook_suffix, '_page_ck-reg-guard' );
+		$is_settings_submenu = $this->string_ends_with( $hook_suffix, '_page_ck-reg-guard' );
 
 		if ( ! $is_settings_page && ! $is_settings_submenu ) {
 			return;
@@ -283,6 +289,8 @@ class CK_OWS_Settings {
 	}
 
 	public function sanitize_settings( array $input ): array {
+		self::$settings_cache = null;
+
 		$current = get_option( self::OPTION_KEY, array() );
 		$current = is_array( $current ) ? $current : array();
 		$previous_tracking_enabled = (string) ( $current['tracking_sync_enabled'] ?? 'yes' );
@@ -340,7 +348,10 @@ class CK_OWS_Settings {
 
 		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
 			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
+			delete_transient( 'ck_ows_tracking_schedule_check' );
 		}
+
+		self::$settings_cache = $current;
 
 		return $current;
 	}
@@ -635,6 +646,7 @@ class CK_OWS_Settings {
 
 		$sanitized = $this->sanitize_settings( $data );
 		update_option( self::OPTION_KEY, $sanitized, false );
+		self::$settings_cache = $sanitized;
 		CK_OWS_Audit::log_system_event( 'settings_imported', array( 'keys' => array_keys( $sanitized ) ) );
 
 		$redirect = add_query_arg(
@@ -1211,7 +1223,7 @@ class CK_OWS_Settings {
 			if ( 0 === strpos( $allowed_host, '*.' ) ) {
 				$domain = substr( $allowed_host, 2 );
 
-				if ( '' !== $domain && ( $host === $domain || str_ends_with( $host, '.' . $domain ) ) ) {
+				if ( '' !== $domain && ( $host === $domain || $this->string_ends_with( $host, '.' . $domain ) ) ) {
 					return true;
 				}
 
@@ -1224,6 +1236,14 @@ class CK_OWS_Settings {
 		}
 
 		return false;
+	}
+
+	private function string_ends_with( string $haystack, string $needle ): bool {
+		if ( '' === $needle ) {
+			return true;
+		}
+
+		return substr( $haystack, -strlen( $needle ) ) === $needle;
 	}
 
 	private function sanitize_blocked_domain_list( string $value ): string {

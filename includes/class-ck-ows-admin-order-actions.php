@@ -596,7 +596,7 @@ class CK_OWS_Admin_Order_Actions {
 	}
 
 	private function format_status_label( string $status ): string {
-		$status = str_starts_with( $status, 'wc-' ) ? $status : 'wc-' . $status;
+		$status = ( 0 === strpos( $status, 'wc-' ) ) ? $status : 'wc-' . $status;
 		$all    = wc_get_order_statuses();
 
 		return $all[ $status ] ?? ucfirst( str_replace( '-', ' ', str_replace( 'wc-', '', $status ) ) );

@@ -151,10 +151,13 @@ class CK_OWS_Registration_Guard {
 			echo '<div class="notice notice-success"><p><strong>' . esc_html__( 'Block log cleared.', 'ck-order-workflow-suite' ) . '</strong></p></div>';
 		}
 
-		$log   = get_option( self::OPTION_LOG, array() );
-		$log   = is_array( $log ) ? $log : array();
-		$log   = $this->prune_log( $log );
-		update_option( self::OPTION_LOG, $log, false );
+		$stored_log = get_option( self::OPTION_LOG, array() );
+		$stored_log = is_array( $stored_log ) ? $stored_log : array();
+		$log        = $this->prune_log( $stored_log );
+
+		if ( $log !== $stored_log ) {
+			update_option( self::OPTION_LOG, $log, false );
+		}
 		$tally = array(
 			'honeypot'       => 0,
 			'too_fast'       => 0,
@@ -165,15 +168,15 @@ class CK_OWS_Registration_Guard {
 
 		foreach ( $log as $entry ) {
 			$reason = (string) ( $entry['reason'] ?? '' );
-			if ( str_starts_with( $reason, 'honeypot' ) ) {
+			if ( 0 === strpos( $reason, 'honeypot' ) ) {
 				$tally['honeypot']++;
 			} elseif ( 'too_fast' === $reason ) {
 				$tally['too_fast']++;
-			} elseif ( str_starts_with( $reason, 'blocked_domain' ) ) {
+			} elseif ( 0 === strpos( $reason, 'blocked_domain' ) ) {
 				$tally['blocked_domain']++;
-			} elseif ( str_ends_with( $reason, 'username' ) ) {
+			} elseif ( substr( $reason, -8 ) === 'username' ) {
 				$tally['username']++;
-			} elseif ( str_starts_with( $reason, 'rate_limit' ) ) {
+			} elseif ( 0 === strpos( $reason, 'rate_limit' ) ) {
 				$tally['rate_limit']++;
 			}
 		}

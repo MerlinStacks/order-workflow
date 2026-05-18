@@ -379,7 +379,7 @@ class CK_OWS_Account_Email_Preferences {
 			if ( 0 === strpos( $allowed_host, '*.' ) ) {
 				$domain = substr( $allowed_host, 2 );
 
-				if ( '' !== $domain && ( $host === $domain || str_ends_with( $host, '.' . $domain ) ) ) {
+				if ( '' !== $domain && ( $host === $domain || $this->string_ends_with( $host, '.' . $domain ) ) ) {
 					return true;
 				}
 
@@ -392,6 +392,14 @@ class CK_OWS_Account_Email_Preferences {
 		}
 
 		return false;
+	}
+
+	private function string_ends_with( string $haystack, string $needle ): bool {
+		if ( '' === $needle ) {
+			return true;
+		}
+
+		return substr( $haystack, -strlen( $needle ) ) === $needle;
 	}
 
 	private function build_headers( array $config ): array {
