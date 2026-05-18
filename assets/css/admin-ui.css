@@ -142,6 +142,95 @@
 	border-color: #115e59;
 }
 
+.ck-ows-admin .ck-ows-inline-diagnostic {
+	margin: 10px 0 0;
+	padding: 10px 12px;
+	border-radius: 8px;
+	border: 1px solid #dcdcde;
+	background: #f6f7f7;
+}
+
+.ck-ows-admin .ck-ows-inline-diagnostic p {
+	margin: 0 0 4px;
+}
+
+.ck-ows-admin .ck-ows-inline-diagnostic p:last-child {
+	margin-bottom: 0;
+}
+
+.ck-ows-admin .ck-ows-inline-diagnostic--ok {
+	background: #ecf8f2;
+	border-color: #a7d9bf;
+}
+
+.ck-ows-admin .ck-ows-inline-diagnostic--warning {
+	background: #fff8e5;
+	border-color: #f4d083;
+}
+
+.ck-ows-admin .ck-ows-tools-grid {
+	display: grid;
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.ck-ows-admin .ck-ows-tool-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 10px;
+	padding: 12px;
+}
+
+.ck-ows-admin .ck-ows-tool-card h3 {
+	margin: 0 0 8px;
+	font-size: 15px;
+}
+
+.ck-ows-admin .ck-ows-tool-card__title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.ck-ows-admin .ck-ows-status-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	border-radius: 999px;
+	border: 1px solid #d0d7de;
+	background: #f6f8fa;
+	color: #344054;
+	font-size: 11px;
+	line-height: 1.4;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+
+.ck-ows-admin .ck-ows-status-badge--ok {
+	background: #ecf8f2;
+	border-color: #a7d9bf;
+	color: #17663d;
+}
+
+.ck-ows-admin .ck-ows-status-badge--warning {
+	background: #fff8e5;
+	border-color: #f4d083;
+	color: #8a5a00;
+}
+
+.ck-ows-admin .ck-ows-status-badge--neutral {
+	background: #f6f7f7;
+	border-color: #dcdcde;
+	color: #3c434a;
+}
+
+.ck-ows-admin .ck-ows-tool-card > p {
+	margin: 0 0 10px;
+}
+
 .ck-ows-artwork-admin {
 	background: linear-gradient(180deg, #f7fbfb 0%, #ffffff 100%);
 	border: 1px solid #d6e4e3;
@@ -376,6 +465,14 @@
 }
 
 @media (min-width: 768px) {
+	.ck-ows-admin .ck-ows-tools-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.ck-ows-admin .ck-ows-tool-card--wide {
+		grid-column: 1 / -1;
+	}
+
 	.ck-ows-artwork-admin__upload-row,
 	.ck-ows-artwork-admin__override-row {
 		grid-template-columns: 1fr auto;
