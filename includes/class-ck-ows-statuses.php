@@ -11,6 +11,7 @@ class CK_OWS_Statuses {
 	public const STATUS_IN_PRODUCTION       = 'wc-in-production';
 	public const STATUS_IN_DISPATCH         = 'wc-in-dispatch';
 	public const STATUS_AWAITING_ARTWORK    = 'wc-awaiting-artwork';
+	private const META_EXTERNAL_SAFE_STATUS = '_ck_ows_external_safe_status';
 	private const WEBHOOK_BLOCK_TRANSIENT   = 'ck_ows_block_webhook_status_';
 
 	private static ?CK_OWS_Statuses $instance = null;
@@ -29,6 +30,7 @@ class CK_OWS_Statuses {
 		add_filter( 'wc_order_statuses', array( $this, 'inject_statuses' ) );
 		add_filter( 'woocommerce_order_is_completed_statuses', array( $this, 'exclude_custom_fulfilment_statuses' ) );
 		add_filter( 'woocommerce_rest_prepare_shop_order_object', array( $this, 'mask_paid_cancelled_status_in_rest_response' ), 10, 3 );
+		add_filter( 'woocommerce_webhook_payload', array( $this, 'mask_order_status_in_webhook_payload' ), 10, 4 );
 		add_filter( 'woocommerce_webhook_should_deliver', array( $this, 'prevent_webhooks_for_custom_status_transitions' ), 10, 3 );
 	}
 
@@ -129,7 +131,7 @@ class CK_OWS_Statuses {
 			$from_status = isset( $arg[1] ) ? (string) $arg[1] : '';
 			$to_status   = isset( $arg[2] ) ? (string) $arg[2] : '';
 
-			if ( '' !== $to_status && ( $this->is_custom_workflow_status( $to_status ) || $this->is_blocked_external_status_transition( $from_status, $to_status ) ) ) {
+			if ( '' !== $to_status && $this->is_blocked_external_status_transition( $from_status, $to_status ) ) {
 				return false;
 			}
 
@@ -145,13 +147,39 @@ class CK_OWS_Statuses {
 	}
 
 	public function track_webhook_blocked_status_transition( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
-		if ( $this->is_custom_workflow_status( $to_status ) || $this->is_blocked_external_status_transition( $from_status, $to_status ) ) {
+		if ( $this->is_external_safe_status( $to_status ) ) {
+			$order->update_meta_data( self::META_EXTERNAL_SAFE_STATUS, $this->get_external_safe_status( $to_status ) );
+			$order->save_meta_data();
+		}
+
+		if ( $this->is_blocked_external_status_transition( $from_status, $to_status ) ) {
+			if ( '' === $this->get_saved_external_safe_status( $order ) && $this->is_external_safe_status( $from_status ) ) {
+				$order->update_meta_data( self::META_EXTERNAL_SAFE_STATUS, $this->get_external_safe_status( $from_status ) );
+				$order->save_meta_data();
+			}
+
 			set_transient( self::WEBHOOK_BLOCK_TRANSIENT . $order_id, '1', 5 * MINUTE_IN_SECONDS );
 		}
 	}
 
+	public function mask_order_status_in_webhook_payload( array $payload, string $resource, int $resource_id, int $webhook_id ): array {
+		if ( 'order' !== $resource || ! isset( $payload['status'] ) ) {
+			return $payload;
+		}
+
+		$order = wc_get_order( $resource_id );
+		if ( ! $order instanceof WC_Order || ! $this->should_mask_rest_status( $order, (string) $payload['status'] ) ) {
+			return $payload;
+		}
+
+		$payload['status'] = $this->get_masked_rest_status( $order, (string) $payload['status'] );
+
+		return $payload;
+	}
+
 	public function mask_paid_cancelled_status_in_rest_response( WP_REST_Response $response, WC_Order $order, WP_REST_Request $request ): WP_REST_Response {
-		if ( 'cancelled' !== $order->get_status() || ! $order->get_date_paid() ) {
+		$status = $order->get_status();
+		if ( ! $this->should_mask_rest_status( $order, $status ) ) {
 			return $response;
 		}
 
@@ -160,10 +188,41 @@ class CK_OWS_Statuses {
 			return $response;
 		}
 
-		$data['status'] = 'processing';
+		$data['status'] = $this->get_masked_rest_status( $order, $status );
 		$response->set_data( $data );
 
 		return $response;
+	}
+
+	private function should_mask_rest_status( WC_Order $order, string $status ): bool {
+		if ( $this->is_custom_workflow_status( $status ) ) {
+			return true;
+		}
+
+		if ( 'cancelled' !== $status ) {
+			return false;
+		}
+
+		return $order->get_date_paid() || '' !== $this->get_saved_external_safe_status( $order );
+	}
+
+	private function get_masked_rest_status( WC_Order $order, string $status ): string {
+		if ( $this->is_custom_workflow_status( $status ) ) {
+			return $this->get_external_safe_status( $status );
+		}
+
+		$saved_status = $this->get_saved_external_safe_status( $order );
+		if ( '' !== $saved_status ) {
+			return $saved_status;
+		}
+
+		return 'processing';
+	}
+
+	private function get_saved_external_safe_status( WC_Order $order ): string {
+		$status = sanitize_key( (string) $order->get_meta( self::META_EXTERNAL_SAFE_STATUS, true ) );
+
+		return in_array( $status, array( 'processing', 'completed' ), true ) ? $status : '';
 	}
 
 	private function is_custom_workflow_status( string $status ): bool {
@@ -178,6 +237,28 @@ class CK_OWS_Statuses {
 			),
 			true
 		);
+	}
+
+	private function is_external_safe_status( string $status ): bool {
+		$status = ( 0 === strpos( $status, 'wc-' ) ) ? substr( $status, 3 ) : $status;
+
+		return in_array(
+			$status,
+			array(
+				'processing',
+				'completed',
+				'awaiting-artwork',
+				'in-production',
+				'in-dispatch',
+			),
+			true
+		);
+	}
+
+	private function get_external_safe_status( string $status ): string {
+		$status = ( 0 === strpos( $status, 'wc-' ) ) ? substr( $status, 3 ) : $status;
+
+		return 'completed' === $status ? 'completed' : 'processing';
 	}
 
 	private function is_blocked_external_status_transition( string $from_status, string $to_status ): bool {

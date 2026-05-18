@@ -71,7 +71,11 @@ if (empty($failures)) {
 	assert_contains($statuses_source, '\'cancelled\' !== $to_status', 'cancelled-only external status block guard', $failures);
 	assert_contains($statuses_source, 'woocommerce_rest_prepare_shop_order_object', 'REST order response status mask hook', $failures);
 	assert_contains($statuses_source, 'mask_paid_cancelled_status_in_rest_response', 'REST paid-cancelled status response mask', $failures);
-	assert_contains($statuses_source, '$data[\'status\'] = \'processing\'', 'REST paid-cancelled status reported as processing', $failures);
+	assert_contains($statuses_source, "'_ck_ows_external_safe_status'", 'persisted external-safe order status', $failures);
+	assert_contains($statuses_source, 'should_mask_rest_status', 'REST custom and cancelled status mask guard', $failures);
+	assert_contains($statuses_source, 'get_masked_rest_status', 'REST masked status resolver', $failures);
+	assert_contains($statuses_source, 'woocommerce_webhook_payload', 'webhook order status mask hook', $failures);
+	assert_contains($statuses_source, 'mask_order_status_in_webhook_payload', 'webhook custom status visibility mask', $failures);
 
 	assert_contains($uninstall_source, "keep_data_on_uninstall", 'uninstall keep-data toggle', $failures);
 	assert_contains($uninstall_source, "delete_option( 'ckrg_block_log' )", 'registration guard cleanup on uninstall', $failures);
