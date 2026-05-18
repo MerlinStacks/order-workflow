@@ -70,7 +70,13 @@ if (empty($failures)) {
 	assert_contains($statuses_source, 'is_blocked_external_status_transition', 'paid-to-cancelled external webhook block', $failures);
 	assert_contains($statuses_source, '\'cancelled\' !== $to_status', 'cancelled-only external status block guard', $failures);
 	assert_contains($statuses_source, 'woocommerce_rest_prepare_shop_order_object', 'REST order response status mask hook', $failures);
+	assert_contains($statuses_source, 'woocommerce_rest_shop_order_object_query', 'ReadyToShip REST order query gate hook', $failures);
 	assert_contains($statuses_source, 'mask_paid_cancelled_status_in_rest_response', 'REST paid-cancelled status response mask', $failures);
+	assert_contains($statuses_source, 'gate_readytoship_rest_order_query', 'ReadyToShip REST order query gate', $failures);
+	assert_contains($statuses_source, 'is_readytoship_rest_request', 'ReadyToShip REST request detector', $failures);
+	assert_contains($statuses_source, 'get_readytoship_rest_status', 'ReadyToShip REST status mapper', $failures);
+	assert_contains($settings_source, 'readytoship_consumer_key_suffix', 'ReadyToShip API key suffix setting', $failures);
+	assert_contains($settings_source, 'readytoship_key_description', 'ReadyToShip API key description setting', $failures);
 	assert_contains($statuses_source, "'_ck_ows_external_safe_status'", 'persisted external-safe order status', $failures);
 	assert_contains($statuses_source, 'should_mask_cancelled_status', 'REST cancelled status mask guard', $failures);
 	assert_contains($statuses_source, 'get_cancelled_status_mask', 'REST cancelled status mask resolver', $failures);

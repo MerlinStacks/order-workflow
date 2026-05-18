@@ -29,6 +29,7 @@ class CK_OWS_Statuses {
 		add_action( 'woocommerce_order_status_changed', array( $this, 'track_webhook_blocked_status_transition' ), 5, 4 );
 		add_filter( 'wc_order_statuses', array( $this, 'inject_statuses' ) );
 		add_filter( 'woocommerce_order_is_completed_statuses', array( $this, 'exclude_custom_fulfilment_statuses' ) );
+		add_filter( 'woocommerce_rest_shop_order_object_query', array( $this, 'gate_readytoship_rest_order_query' ), 10, 2 );
 		add_filter( 'woocommerce_rest_prepare_shop_order_object', array( $this, 'mask_paid_cancelled_status_in_rest_response' ), 10, 3 );
 		add_filter( 'woocommerce_webhook_payload', array( $this, 'mask_order_status_in_webhook_payload' ), 10, 4 );
 		add_filter( 'woocommerce_webhook_should_deliver', array( $this, 'prevent_webhooks_for_custom_status_transitions' ), 10, 3 );
@@ -177,21 +178,141 @@ class CK_OWS_Statuses {
 		return $payload;
 	}
 
+	public function gate_readytoship_rest_order_query( array $args, WP_REST_Request $request ): array {
+		if ( ! $this->is_readytoship_rest_request( $request ) ) {
+			return $args;
+		}
+
+		$args['status'] = array( self::STATUS_IN_DISPATCH );
+
+		return $args;
+	}
+
 	public function mask_paid_cancelled_status_in_rest_response( WP_REST_Response $response, WC_Order $order, WP_REST_Request $request ): WP_REST_Response {
+		if ( $this->is_readytoship_rest_request( $request ) ) {
+			$data = $response->get_data();
+			if ( ! is_array( $data ) ) {
+				return $response;
+			}
+
+			$data['status'] = $this->get_readytoship_rest_status( $order );
+			$response->set_data( $data );
+
+			return $response;
+		}
+
 		$status = $order->get_status();
-		if ( ! $this->should_mask_cancelled_status( $order, $status ) ) {
+		if ( $this->should_mask_cancelled_status( $order, $status ) ) {
 			return $response;
 		}
-
-		$data = $response->get_data();
-		if ( ! is_array( $data ) ) {
-			return $response;
-		}
-
-		$data['status'] = $this->get_cancelled_status_mask( $order );
-		$response->set_data( $data );
 
 		return $response;
+	}
+
+	private function get_readytoship_rest_status( WC_Order $order ): string {
+		$status = $order->get_status();
+
+		if ( 'completed' === $status ) {
+			return 'completed';
+		}
+
+		if ( 'cancelled' === $status && ! $this->should_mask_cancelled_status( $order, $status ) ) {
+			return 'cancelled';
+		}
+
+		if ( 'processing' === $status || $this->is_custom_workflow_status( $status ) || $this->should_mask_cancelled_status( $order, $status ) ) {
+			return 'processing';
+		}
+
+		return $status;
+	}
+
+	private function is_readytoship_rest_request( WP_REST_Request $request ): bool {
+		$suffix = '';
+
+		if ( class_exists( 'CK_OWS_Settings' ) ) {
+			$suffix = sanitize_key( (string) CK_OWS_Settings::get( 'readytoship_consumer_key_suffix', '' ) );
+		}
+
+		if ( '' === $suffix ) {
+			return false;
+		}
+
+		$consumer_key = $this->get_rest_consumer_key_from_request( $request );
+		if ( '' === $consumer_key || ! $this->string_ends_with( sanitize_key( $consumer_key ), $suffix ) ) {
+			return false;
+		}
+
+		$description = class_exists( 'CK_OWS_Settings' ) ? trim( (string) CK_OWS_Settings::get( 'readytoship_key_description', '' ) ) : '';
+		if ( '' === $description ) {
+			return true;
+		}
+
+		return $this->rest_consumer_key_description_matches( $consumer_key, $description );
+	}
+
+	private function get_rest_consumer_key_from_request( WP_REST_Request $request ): string {
+		$consumer_key = (string) $request->get_param( 'consumer_key' );
+		if ( '' !== $consumer_key ) {
+			return $consumer_key;
+		}
+
+		$consumer_key = (string) $request->get_param( 'oauth_consumer_key' );
+		if ( '' !== $consumer_key ) {
+			return $consumer_key;
+		}
+
+		if ( isset( $_SERVER['PHP_AUTH_USER'] ) ) {
+			return sanitize_text_field( wp_unslash( (string) $_SERVER['PHP_AUTH_USER'] ) );
+		}
+
+		$authorization = '';
+		if ( isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
+			$authorization = sanitize_text_field( wp_unslash( (string) $_SERVER['HTTP_AUTHORIZATION'] ) );
+		} elseif ( isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
+			$authorization = sanitize_text_field( wp_unslash( (string) $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) );
+		}
+
+		if ( 0 !== stripos( $authorization, 'Basic ' ) ) {
+			return '';
+		}
+
+		$decoded = base64_decode( substr( $authorization, 6 ), true );
+		if ( ! is_string( $decoded ) || false === strpos( $decoded, ':' ) ) {
+			return '';
+		}
+
+		return (string) strtok( $decoded, ':' );
+	}
+
+	private function rest_consumer_key_description_matches( string $consumer_key, string $description ): bool {
+		global $wpdb;
+
+		$consumer_key = sanitize_key( $consumer_key );
+		$suffix       = substr( $consumer_key, -7 );
+
+		if ( '' === $suffix ) {
+			return false;
+		}
+
+		$table = $wpdb->prefix . 'woocommerce_api_keys';
+		$match = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT key_id FROM {$table} WHERE truncated_key = %s AND description = %s LIMIT 1",
+				$suffix,
+				$description
+			)
+		);
+
+		return null !== $match;
+	}
+
+	private function string_ends_with( string $haystack, string $needle ): bool {
+		if ( '' === $needle ) {
+			return true;
+		}
+
+		return substr( $haystack, -strlen( $needle ) ) === $needle;
 	}
 
 	private function should_mask_cancelled_status( WC_Order $order, string $status ): bool {

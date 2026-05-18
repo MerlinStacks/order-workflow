@@ -310,6 +310,8 @@ class CK_OWS_Settings {
 
 		$this->register_field( 'keep_data_on_uninstall', __( 'Keep plugin data on uninstall', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
 		$this->register_field( 'use_new_invoice_plugin', __( 'Use new invoice plugin integration', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
+		$this->register_field( 'readytoship_consumer_key_suffix', __( 'ReadyToShip API key ending', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
+		$this->register_field( 'readytoship_key_description', __( 'ReadyToShip API key description', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
 		$this->register_field( 'artwork_events_webhook_url', __( 'Artwork events webhook URL', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
 		$this->register_field( 'artwork_events_auth_token', __( 'Artwork events auth token', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
 		$this->register_field( 'tracking_email_events_retry_attempts', __( 'Webhook retry attempts', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
@@ -371,6 +373,8 @@ class CK_OWS_Settings {
 		$current['registration_blocked_domains'] = isset( $input['registration_blocked_domains'] ) ? $this->sanitize_blocked_domain_list( (string) $input['registration_blocked_domains'] ) : '';
 		$current['keep_data_on_uninstall'] = $this->is_enabled_input( $input, 'keep_data_on_uninstall' ) ? 'yes' : 'no';
 		$current['use_new_invoice_plugin'] = $this->is_enabled_input( $input, 'use_new_invoice_plugin' ) ? 'yes' : 'no';
+		$current['readytoship_consumer_key_suffix'] = isset( $input['readytoship_consumer_key_suffix'] ) ? sanitize_key( (string) $input['readytoship_consumer_key_suffix'] ) : '';
+		$current['readytoship_key_description'] = isset( $input['readytoship_key_description'] ) ? sanitize_text_field( (string) $input['readytoship_key_description'] ) : '';
 		$current['artwork_events_webhook_url'] = isset( $input['artwork_events_webhook_url'] ) ? $this->sanitize_https_webhook_url( (string) $input['artwork_events_webhook_url'] ) : '';
 		$current['artwork_events_auth_token'] = $this->sanitize_sensitive_setting( $input, $current, 'artwork_events_auth_token' );
 
@@ -1132,6 +1136,14 @@ class CK_OWS_Settings {
 		if ( 'use_new_invoice_plugin' === $key ) {
 			echo '<p class="description">' . esc_html__( 'Enable to read invoice links from the new provider API. Disable to keep the current WooCommerce invoice action behavior.', 'ck-order-workflow-suite' ) . '</p>';
 			echo '<p class="description"><strong>' . esc_html__( 'Saved value:', 'ck-order-workflow-suite' ) . '</strong> ' . esc_html( 'yes' === (string) self::get( 'use_new_invoice_plugin', 'no' ) ? __( 'Enabled', 'ck-order-workflow-suite' ) : __( 'Disabled', 'ck-order-workflow-suite' ) ) . '</p>';
+		}
+
+		if ( 'readytoship_consumer_key_suffix' === $key ) {
+			echo '<p class="description">' . esc_html__( 'The visible WooCommerce REST API key ending for ReadyToShip, for example de453c4. Used to gate ReadyToShip imports until In Dispatch.', 'ck-order-workflow-suite' ) . '</p>';
+		}
+
+		if ( 'readytoship_key_description' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Optional WooCommerce API key description match, for example ReadyToShip. Leave blank to match by key ending only.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
 		if ( 'artwork_events_webhook_url' === $key ) {
