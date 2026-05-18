@@ -115,11 +115,15 @@ class CK_OWS_Settings {
 		}
 
 		if ( 'email_preferences_webhook_secret' === $key ) {
-			return trim( (string) get_option( 'overseek_relay_api_key', '' ) );
+			$webhook_token = trim( (string) get_option( 'overseek_webhook_auth_token', '' ) );
+
+			return '' !== $webhook_token ? $webhook_token : trim( (string) get_option( 'overseek_relay_api_key', '' ) );
 		}
 
 		if ( 'email_preferences_auth_token' === $key ) {
-			return trim( (string) get_option( 'overseek_relay_api_key', '' ) );
+			$webhook_token = trim( (string) get_option( 'overseek_webhook_auth_token', '' ) );
+
+			return '' !== $webhook_token ? $webhook_token : trim( (string) get_option( 'overseek_relay_api_key', '' ) );
 		}
 
 		return '';
@@ -378,6 +382,9 @@ class CK_OWS_Settings {
 
 		echo '<div id="ck-ows-panel-email-preferences" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-email-preferences" hidden>';
 		echo '<p>' . esc_html__( 'Configure your OverSeek API credentials for customer email preferences.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<div class="notice notice-info inline"><p>';
+		echo esc_html__( 'In OverSeek, open Settings > Analytics > Workflow Suite Email Preferences and copy the API Base URL, Account ID, and auth token into the fields below. If the OverSeek WooCommerce plugin is installed on this store, these values can be auto-filled from its connection settings.', 'ck-order-workflow-suite' );
+		echo '</p></div>';
 		$email_preferences_base_url = (string) self::get( 'email_preferences_api_base_url', '' );
 		if ( '' !== $email_preferences_base_url && ! $this->is_allowed_email_preferences_host( $email_preferences_base_url ) ) {
 			echo '<div class="notice notice-warning inline"><p>';

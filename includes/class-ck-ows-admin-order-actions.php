@@ -84,6 +84,7 @@ class CK_OWS_Admin_Order_Actions {
 		}
 
 		$updated = 0;
+		$failed  = 0;
 
 		foreach ( $order_ids as $order_id ) {
 			$order = wc_get_order( absint( $order_id ) );
@@ -100,19 +101,19 @@ class CK_OWS_Admin_Order_Actions {
 				continue;
 			}
 
-			$order->update_status(
-				$status,
-				__( 'Order status updated from bulk action.', 'ck-order-workflow-suite' ),
-				true
-			);
-			CK_OWS_Audit::log_order_event( $order, 'bulk_status_update', array( 'status' => $status ) );
+			if ( ! $this->safe_update_order_status( $order, $status, __( 'Order status updated from bulk action.', 'ck-order-workflow-suite' ), 'bulk_status_update' ) ) {
+				$failed++;
+				continue;
+			}
+
 			$updated++;
 		}
 
-		if ( $updated > 0 ) {
+		if ( $updated > 0 || $failed > 0 ) {
 			$redirect_to = add_query_arg(
 				array(
 					'ck_ows_bulk_updated' => $updated,
+					'ck_ows_bulk_failed'  => $failed,
 					'ck_ows_new_status'   => $status,
 				),
 				$redirect_to
@@ -238,10 +239,7 @@ class CK_OWS_Admin_Order_Actions {
 			$this->redirect_with_flag( 'ck_ows_artwork_approval_required', 1 );
 		}
 
-		try {
-			$order->update_status( $status, __( 'Order status updated from quick action.', 'ck-order-workflow-suite' ), true );
-			CK_OWS_Audit::log_order_event( $order, 'quick_status_update', array( 'status' => $status ) );
-		} catch ( Throwable $exception ) {
+		if ( ! $this->safe_update_order_status( $order, $status, __( 'Order status updated from quick action.', 'ck-order-workflow-suite' ), 'quick_status_update' ) ) {
 			$this->redirect_with_flag( 'ck_ows_status_update_failed', 1 );
 		}
 
@@ -273,9 +271,23 @@ class CK_OWS_Admin_Order_Actions {
 		if ( isset( $_GET['ck_ows_bulk_updated'] ) && isset( $_GET['ck_ows_new_status'] ) ) {
 			$updated = absint( wp_unslash( $_GET['ck_ows_bulk_updated'] ) );
 			$status  = sanitize_text_field( wp_unslash( $_GET['ck_ows_new_status'] ) );
-			/* translators: 1: updated count, 2: order status label */
-			$message = sprintf( esc_html__( '%1$d order(s) updated to %2$s.', 'ck-order-workflow-suite' ), $updated, esc_html( $this->format_status_label( $status ) ) );
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
+
+			if ( $updated > 0 ) {
+				/* translators: 1: updated count, 2: order status label */
+				$message = sprintf( esc_html__( '%1$d order(s) updated to %2$s.', 'ck-order-workflow-suite' ), $updated, esc_html( $this->format_status_label( $status ) ) );
+				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
+			}
+		}
+
+		if ( isset( $_GET['ck_ows_bulk_failed'] ) && isset( $_GET['ck_ows_new_status'] ) ) {
+			$failed = absint( wp_unslash( $_GET['ck_ows_bulk_failed'] ) );
+			$status = sanitize_text_field( wp_unslash( $_GET['ck_ows_new_status'] ) );
+
+			if ( $failed > 0 ) {
+				/* translators: 1: failed count, 2: order status label */
+				$message = sprintf( esc_html__( '%1$d order(s) could not be updated to %2$s. Please try again or update from the order edit screen.', 'ck-order-workflow-suite' ), $failed, esc_html( $this->format_status_label( $status ) ) );
+				echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
+			}
 		}
 
 		if ( isset( $_GET['ck_ows_missing_artwork'] ) ) {
@@ -404,6 +416,36 @@ class CK_OWS_Admin_Order_Actions {
 		return current_user_can( 'edit_shop_order', $order->get_id() ) || current_user_can( 'edit_shop_orders' );
 	}
 
+	private function safe_update_order_status( WC_Order $order, string $status, string $note, string $audit_action ): bool {
+		try {
+			$order->update_status( $status, $note, true );
+			CK_OWS_Audit::log_order_event( $order, $audit_action, array( 'status' => $status ) );
+
+			return true;
+		} catch ( Throwable $exception ) {
+			$this->log_status_update_exception( $order, $status, $exception );
+
+			return false;
+		}
+	}
+
+	private function log_status_update_exception( WC_Order $order, string $status, Throwable $exception ): void {
+		if ( function_exists( 'wc_get_logger' ) ) {
+			wc_get_logger()->error(
+				sprintf(
+					'Failed to update order #%1$d to %2$s: %3$s',
+					$order->get_id(),
+					$status,
+					$exception->getMessage()
+				),
+				array(
+					'source'    => 'ck-order-workflow-suite',
+					'exception' => $exception,
+				)
+			);
+		}
+	}
+
 	private function action_to_status( string $action ): string {
 		$map = array(
 			self::ACTION_SET_AWAITING_ARTWORK => 'awaiting-artwork',
@@ -425,7 +467,7 @@ class CK_OWS_Admin_Order_Actions {
 			array(
 				'action'   => $actions[ $status ]['admin_action'],
 				'order_id' => $order_id,
-				'redirect' => $this->get_current_admin_url(),
+				'redirect' => $this->get_current_order_list_url(),
 			),
 			admin_url( 'admin-post.php' )
 		);
@@ -481,6 +523,29 @@ class CK_OWS_Admin_Order_Actions {
 		}
 
 		return $this->sanitize_redirect_url( $origin . $request_uri, $fallback );
+	}
+
+	private function get_current_order_list_url(): string {
+		$current = $this->get_current_admin_url();
+
+		return remove_query_arg(
+			array(
+				'action',
+				'action2',
+				'order_id',
+				self::STATUS_ACTION_NONCE_FIELD,
+				'ck_ows_status_updated',
+				'ck_ows_new_status',
+				'ck_ows_status_update_failed',
+				'ck_ows_invalid_status_nonce',
+				'ck_ows_invalid_status_action',
+				'ck_ows_order_not_found',
+				'ck_ows_status_permission_denied',
+				'ck_ows_missing_artwork',
+				'ck_ows_artwork_approval_required',
+			),
+			$current
+		);
 	}
 
 	private function sanitize_redirect_url( string $redirect, string $fallback ): string {
