@@ -1655,7 +1655,7 @@ class CK_OWS_Settings {
 			}
 
 			$response = wp_remote_get(
-				$base_url . '/accounts',
+				$base_url . '/track?tracking_ids=CONNECTION-TEST',
 				array(
 					'timeout' => 10,
 					'headers' => array(
@@ -1689,16 +1689,26 @@ class CK_OWS_Settings {
 
 	private function test_webhook_connection(): array {
 		$url = trim( (string) self::get( 'tracking_email_events_webhook_url', '' ) );
+		$token = trim( (string) self::get( 'tracking_email_events_auth_token', '' ) );
 
 		if ( '' === $url ) {
 			return array( 'ok' => false, 'message' => 'Missing webhook URL' );
+		}
+
+		$headers = array(
+			'Content-Type' => 'application/json',
+			'Accept'       => 'application/json',
+		);
+
+		if ( '' !== $token ) {
+			$headers['Authorization'] = 'Bearer ' . $token;
 		}
 
 		$response = wp_remote_post(
 			$url,
 			array(
 				'timeout' => 8,
-				'headers' => array( 'Content-Type' => 'application/json' ),
+				'headers' => $headers,
 				'body'    => wp_json_encode( array( 'event' => 'ck_ows_connection_test', 'ts' => time() ) ),
 			)
 		);
