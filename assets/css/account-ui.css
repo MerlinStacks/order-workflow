@@ -1168,7 +1168,9 @@
 }
 
 .woocommerce-order-received .ck-ows-order-timeline {
-  margin: 20px 0 26px;
+  margin: 20px auto 26px;
+  max-width: 1120px;
+  width: 100%;
   padding: 22px;
   border: 1px solid #d6dfe9;
   border-radius: 18px;
@@ -1176,6 +1178,7 @@
     radial-gradient(circle at 88% 10%, rgba(18, 18, 18, 0.06), transparent 42%),
     linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
   box-shadow: 0 18px 28px -24px rgba(35, 58, 82, 0.35);
+  box-sizing: border-box;
 }
 
 .woocommerce-order-received .ck-ows-order-timeline__title {
@@ -1183,25 +1186,39 @@
   color: var(--ck-ows-text);
   font-size: clamp(1.35rem, 2vw, 1.75rem);
   line-height: 1.2;
+  text-align: center;
 }
 
 .woocommerce-order-received .ck-ows-order-timeline__intro {
   margin: 0 0 14px;
   color: var(--ck-ows-muted);
+  text-align: center;
 }
 
 .woocommerce-order-received .ck-ows-order-timeline__summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  margin: 0 0 20px;
+  margin: 0 auto 20px;
   padding: 10px 12px;
   border: 1px solid #d2deea;
   border-radius: 12px;
   background: #fff;
   color: #2d435c;
   font-weight: 600;
+  text-align: center;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.woocommerce-order-received .ck-ows-track-auspost {
+  align-items: center;
+}
+
+.woocommerce-order-received .ck-ows-track-auspost__logo {
+  align-self: center;
 }
 
 .woocommerce-order-received .ck-ows-order-timeline__list {
@@ -1577,6 +1594,10 @@ body.woocommerce-account p.order-info {
     margin-bottom: 16px;
     padding: 9px 10px;
     font-size: 0.92rem;
+    width: 100%;
+    justify-content: center;
+    line-height: 1.4;
+    text-wrap: balance;
   }
 
   .woocommerce-order-received .ck-ows-order-timeline__list {
@@ -1769,6 +1790,11 @@ body.ck-ows-modal-open {
 }
 
 @media (max-width: 520px) {
+  .woocommerce-order-received .ck-ows-order-timeline__summary {
+    font-size: 0.88rem;
+    padding: 9px;
+  }
+
   .ck-ows-modal {
     padding-top: 18vh;
   }
