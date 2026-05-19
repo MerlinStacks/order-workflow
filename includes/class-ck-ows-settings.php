@@ -1648,14 +1648,16 @@ class CK_OWS_Settings {
 		$username = trim( (string) self::get( 'auspost_api_username', '' ) );
 		$password = trim( (string) self::get( 'auspost_api_password', '' ) );
 		$base_url = untrailingslashit( (string) self::get( 'auspost_tracking_api_base_url', '' ) );
+		$request_url = '';
 
 		if ( '' !== $username && '' !== $password ) {
 			if ( '' === $base_url ) {
 				$base_url = 'https://digitalapi.auspost.com.au/shipping/v1';
 			}
+			$request_url = $base_url . '/track?tracking_ids=CONNECTION-TEST';
 
 			$response = wp_remote_get(
-				$base_url . '/track?tracking_ids=CONNECTION-TEST',
+				$request_url,
 				array(
 					'timeout' => 10,
 					'headers' => array(
@@ -1668,9 +1670,10 @@ class CK_OWS_Settings {
 			if ( '' === $api_key ) {
 				return array( 'ok' => false, 'message' => 'Missing API key or shipping username/password' );
 			}
+			$request_url = 'https://digitalapi.auspost.com.au/postcode/search.json?q=2000';
 
 			$response = wp_remote_get(
-				'https://digitalapi.auspost.com.au/postcode/search.json?q=2000',
+				$request_url,
 				array(
 					'timeout' => 10,
 					'headers' => array( 'AUTH-KEY' => $api_key ),
@@ -1679,12 +1682,16 @@ class CK_OWS_Settings {
 		}
 
 		if ( is_wp_error( $response ) ) {
-			return array( 'ok' => false, 'message' => $response->get_error_message() );
+			return array( 'ok' => false, 'message' => $response->get_error_message() . ' | URL: ' . $request_url );
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
+		$hint = $this->http_status_hint( $code );
 
-		return array( 'ok' => $code >= 200 && $code < 300, 'message' => 'HTTP ' . $code );
+		return array(
+			'ok'      => $code >= 200 && $code < 300,
+			'message' => 'HTTP ' . $code . ( '' !== $hint ? ' (' . $hint . ')' : '' ) . ' | URL: ' . $request_url,
+		);
 	}
 
 	private function test_webhook_connection(): array {
@@ -1714,12 +1721,16 @@ class CK_OWS_Settings {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			return array( 'ok' => false, 'message' => $response->get_error_message() );
+			return array( 'ok' => false, 'message' => $response->get_error_message() . ' | URL: ' . $url . ' | Method: POST' );
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
+		$hint = $this->http_status_hint( $code );
 
-		return array( 'ok' => $code >= 200 && $code < 300, 'message' => 'HTTP ' . $code );
+		return array(
+			'ok'      => $code >= 200 && $code < 300,
+			'message' => 'HTTP ' . $code . ( '' !== $hint ? ' (' . $hint . ')' : '' ) . ' | URL: ' . $url . ' | Method: POST',
+		);
 	}
 
 	private function test_artwork_webhook_connection(): array {
@@ -1729,7 +1740,10 @@ class CK_OWS_Settings {
 			return array( 'ok' => false, 'message' => 'Missing artwork webhook URL' );
 		}
 
-		$headers = array( 'Content-Type' => 'application/json' );
+		$headers = array(
+			'Content-Type' => 'application/json',
+			'Accept'       => 'application/json',
+		);
 		$token   = trim( (string) self::get( 'artwork_events_auth_token', '' ) );
 
 		if ( '' !== $token ) {
@@ -1760,12 +1774,40 @@ class CK_OWS_Settings {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			return array( 'ok' => false, 'message' => $response->get_error_message() );
+			return array( 'ok' => false, 'message' => $response->get_error_message() . ' | URL: ' . $url . ' | Method: POST' );
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
+		$hint = $this->http_status_hint( $code );
 
-		return array( 'ok' => $code >= 200 && $code < 300, 'message' => 'HTTP ' . $code );
+		return array(
+			'ok'      => $code >= 200 && $code < 300,
+			'message' => 'HTTP ' . $code . ( '' !== $hint ? ' (' . $hint . ')' : '' ) . ' | URL: ' . $url . ' | Method: POST',
+		);
+	}
+
+	private function http_status_hint( int $code ): string {
+		switch ( $code ) {
+			case 400:
+				return 'Bad request - payload or query format issue';
+			case 401:
+			case 403:
+				return 'Auth rejected - check token/credentials';
+			case 404:
+				return 'Endpoint not found - check URL path';
+			case 405:
+				return 'Method not allowed - endpoint must accept POST';
+			case 415:
+				return 'Unsupported media type - endpoint should accept application/json';
+			case 422:
+				return 'Payload validation failed';
+			default:
+				if ( $code >= 500 ) {
+					return 'Server error at destination';
+				}
+
+				return '';
+		}
 	}
 
 	private function format_diagnostic_row( $row ): string {

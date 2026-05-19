@@ -186,6 +186,10 @@ class CK_OWS_Shortcodes {
 		$order_id  = absint( get_query_var( 'order-received' ) );
 		$order_key = isset( $_GET['key'] ) ? sanitize_text_field( wp_unslash( $_GET['key'] ) ) : '';
 
+		if ( ! $order_id && isset( $_GET['thankyou_order_id'] ) ) {
+			$order_id = absint( wp_unslash( $_GET['thankyou_order_id'] ) );
+		}
+
 		if ( ! $order_id ) {
 			return '';
 		}

@@ -13,6 +13,8 @@ class CK_OWS_Admin_Order_Actions {
 	private const ACTION_SET_AWAITING_ARTWORK = 'ck_ows_set_awaiting_artwork';
 	private const STATUS_ACTION_NONCE         = 'ck_ows_set_order_status';
 	private const STATUS_ACTION_NONCE_FIELD   = 'ck_ows_status_nonce';
+	private const RETURN_STATUS_KEY          = 'ck_ows_return_status_key';
+	private const RETURN_STATUS_VALUE        = 'ck_ows_return_status';
 
 	private static ?CK_OWS_Admin_Order_Actions $instance = null;
 
@@ -463,12 +465,20 @@ class CK_OWS_Admin_Order_Actions {
 			return admin_url( 'edit.php?post_type=shop_order' );
 		}
 
+		$args          = array(
+			'action'   => $actions[ $status ]['admin_action'],
+			'order_id' => $order_id,
+			'redirect' => $this->get_current_order_list_url(),
+		);
+		$status_filter = $this->get_current_order_status_filter();
+
+		if ( ! empty( $status_filter ) ) {
+			$args[ self::RETURN_STATUS_KEY ]   = $status_filter['key'];
+			$args[ self::RETURN_STATUS_VALUE ] = $status_filter['value'];
+		}
+
 		$url = add_query_arg(
-			array(
-				'action'   => $actions[ $status ]['admin_action'],
-				'order_id' => $order_id,
-				'redirect' => $this->get_current_order_list_url(),
-			),
+			$args,
 			admin_url( 'admin-post.php' )
 		);
 
@@ -481,13 +491,13 @@ class CK_OWS_Admin_Order_Actions {
 		if ( isset( $_POST['redirect'] ) || isset( $_GET['redirect'] ) ) {
 			$redirect = esc_url_raw( $this->get_request_value( 'redirect' ) );
 
-			return $this->sanitize_redirect_url( $redirect, $fallback );
+			return $this->apply_return_status_filter( $this->sanitize_redirect_url( $redirect, $fallback ) );
 		}
 
 		$referer = wp_get_referer();
 
 		if ( $referer ) {
-			return $this->sanitize_redirect_url( $referer, $fallback );
+			return $this->apply_return_status_filter( $this->sanitize_redirect_url( $referer, $fallback ) );
 		}
 
 		return $fallback;
@@ -532,6 +542,8 @@ class CK_OWS_Admin_Order_Actions {
 				'action',
 				'action2',
 				'order_id',
+				self::RETURN_STATUS_KEY,
+				self::RETURN_STATUS_VALUE,
 				self::STATUS_ACTION_NONCE_FIELD,
 				'ck_ows_status_updated',
 				'ck_ows_new_status',
@@ -557,6 +569,40 @@ class CK_OWS_Admin_Order_Actions {
 		}
 
 		return $current;
+	}
+
+	private function get_current_order_status_filter(): array {
+		foreach ( array( 'status', 'post_status' ) as $query_key ) {
+			if ( ! isset( $_GET[ $query_key ] ) ) {
+				continue;
+			}
+
+			$query_value = sanitize_text_field( wp_unslash( $_GET[ $query_key ] ) );
+
+			if ( '' === $query_value ) {
+				continue;
+			}
+
+			return array(
+				'key'   => $query_key,
+				'value' => $query_value,
+			);
+		}
+
+		return array();
+	}
+
+	private function apply_return_status_filter( string $redirect ): string {
+		$status_key   = sanitize_key( $this->get_request_value( self::RETURN_STATUS_KEY ) );
+		$status_value = sanitize_text_field( $this->get_request_value( self::RETURN_STATUS_VALUE ) );
+
+		if ( '' === $status_value || ! in_array( $status_key, array( 'status', 'post_status' ), true ) ) {
+			return $redirect;
+		}
+
+		$redirect = remove_query_arg( 'status' === $status_key ? 'post_status' : 'status', $redirect );
+
+		return add_query_arg( $status_key, $status_value, $redirect );
 	}
 
 	private function sanitize_redirect_url( string $redirect, string $fallback ): string {
