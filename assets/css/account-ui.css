@@ -25,11 +25,13 @@
 .ck-ows-track-auspost {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background: #e4002b !important;
   border-color: #e4002b !important;
   color: #fff !important;
   font-weight: 700;
+  line-height: 1;
 }
 
 .ck-ows-track-auspost:hover,
@@ -43,6 +45,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
+  flex: 0 0 22px;
   width: 22px;
   height: 22px;
 }
@@ -1192,7 +1196,11 @@
 .woocommerce-order-received .ck-ows-order-timeline__intro {
   margin: 0 0 14px;
   color: var(--ck-ows-muted);
-  text-align: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center !important;
 }
 
 .woocommerce-order-received .ck-ows-order-timeline__summary {

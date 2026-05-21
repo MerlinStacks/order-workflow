@@ -17,7 +17,7 @@ class CK_OWS_Invoice_Integration {
 			$invoice  = self::get_new_invoice_data( $order_id );
 
 			if ( is_array( $invoice ) ) {
-				return self::build_rest_download_url( $order );
+				return self::build_rest_download_url( $order, $invoice );
 			}
 
 			return '';
@@ -38,7 +38,7 @@ class CK_OWS_Invoice_Integration {
 			$invoice  = self::get_new_invoice_data( $order_id );
 
 			if ( is_array( $invoice ) ) {
-				return self::build_rest_download_url( $order );
+				return self::build_rest_download_url( $order, $invoice );
 			}
 
 			return '';
@@ -98,11 +98,17 @@ class CK_OWS_Invoice_Integration {
 		return $invoice;
 	}
 
-	private static function build_rest_download_url( WC_Order $order ): string {
+	private static function build_rest_download_url( WC_Order $order, array $invoice ): string {
+		$invoice_token = trim( (string) ( $invoice['invoice_token'] ?? '' ) );
+
+		if ( '' === $invoice_token ) {
+			return '';
+		}
+
 		return (string) add_query_arg(
 			array(
-				'order_id' => $order->get_id(),
-				'key'      => $order->get_order_key(),
+				'order_id'      => $order->get_id(),
+				'invoice_token' => $invoice_token,
 			),
 			'/wp-json/overseek/v1/invoices/download'
 		);

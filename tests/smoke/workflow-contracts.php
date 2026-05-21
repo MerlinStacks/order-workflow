@@ -19,12 +19,14 @@ $failures = array();
 
 $tracking_events_file = $root . '/includes/class-ck-ows-tracking-email-events.php';
 $tracking_file        = $root . '/includes/class-ck-ows-tracking.php';
+$invoice_file         = $root . '/includes/class-ck-ows-invoice-integration.php';
 $settings_file        = $root . '/includes/class-ck-ows-settings.php';
 $statuses_file        = $root . '/includes/class-ck-ows-statuses.php';
 $uninstall_file       = $root . '/uninstall.php';
 
 $tracking_source = file_get_contents($tracking_events_file);
 $tracking_core_source = file_get_contents($tracking_file);
+$invoice_source = file_get_contents($invoice_file);
 $settings_source = file_get_contents($settings_file);
 $statuses_source = file_get_contents($statuses_file);
 $uninstall_source = file_get_contents($uninstall_file);
@@ -35,6 +37,10 @@ if (! is_string($tracking_source) || '' === $tracking_source) {
 
 if (! is_string($tracking_core_source) || '' === $tracking_core_source) {
 	$failures[] = '[FAIL] Could not read tracking source';
+}
+
+if (! is_string($invoice_source) || '' === $invoice_source) {
+	$failures[] = '[FAIL] Could not read invoice integration source';
 }
 
 if (! is_string($settings_source) || '' === $settings_source) {
@@ -56,6 +62,7 @@ if (empty($failures)) {
 	assert_contains($tracking_source, "'ck_ows_last_webhook_delivery'", 'last webhook status tracking', $failures);
 	assert_contains($tracking_core_source, 'isset( $first[\'items\'][0] )', 'AusPost tracking_results items parser', $failures);
 	assert_contains($tracking_core_source, 'isset( $body[\'items\'][0] )', 'AusPost top-level items parser', $failures);
+	assert_contains($invoice_source, "'invoice_token'", 'OverSeek invoice download token parameter', $failures);
 
 	assert_contains($settings_source, 'render_dead_letters_panel()', 'dead-letter panel renderer', $failures);
 	assert_contains($settings_source, 'retry_dead_letter(): void', 'dead-letter retry handler', $failures);
