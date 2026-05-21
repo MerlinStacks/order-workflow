@@ -108,7 +108,7 @@ class CK_OWS_Invoice_Integration {
 		$invoice_token = self::get_invoice_token_from_payload( $invoice );
 
 		if ( '' === $invoice_token ) {
-			$invoice_token = $order->get_order_key();
+			return '';
 		}
 
 		return (string) add_query_arg(
@@ -121,7 +121,7 @@ class CK_OWS_Invoice_Integration {
 	}
 
 	private static function get_invoice_download_url_from_payload( array $invoice ): string {
-		foreach ( array( 'download_url', 'downloadUrl', 'url' ) as $key ) {
+		foreach ( array( 'invoice_url', 'pdf_url', 'download_url', 'downloadUrl', 'url' ) as $key ) {
 			$url = trim( (string) ( $invoice[ $key ] ?? '' ) );
 
 			if ( '' !== $url && false !== strpos( $url, 'invoice_token=' ) ) {
@@ -141,7 +141,7 @@ class CK_OWS_Invoice_Integration {
 			}
 		}
 
-		foreach ( array( 'download_url', 'downloadUrl', 'url' ) as $key ) {
+		foreach ( array( 'invoice_url', 'pdf_url', 'download_url', 'downloadUrl', 'url' ) as $key ) {
 			$url = trim( (string) ( $invoice[ $key ] ?? '' ) );
 
 			if ( '' === $url ) {
