@@ -16,11 +16,7 @@ class CK_OWS_Invoice_Integration {
 			$order_id = $order->get_id();
 			$invoice  = self::get_new_invoice_data( $order_id );
 
-			if ( is_array( $invoice ) ) {
-				return self::build_rest_download_url( $order, $invoice );
-			}
-
-			return '';
+			return self::build_rest_download_url( $order, is_array( $invoice ) ? $invoice : array() );
 		}
 
 		$actions = wc_get_account_orders_actions( $order );
@@ -37,11 +33,7 @@ class CK_OWS_Invoice_Integration {
 			$order_id = $order->get_id();
 			$invoice  = self::get_new_invoice_data( $order_id );
 
-			if ( is_array( $invoice ) ) {
-				return self::build_rest_download_url( $order, $invoice );
-			}
-
-			return '';
+			return self::build_rest_download_url( $order, is_array( $invoice ) ? $invoice : array() );
 		}
 
 		return self::get_invoice_view_url( $order );
@@ -108,7 +100,7 @@ class CK_OWS_Invoice_Integration {
 		$invoice_token = self::get_invoice_token_from_payload( $invoice );
 
 		if ( '' === $invoice_token ) {
-			return '';
+			$invoice_token = self::get_invoice_access_token( $order );
 		}
 
 		return (string) add_query_arg(
@@ -118,6 +110,10 @@ class CK_OWS_Invoice_Integration {
 			),
 			'/wp-json/overseek/v1/invoices/download'
 		);
+	}
+
+	private static function get_invoice_access_token( WC_Order $order ): string {
+		return wp_hash( $order->get_id() . '|' . $order->get_order_key() . '|overseek_invoice_access' );
 	}
 
 	private static function get_invoice_download_url_from_payload( array $invoice ): string {
