@@ -108,7 +108,7 @@ class CK_OWS_Invoice_Integration {
 		$invoice_token = self::get_invoice_token_from_payload( $invoice );
 
 		if ( '' === $invoice_token ) {
-			return '';
+			$invoice_token = $order->get_order_key();
 		}
 
 		return (string) add_query_arg(
