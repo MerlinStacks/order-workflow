@@ -99,7 +99,13 @@ class CK_OWS_Invoice_Integration {
 	}
 
 	private static function build_rest_download_url( WC_Order $order, array $invoice ): string {
-		$invoice_token = trim( (string) ( $invoice['invoice_token'] ?? '' ) );
+		$download_url = self::get_invoice_download_url_from_payload( $invoice );
+
+		if ( '' !== $download_url ) {
+			return $download_url;
+		}
+
+		$invoice_token = self::get_invoice_token_from_payload( $invoice );
 
 		if ( '' === $invoice_token ) {
 			return '';
@@ -112,5 +118,49 @@ class CK_OWS_Invoice_Integration {
 			),
 			'/wp-json/overseek/v1/invoices/download'
 		);
+	}
+
+	private static function get_invoice_download_url_from_payload( array $invoice ): string {
+		foreach ( array( 'download_url', 'downloadUrl', 'url' ) as $key ) {
+			$url = trim( (string) ( $invoice[ $key ] ?? '' ) );
+
+			if ( '' !== $url && false !== strpos( $url, 'invoice_token=' ) ) {
+				return $url;
+			}
+		}
+
+		return '';
+	}
+
+	private static function get_invoice_token_from_payload( array $invoice ): string {
+		foreach ( array( 'invoice_token', 'invoiceToken', 'token' ) as $key ) {
+			$invoice_token = trim( (string) ( $invoice[ $key ] ?? '' ) );
+
+			if ( '' !== $invoice_token ) {
+				return $invoice_token;
+			}
+		}
+
+		foreach ( array( 'download_url', 'downloadUrl', 'url' ) as $key ) {
+			$url = trim( (string) ( $invoice[ $key ] ?? '' ) );
+
+			if ( '' === $url ) {
+				continue;
+			}
+
+			$query = (string) wp_parse_url( $url, PHP_URL_QUERY );
+			if ( '' === $query ) {
+				continue;
+			}
+
+			parse_str( $query, $args );
+			$invoice_token = trim( (string) ( $args['invoice_token'] ?? '' ) );
+
+			if ( '' !== $invoice_token ) {
+				return $invoice_token;
+			}
+		}
+
+		return '';
 	}
 }
