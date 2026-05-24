@@ -7,18 +7,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Account_Order_Cards {
-	private static ?CK_OWS_Account_Order_Cards $instance = null;
-
-	public static function instance(): CK_OWS_Account_Order_Cards {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+class CK_OWS_Account_Order_Cards extends CK_OWS_Base {
+	protected function __construct() {
 		add_action( 'wp', array( $this, 'replace_orders_endpoint_renderer' ) );
 	}
 
@@ -159,27 +149,9 @@ class CK_OWS_Account_Order_Cards {
 	}
 
 	private function get_tracking_url( WC_Order $order ): string {
-		$tracking_items = $order->get_meta( '_wc_shipment_tracking_items', true );
+		$links = CK_OWS_Tracking_Helpers::extract_tracking_links( $order );
 
-		if ( ! is_array( $tracking_items ) || empty( $tracking_items ) ) {
-			return '';
-		}
-
-		foreach ( $tracking_items as $item ) {
-			if ( ! is_array( $item ) ) {
-				continue;
-			}
-
-			if ( ! empty( $item['formatted_tracking_link'] ) ) {
-				return (string) $item['formatted_tracking_link'];
-			}
-
-			if ( ! empty( $item['custom_tracking_link'] ) ) {
-				return (string) $item['custom_tracking_link'];
-			}
-		}
-
-		return '';
+		return isset( $links[0] ) ? (string) $links[0] : '';
 	}
 
 }

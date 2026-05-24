@@ -7,24 +7,14 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Statuses {
+class CK_OWS_Statuses extends CK_OWS_Base {
 	public const STATUS_IN_PRODUCTION       = 'wc-in-production';
 	public const STATUS_IN_DISPATCH         = 'wc-in-dispatch';
 	public const STATUS_AWAITING_ARTWORK    = 'wc-awaiting-artwork';
 	private const META_EXTERNAL_SAFE_STATUS = '_ck_ows_external_safe_status';
 	private const WEBHOOK_BLOCK_TRANSIENT   = 'ck_ows_block_webhook_status_';
 
-	private static ?CK_OWS_Statuses $instance = null;
-
-	public static function instance(): CK_OWS_Statuses {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'init', array( $this, 'register_statuses' ) );
 		add_action( 'woocommerce_order_status_changed', array( $this, 'track_webhook_blocked_status_transition' ), 5, 4 );
 		add_filter( 'wc_order_statuses', array( $this, 'inject_statuses' ) );
@@ -239,7 +229,7 @@ class CK_OWS_Statuses {
 		}
 
 		$consumer_key = $this->get_rest_consumer_key_from_request( $request );
-		if ( '' === $consumer_key || ! $this->string_ends_with( sanitize_key( $consumer_key ), $suffix ) ) {
+		if ( '' === $consumer_key || ! CK_OWS_Utils::string_ends_with( sanitize_key( $consumer_key ), $suffix ) ) {
 			return false;
 		}
 
@@ -305,14 +295,6 @@ class CK_OWS_Statuses {
 		);
 
 		return null !== $match;
-	}
-
-	private function string_ends_with( string $haystack, string $needle ): bool {
-		if ( '' === $needle ) {
-			return true;
-		}
-
-		return substr( $haystack, -strlen( $needle ) ) === $needle;
 	}
 
 	private function should_mask_cancelled_status( WC_Order $order, string $status ): bool {

@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Artwork_Proof {
+class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 	public const META_PROOF_ID                = '_ck_ows_artwork_proof_id';
 	public const META_PROOF_URL               = '_ck_ows_artwork_proof_url';
 	public const META_PROOF_REVISIONS         = '_ck_ows_artwork_proof_revisions';
@@ -32,17 +32,7 @@ class CK_OWS_Artwork_Proof {
 	public const STATE_APPROVED = 'approved';
 	public const STATE_CHANGES  = 'changes_requested';
 
-	private static ?CK_OWS_Artwork_Proof $instance = null;
-
-	public static function instance(): CK_OWS_Artwork_Proof {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'add_meta_boxes', array( $this, 'add_order_metabox' ) );
 		add_action( 'post_edit_form_tag', array( $this, 'add_multipart_encoding' ) );
 		add_action( 'woocommerce_process_shop_order_meta', array( $this, 'save_order_meta' ), 20, 2 );
@@ -63,27 +53,7 @@ class CK_OWS_Artwork_Proof {
 	}
 
 	public function enqueue_admin_assets(): void {
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-
-		if ( ! $screen || ! isset( $screen->id ) ) {
-			return;
-		}
-
-		$valid_screens = array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders' );
-		if ( function_exists( 'wc_get_page_screen_id' ) ) {
-			$valid_screens[] = wc_get_page_screen_id( 'shop-order' );
-		}
-
-		if ( ! in_array( $screen->id, $valid_screens, true ) ) {
-			return;
-		}
-
-		wp_enqueue_style(
-			'ck-ows-admin-ui',
-			CK_OWS_URL . 'assets/css/admin-ui.css',
-			array(),
-			CK_OWS_VERSION
-		);
+		CK_OWS_Admin_Helpers::maybe_enqueue_admin_ui();
 	}
 
 	public function add_artwork_state_order_column( array $columns ): array {
@@ -266,7 +236,7 @@ class CK_OWS_Artwork_Proof {
 				if ( '' !== $url ) {
 					echo '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $version_text ) . '</a>';
 				} else {
-					echo esc_html( $version_text );
+					echo esc_html( $version_text . ' (' . __( 'link unavailable', 'ck-order-workflow-suite' ) . ')' );
 				}
 				echo '<a href="' . esc_url( $delete_url ) . '" class="button-link-delete" onclick="return confirm(\'' . esc_js( __( 'Delete this artwork proof version?', 'ck-order-workflow-suite' ) ) . '\');">' . esc_html__( 'Delete', 'ck-order-workflow-suite' ) . '</a>';
 				echo '</li>';
@@ -350,7 +320,7 @@ class CK_OWS_Artwork_Proof {
 		check_admin_referer( self::UPLOAD_ACTION_NONCE . '_' . $order_id, self::UPLOAD_ACTION_NONCE_FIELD );
 
 		if ( empty( $_FILES['ck_ows_artwork_pdf']['name'] ) ) {
-			$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
+			$redirect = $this->get_safe_admin_referer_url( admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id ) );
 			$redirect = add_query_arg( 'ck_ows_artwork_upload_error', rawurlencode( (string) __( 'Please choose a PDF file to upload.', 'ck-order-workflow-suite' ) ), $redirect );
 			wp_safe_redirect( $redirect );
 			exit;
@@ -358,7 +328,7 @@ class CK_OWS_Artwork_Proof {
 
 		$upload_result = $this->upload_artwork_file_for_order( $order );
 
-		$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
+		$redirect = $this->get_safe_admin_referer_url( admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id ) );
 
 		if ( is_wp_error( $upload_result ) ) {
 			$redirect = add_query_arg( 'ck_ows_artwork_upload_error', rawurlencode( $upload_result->get_error_message() ), $redirect );
@@ -387,7 +357,7 @@ class CK_OWS_Artwork_Proof {
 
 		$revisions = self::get_proof_revisions( $order );
 		if ( ! isset( $revisions[ $rev ] ) ) {
-			$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
+			$redirect = $this->get_safe_admin_referer_url( admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id ) );
 			$redirect = add_query_arg( 'ck_ows_artwork_delete_error', 1, $redirect );
 			wp_safe_redirect( $redirect );
 			exit;
@@ -415,7 +385,7 @@ class CK_OWS_Artwork_Proof {
 		$order->add_order_note( sprintf( __( 'Artwork proof %s deleted by staff.', 'ck-order-workflow-suite' ), $deleted_version ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_revision_deleted', array( 'version' => $deleted_version ) );
 
-		$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id );
+		$redirect = $this->get_safe_admin_referer_url( admin_url( 'admin.php?page=wc-orders&action=edit&id=' . $order_id ) );
 		$redirect = add_query_arg( 'ck_ows_artwork_delete_success', 1, $redirect );
 		wp_safe_redirect( $redirect );
 		exit;
@@ -578,15 +548,15 @@ class CK_OWS_Artwork_Proof {
 			for ( $index = count( $revisions ) - 2; $index >= 0; $index-- ) {
 				$revision = $revisions[ $index ];
 				$url      = isset( $revision['url'] ) ? (string) $revision['url'] : '';
-				if ( '' === $url ) {
-					continue;
-				}
-
 				$uploaded_at = isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : 0;
 				/* translators: 1: revision label, 2: uploaded date/time. */
 				$label       = $uploaded_at > 0 ? sprintf( __( '%1$s from %2$s', 'ck-order-workflow-suite' ), $this->get_revision_label( $index ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $uploaded_at ) ) : $this->get_revision_label( $index );
 
-				echo '<li><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $label ) . '</a></li>';
+				if ( '' !== $url ) {
+					echo '<li><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $label ) . '</a></li>';
+				} else {
+					echo '<li>' . esc_html( $label . ' (' . __( 'link unavailable', 'ck-order-workflow-suite' ) . ')' ) . '</li>';
+				}
 			}
 			echo '</ul>';
 		}
@@ -752,7 +722,7 @@ class CK_OWS_Artwork_Proof {
 
 		$override_nonce = isset( $_POST['ck_ows_artwork_override_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['ck_ows_artwork_override_nonce'] ) ) : '';
 		if ( '' === $override_nonce || ! wp_verify_nonce( $override_nonce, 'ck_ows_artwork_override_' . $order_id ) ) {
-			$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
+			$redirect = $this->get_safe_admin_referer_url( admin_url( 'post.php?post=' . $order_id . '&action=edit' ) );
 			$redirect = add_query_arg( 'ck_ows_override_nonce_failed', 1, $redirect );
 			wp_safe_redirect( $redirect );
 			exit;
@@ -761,7 +731,7 @@ class CK_OWS_Artwork_Proof {
 		$reason = isset( $_POST['ck_ows_override_reason'] ) ? sanitize_text_field( wp_unslash( $_POST['ck_ows_override_reason'] ) ) : '';
 
 		if ( '' === trim( $reason ) ) {
-			$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
+			$redirect = $this->get_safe_admin_referer_url( admin_url( 'post.php?post=' . $order_id . '&action=edit' ) );
 			$redirect = add_query_arg( 'ck_ows_override_reason_required', 1, $redirect );
 			wp_safe_redirect( $redirect );
 			exit;
@@ -778,16 +748,19 @@ class CK_OWS_Artwork_Proof {
 		CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'override_used', array( 'notes' => $reason ) );
 		$order->update_status( 'in-production', __( 'Staff override moved order to In Production.', 'ck-order-workflow-suite' ), true );
 
-		$redirect = wp_get_referer() ?: admin_url( 'post.php?post=' . $order_id . '&action=edit' );
+		$redirect = $this->get_safe_admin_referer_url( admin_url( 'post.php?post=' . $order_id . '&action=edit' ) );
 		$redirect = add_query_arg( 'ck_ows_override_success', 1, $redirect );
 		wp_safe_redirect( $redirect );
 		exit;
 	}
 
 	public function enforce_production_gate( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
-		unset( $order_id );
-
 		if ( 'in-production' !== $to_status || 'in-production' === $from_status ) {
+			return;
+		}
+
+		$guard_key = 'ck_ows_production_gate_' . $order_id;
+		if ( false !== get_transient( $guard_key ) ) {
 			return;
 		}
 
@@ -795,6 +768,7 @@ class CK_OWS_Artwork_Proof {
 			return;
 		}
 
+		set_transient( $guard_key, '1', 5 );
 		$order->update_status( $from_status, __( 'Transition to In Production blocked: artwork approval required.', 'ck-order-workflow-suite' ), true );
 		$order->add_order_note( __( 'Order attempted to move to In Production without required artwork approval.', 'ck-order-workflow-suite' ) );
 	}
@@ -843,6 +817,16 @@ class CK_OWS_Artwork_Proof {
 		return 'v' . (string) ( $index + 1 );
 	}
 
+	private function get_safe_admin_referer_url( string $fallback ): string {
+		$referer = wp_get_referer();
+
+		if ( ! is_string( $referer ) || '' === $referer ) {
+			return $fallback;
+		}
+
+		return CK_OWS_Admin_Helpers::validate_admin_redirect_url( $referer, $fallback );
+	}
+
 	private function get_proof_url( WC_Order $order ): string {
 		$revisions = self::get_proof_revisions( $order );
 		if ( ! empty( $revisions ) ) {
@@ -877,13 +861,20 @@ class CK_OWS_Artwork_Proof {
 				continue;
 			}
 
-			$url = isset( $revision['url'] ) ? esc_url_raw( (string) $revision['url'] ) : '';
-			if ( '' === $url ) {
+			$attachment_id = isset( $revision['attachment_id'] ) ? absint( $revision['attachment_id'] ) : 0;
+			$url           = isset( $revision['url'] ) ? esc_url_raw( (string) $revision['url'] ) : '';
+
+			if ( '' === $url && $attachment_id > 0 ) {
+				$attachment_url = wp_get_attachment_url( $attachment_id );
+				$url            = is_string( $attachment_url ) ? esc_url_raw( $attachment_url ) : '';
+			}
+
+			if ( '' === $url && $attachment_id <= 0 ) {
 				continue;
 			}
 
 			$revisions[] = array(
-				'attachment_id' => isset( $revision['attachment_id'] ) ? absint( $revision['attachment_id'] ) : 0,
+				'attachment_id' => $attachment_id,
 				'url'           => $url,
 				'uploaded_at'   => isset( $revision['uploaded_at'] ) ? absint( $revision['uploaded_at'] ) : 0,
 				'uploaded_by'   => isset( $revision['uploaded_by'] ) ? absint( $revision['uploaded_by'] ) : 0,

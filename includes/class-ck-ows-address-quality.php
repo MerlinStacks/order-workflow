@@ -7,18 +7,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Address_Quality {
-	private static ?CK_OWS_Address_Quality $instance = null;
-
-	public static function instance(): CK_OWS_Address_Quality {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+class CK_OWS_Address_Quality extends CK_OWS_Base {
+	protected function __construct() {
 		add_action( 'woocommerce_after_save_address_validation', array( $this, 'validate_quality' ), 10, 4 );
 	}
 

@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Settings {
+class CK_OWS_Settings extends CK_OWS_Base {
 	public const OPTION_KEY = 'ck_ows_settings';
 	private const TRACKING_SYNC_NONCE       = 'ck_ows_run_tracking_sync';
 	private const TRACKING_SYNC_NONCE_FIELD = 'ck_ows_tracking_sync_nonce';
@@ -31,20 +31,11 @@ class CK_OWS_Settings {
 	private const STATUS_WARNING               = 'warning';
 	private const STATUS_NEUTRAL               = 'neutral';
 
-	private static ?CK_OWS_Settings $instance = null;
 	private static ?array $settings_cache = null;
 
 	private string $settings_page_hook = '';
 
-	public static function instance(): CK_OWS_Settings {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_admin_page' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
@@ -206,7 +197,7 @@ class CK_OWS_Settings {
 
 	public function enqueue_admin_assets( string $hook_suffix ): void {
 		$is_settings_page = '' !== $this->settings_page_hook && $hook_suffix === $this->settings_page_hook;
-		$is_settings_submenu = $this->string_ends_with( $hook_suffix, '_page_ck-reg-guard' );
+		$is_settings_submenu = CK_OWS_Utils::string_ends_with( $hook_suffix, '_page_ck-reg-guard' );
 
 		if ( ! $is_settings_page && ! $is_settings_submenu ) {
 			return;
@@ -251,10 +242,22 @@ class CK_OWS_Settings {
 		$this->register_field( 'auspost_account_number', __( 'AusPost Account Number (optional)', 'ck-order-workflow-suite' ), 'text' );
 		$this->register_field( 'tracking_sync_enabled', __( 'Enable tracking sync', 'ck-order-workflow-suite' ), 'checkbox' );
 		$this->register_field( 'tracking_sync_interval_hours', __( 'Sync interval (hours)', 'ck-order-workflow-suite' ), 'number' );
-		$this->register_field( 'tracking_email_events_enabled', __( 'Forward tracking events to email platform', 'ck-order-workflow-suite' ), 'checkbox' );
-		$this->register_field( 'tracking_email_events_webhook_url', __( 'Email platform webhook URL', 'ck-order-workflow-suite' ), 'text' );
-		$this->register_field( 'tracking_email_events_auth_token', __( 'Webhook auth token (optional)', 'ck-order-workflow-suite' ), 'text' );
-		$this->register_field( 'tracking_email_events_timeout_seconds', __( 'Webhook timeout (seconds)', 'ck-order-workflow-suite' ), 'number' );
+
+		add_settings_section(
+			'ck_ows_tracking_events_section',
+			esc_html__( 'OverSeek Tracking Events', 'ck-order-workflow-suite' ),
+			static function (): void {
+				echo '<p>' . esc_html__( 'Forward normalized AusPost lifecycle events into OverSeek email automations.', 'ck-order-workflow-suite' ) . '</p>';
+			},
+			'ck-ows-settings'
+		);
+
+		$this->register_field( 'tracking_email_events_enabled', __( 'Forward tracking events', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_tracking_events_section' );
+		$this->register_field( 'tracking_email_events_webhook_url', __( 'Tracking events webhook URL', 'ck-order-workflow-suite' ), 'text', 'ck_ows_tracking_events_section' );
+		$this->register_field( 'tracking_email_events_auth_token', __( 'Tracking events auth token', 'ck-order-workflow-suite' ), 'text', 'ck_ows_tracking_events_section' );
+		$this->register_field( 'tracking_email_events_timeout_seconds', __( 'Webhook timeout (seconds)', 'ck-order-workflow-suite' ), 'number', 'ck_ows_tracking_events_section' );
+		$this->register_field( 'tracking_email_events_retry_attempts', __( 'Webhook retry attempts', 'ck-order-workflow-suite' ), 'number', 'ck_ows_tracking_events_section' );
+		$this->register_field( 'tracking_email_events_retry_backoff_minutes', __( 'Retry backoff (minutes)', 'ck-order-workflow-suite' ), 'number', 'ck_ows_tracking_events_section' );
 
 		add_settings_section(
 			'ck_ows_email_preferences_section',
@@ -269,6 +272,18 @@ class CK_OWS_Settings {
 		$this->register_field( 'email_preferences_account_id', __( 'Account ID', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
 		$this->register_field( 'email_preferences_auth_token', __( 'API auth token', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
 		$this->register_field( 'email_preferences_webhook_secret', __( 'Webhook Secret (optional)', 'ck-order-workflow-suite' ), 'text', 'ck_ows_email_preferences_section' );
+
+		add_settings_section(
+			'ck_ows_artwork_events_section',
+			esc_html__( 'Artwork Events', 'ck-order-workflow-suite' ),
+			static function (): void {
+				echo '<p>' . esc_html__( 'Forward proof and artwork approval events into OverSeek email automations.', 'ck-order-workflow-suite' ) . '</p>';
+			},
+			'ck-ows-settings'
+		);
+
+		$this->register_field( 'artwork_events_webhook_url', __( 'Artwork events webhook URL', 'ck-order-workflow-suite' ), 'text', 'ck_ows_artwork_events_section' );
+		$this->register_field( 'artwork_events_auth_token', __( 'Artwork events auth token', 'ck-order-workflow-suite' ), 'text', 'ck_ows_artwork_events_section' );
 
 		add_settings_section(
 			'ck_ows_account_menu_section',
@@ -312,10 +327,6 @@ class CK_OWS_Settings {
 		$this->register_field( 'use_new_invoice_plugin', __( 'Use new invoice plugin integration', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_operations_section' );
 		$this->register_field( 'readytoship_consumer_key_suffix', __( 'ReadyToShip API key ending', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
 		$this->register_field( 'readytoship_key_description', __( 'ReadyToShip API key description', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
-		$this->register_field( 'artwork_events_webhook_url', __( 'Artwork events webhook URL', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
-		$this->register_field( 'artwork_events_auth_token', __( 'Artwork events auth token', 'ck-order-workflow-suite' ), 'text', 'ck_ows_operations_section' );
-		$this->register_field( 'tracking_email_events_retry_attempts', __( 'Webhook retry attempts', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
-		$this->register_field( 'tracking_email_events_retry_backoff_minutes', __( 'Retry backoff (minutes)', 'ck-order-workflow-suite' ), 'number', 'ck_ows_operations_section' );
 	}
 
 	public function sanitize_settings( array $input ): array {
@@ -323,6 +334,7 @@ class CK_OWS_Settings {
 
 		$current = get_option( self::OPTION_KEY, array() );
 		$current = is_array( $current ) ? $current : array();
+		$input   = wp_parse_args( $input, $current );
 		$previous_tracking_enabled = (string) ( $current['tracking_sync_enabled'] ?? 'yes' );
 		$previous_tracking_interval = absint( $current['tracking_sync_interval_hours'] ?? 6 );
 		$raw_tracking_webhook_url = isset( $input['tracking_email_events_webhook_url'] ) ? trim( (string) $input['tracking_email_events_webhook_url'] ) : '';
@@ -408,7 +420,8 @@ class CK_OWS_Settings {
 		settings_fields( 'ck_ows_settings_group' );
 
 		echo '<h2 class="nav-tab-wrapper ck-ows-tabs" role="tablist" aria-label="' . esc_attr__( 'Settings sections', 'ck-order-workflow-suite' ) . '">';
-		echo '<button type="button" class="nav-tab nav-tab-active ck-ows-tab" role="tab" id="ck-ows-tab-tracking" aria-controls="ck-ows-panel-tracking" aria-selected="true" data-target="tracking">' . esc_html__( 'Tracking', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab nav-tab-active ck-ows-tab" role="tab" id="ck-ows-tab-tracking" aria-controls="ck-ows-panel-tracking" aria-selected="true" data-target="tracking">' . esc_html__( 'AusPost', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-overseek-events" aria-controls="ck-ows-panel-overseek-events" aria-selected="false" tabindex="-1" data-target="overseek-events">' . esc_html__( 'OverSeek Events', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-email-preferences" aria-controls="ck-ows-panel-email-preferences" aria-selected="false" tabindex="-1" data-target="email-preferences">' . esc_html__( 'Email Preferences', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-account-tabs" aria-controls="ck-ows-panel-account-tabs" aria-selected="false" tabindex="-1" data-target="account-tabs">' . esc_html__( 'My Account Tabs', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-registration-guard" aria-controls="ck-ows-panel-registration-guard" aria-selected="false" tabindex="-1" data-target="registration-guard">' . esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ) . '</button>';
@@ -421,6 +434,24 @@ class CK_OWS_Settings {
 		echo '<table class="form-table" role="presentation">';
 		do_settings_fields( 'ck-ows-settings', 'ck_ows_tracking_section' );
 		echo '</table>';
+		echo '</div>';
+
+		echo '<div id="ck-ows-panel-overseek-events" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-overseek-events" hidden>';
+		echo '<p>' . esc_html__( 'Send operational events from Workflow Suite into OverSeek automations. Leave URLs blank to auto-discover the installed OverSeek WooCommerce bridge.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<div class="ck-ows-settings-grid">';
+		echo '<section class="ck-ows-settings-box">';
+		echo '<h3>' . esc_html__( 'Tracking Events', 'ck-order-workflow-suite' ) . '</h3>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_tracking_events_section' );
+		echo '</table>';
+		echo '</section>';
+		echo '<section class="ck-ows-settings-box">';
+		echo '<h3>' . esc_html__( 'Artwork Events', 'ck-order-workflow-suite' ) . '</h3>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_artwork_events_section' );
+		echo '</table>';
+		echo '</section>';
+		echo '</div>';
 		echo '</div>';
 
 		echo '<div id="ck-ows-panel-email-preferences" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-email-preferences" hidden>';
@@ -756,6 +787,14 @@ class CK_OWS_Settings {
 
 		$settings = get_option( self::OPTION_KEY, array() );
 		$payload  = is_array( $settings ) ? $settings : array();
+
+		foreach ( self::sensitive_keys() as $key ) {
+			if ( array_key_exists( $key, $payload ) ) {
+				$payload[ $key ] = self::get( $key, '' );
+			}
+		}
+
+		CK_OWS_Audit::log_system_event( 'settings_exported', array( 'sensitive_values' => 'decrypted' ) );
 		$json     = wp_json_encode( $payload, JSON_PRETTY_PRINT );
 
 		header( 'Content-Type: application/json; charset=utf-8' );
@@ -780,10 +819,12 @@ class CK_OWS_Settings {
 			exit;
 		}
 
-		$sanitized = $this->sanitize_settings( $data );
+		$unknown_keys = array_diff( array_keys( $data ), self::setting_keys() );
+		$data         = array_intersect_key( $data, array_flip( self::setting_keys() ) );
+		$sanitized    = $this->sanitize_settings( $data );
 		update_option( self::OPTION_KEY, $sanitized, false );
 		self::$settings_cache = $sanitized;
-		CK_OWS_Audit::log_system_event( 'settings_imported', array( 'keys' => array_keys( $sanitized ) ) );
+		CK_OWS_Audit::log_system_event( 'settings_imported', array( 'keys' => array_keys( $sanitized ), 'discarded_keys' => $unknown_keys ) );
 
 		$redirect = add_query_arg(
 			array(
@@ -1005,13 +1046,9 @@ class CK_OWS_Settings {
 			$default = 5;
 		}
 
-		$value = self::get( $key, $default );
+		$value = 0 === strpos( $key, 'show_account_' ) ? self::get( $key, 'yes' ) : self::get( $key, $default );
 		$is_account_visibility_toggle = 0 === strpos( $key, 'show_account_' ) || 0 === strpos( $key, 'hide_account_' );
 		$is_sensitive_field = in_array( $key, self::sensitive_keys(), true );
-
-		if ( 0 === strpos( $key, 'show_account_' ) ) {
-			$value = self::get( $key, 'yes' );
-		}
 
 		$name = self::OPTION_KEY . '[' . $key . ']';
 		$id   = 'ck-ows-field-' . sanitize_html_class( $key );
@@ -1087,7 +1124,8 @@ class CK_OWS_Settings {
 
 		if ( 'tracking_email_events_webhook_url' === $key ) {
 			echo '<p class="description">' . esc_html__( 'HTTPS endpoint that receives normalized tracking lifecycle events for automation.', 'ck-order-workflow-suite' ) . '</p>';
-			echo '<p class="description">' . esc_html__( 'If left blank, this plugin auto-discovers the OverSeek tracking endpoint from store health or falls back to: https://<store>/wp-json/overseek/v1/tracking-email-events', 'ck-order-workflow-suite' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Recommended: leave blank when the OverSeek WooCommerce plugin is installed. The bridge endpoint will be auto-discovered from store health.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'For direct API delivery, use the OverSeek API endpoint including the account ID, for example https://api.example.com/api/tracking-email-events/{accountId}.', 'ck-order-workflow-suite' ) . '</p>';
 			$this->render_field_error( $key );
 		}
 
@@ -1147,7 +1185,8 @@ class CK_OWS_Settings {
 		}
 
 		if ( 'artwork_events_webhook_url' === $key ) {
-			echo '<p class="description">' . esc_html__( 'Optional HTTPS endpoint for artwork approval events. Leave blank to auto-discover OverSeek or use the local OverSeek REST endpoint.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Recommended: leave blank when the OverSeek WooCommerce plugin is installed. The bridge endpoint will be auto-discovered from store health.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'For direct API delivery, use the OverSeek API endpoint including the account ID, for example https://api.example.com/api/artwork-events/{accountId}.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
 		if ( 'artwork_events_auth_token' === $key ) {
@@ -1229,7 +1268,7 @@ class CK_OWS_Settings {
 
 		$value = sanitize_text_field( (string) $input[ $key ] );
 
-		if ( '' === trim( $value ) || '********' === $value ) {
+		if ( '' === trim( $value ) || '********' === $value || 0 === strpos( $value, 'enc:' ) ) {
 			return isset( $current[ $key ] ) ? (string) $current[ $key ] : '';
 		}
 
@@ -1258,74 +1297,11 @@ class CK_OWS_Settings {
 	}
 
 	private function sanitize_https_base_url( string $url ): string {
-		$url = trim( $url );
-
-		if ( '' === $url ) {
-			return '';
-		}
-
-		if ( false === strpos( $url, '://' ) ) {
-			$url = 'https://' . $url;
-		}
-
-		$url = untrailingslashit( $url );
-
-		$parts = wp_parse_url( $url );
-
-		if ( ! is_array( $parts ) ) {
-			return '';
-		}
-
-		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
-
-		if ( 'https' !== $scheme || empty( $parts['host'] ) ) {
-			return '';
-		}
-
-		$host = (string) $parts['host'];
-		$port = isset( $parts['port'] ) ? (int) $parts['port'] : 0;
-		$path = isset( $parts['path'] ) ? (string) $parts['path'] : '';
-
-		$sanitized = 'https://' . $host;
-
-		if ( $port > 0 ) {
-			$sanitized .= ':' . $port;
-		}
-
-		$sanitized .= $path;
-
-		return esc_url_raw( $sanitized );
+		return CK_OWS_Utils::sanitize_https_base_url( $url );
 	}
 
 	private function sanitize_https_webhook_url( string $url ): string {
-		$url = trim( $url );
-
-		if ( '' === $url ) {
-			return '';
-		}
-
-		$parts = wp_parse_url( $url );
-
-		if ( ! is_array( $parts ) ) {
-			return '';
-		}
-
-		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
-
-		if ( 'https' !== $scheme || empty( $parts['host'] ) ) {
-			return '';
-		}
-
-		$path = isset( $parts['path'] ) ? (string) $parts['path'] : '';
-		$query = isset( $parts['query'] ) ? (string) $parts['query'] : '';
-
-		$sanitized = 'https://' . $parts['host'] . $path;
-
-		if ( '' !== $query ) {
-			$sanitized .= '?' . $query;
-		}
-
-		return esc_url_raw( $sanitized );
+		return CK_OWS_Utils::sanitize_https_url( $url );
 	}
 
 	private function is_allowed_email_preferences_host( string $base_url ): bool {
@@ -1359,35 +1335,7 @@ class CK_OWS_Settings {
 			)
 		);
 
-		foreach ( $allowed_hosts as $allowed_host ) {
-			if ( ! is_string( $allowed_host ) || '' === $allowed_host ) {
-				continue;
-			}
-
-			if ( 0 === strpos( $allowed_host, '*.' ) ) {
-				$domain = substr( $allowed_host, 2 );
-
-				if ( '' !== $domain && ( $host === $domain || $this->string_ends_with( $host, '.' . $domain ) ) ) {
-					return true;
-				}
-
-				continue;
-			}
-
-			if ( $host === $allowed_host ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private function string_ends_with( string $haystack, string $needle ): bool {
-		if ( '' === $needle ) {
-			return true;
-		}
-
-		return substr( $haystack, -strlen( $needle ) ) === $needle;
+		return CK_OWS_Utils::is_allowed_host( $host, $allowed_hosts );
 	}
 
 	private function sanitize_blocked_domain_list( string $value ): string {
@@ -1406,7 +1354,7 @@ class CK_OWS_Settings {
 				continue;
 			}
 
-			if ( false === preg_match( '/^[a-z0-9.-]+\.[a-z]{2,}$/', $domain ) ) {
+			if ( 'localhost' !== $domain && false === preg_match( '/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/', $domain ) ) {
 				continue;
 			}
 
@@ -1647,14 +1595,22 @@ class CK_OWS_Settings {
 		$api_key  = trim( (string) self::get( 'auspost_api_key', '' ) );
 		$username = trim( (string) self::get( 'auspost_api_username', '' ) );
 		$password = trim( (string) self::get( 'auspost_api_password', '' ) );
+		$account_number = trim( (string) self::get( 'auspost_account_number', '' ) );
 		$base_url = untrailingslashit( (string) self::get( 'auspost_tracking_api_base_url', '' ) );
 		$request_url = '';
 
 		if ( '' !== $username && '' !== $password ) {
+			if ( '' === $account_number ) {
+				return array(
+					'ok'      => true,
+					'message' => 'Shipping API username/password are saved. Add an AusPost Account Number to run a live account endpoint validation.',
+				);
+			}
+
 			if ( '' === $base_url ) {
 				$base_url = 'https://digitalapi.auspost.com.au/shipping/v1';
 			}
-			$request_url = $base_url . '/track?tracking_ids=CONNECTION-TEST';
+			$request_url = $base_url . '/accounts/' . rawurlencode( $account_number );
 
 			$response = wp_remote_get(
 				$request_url,
@@ -1695,11 +1651,11 @@ class CK_OWS_Settings {
 	}
 
 	private function test_webhook_connection(): array {
-		$url = trim( (string) self::get( 'tracking_email_events_webhook_url', '' ) );
-		$token = trim( (string) self::get( 'tracking_email_events_auth_token', '' ) );
+		$url = $this->resolve_tracking_events_test_webhook_url();
+		$token = $this->resolve_tracking_events_test_token();
 
 		if ( '' === $url ) {
-			return array( 'ok' => false, 'message' => 'Missing webhook URL' );
+			return array( 'ok' => false, 'message' => 'Could not resolve tracking events webhook URL' );
 		}
 
 		$headers = array(
@@ -1716,7 +1672,23 @@ class CK_OWS_Settings {
 			array(
 				'timeout' => 8,
 				'headers' => $headers,
-				'body'    => wp_json_encode( array( 'event' => 'ck_ows_connection_test', 'ts' => time() ) ),
+				'body'    => wp_json_encode(
+					array(
+						'event' => array(
+							'event_name'      => 'shipment_in_transit',
+							'event_status'    => 'in_transit',
+							'provider'        => 'auspost',
+							'order_id'        => 'connection-test',
+							'order_number'    => 'connection-test',
+							'tracking_number' => 'CONNECTION-TEST',
+							'occurred_at'     => gmdate( 'c' ),
+							'description'     => 'Workflow Suite connection test',
+							'customer_email'  => (string) get_option( 'admin_email', '' ),
+							'source'          => 'ck_order_workflow_suite',
+							'source_version'  => CK_OWS_VERSION,
+						),
+					)
+				),
 			)
 		);
 
@@ -1734,17 +1706,17 @@ class CK_OWS_Settings {
 	}
 
 	private function test_artwork_webhook_connection(): array {
-		$url = trim( (string) self::get( 'artwork_events_webhook_url', '' ) );
+		$url = $this->resolve_artwork_events_test_webhook_url();
 
 		if ( '' === $url ) {
-			return array( 'ok' => false, 'message' => 'Missing artwork webhook URL' );
+			return array( 'ok' => false, 'message' => 'Could not resolve artwork events webhook URL' );
 		}
 
 		$headers = array(
 			'Content-Type' => 'application/json',
 			'Accept'       => 'application/json',
 		);
-		$token   = trim( (string) self::get( 'artwork_events_auth_token', '' ) );
+		$token   = $this->resolve_artwork_events_test_token();
 
 		if ( '' !== $token ) {
 			$headers['Authorization'] = 'Bearer ' . $token;
@@ -1786,28 +1758,121 @@ class CK_OWS_Settings {
 		);
 	}
 
-	private function http_status_hint( int $code ): string {
-		switch ( $code ) {
-			case 400:
-				return 'Bad request - payload or query format issue';
-			case 401:
-			case 403:
-				return 'Auth rejected - check token/credentials';
-			case 404:
-				return 'Endpoint not found - check URL path';
-			case 405:
-				return 'Method not allowed - endpoint must accept POST';
-			case 415:
-				return 'Unsupported media type - endpoint should accept application/json';
-			case 422:
-				return 'Payload validation failed';
-			default:
-				if ( $code >= 500 ) {
-					return 'Server error at destination';
-				}
+	private function resolve_tracking_events_test_webhook_url(): string {
+		$configured_url = CK_OWS_Utils::sanitize_https_url( (string) self::get( 'tracking_email_events_webhook_url', '' ) );
 
-				return '';
+		if ( '' !== $configured_url ) {
+			return $configured_url;
 		}
+
+		$account_id = trim( (string) self::get( 'email_preferences_account_id', '' ) );
+		if ( '' === $account_id ) {
+			$account_id = trim( (string) get_option( 'overseek_account_id', '' ) );
+		}
+
+		$discovered = $this->discover_overseek_bridge_url( 'trackingEventsWebhookUrl', $account_id );
+		if ( '' !== $discovered ) {
+			return $discovered;
+		}
+
+		return CK_OWS_Utils::sanitize_https_url( home_url( '/wp-json/overseek/v1/tracking-email-events' ) );
+	}
+
+	private function resolve_artwork_events_test_webhook_url(): string {
+		$configured_url = CK_OWS_Utils::sanitize_https_url( (string) self::get( 'artwork_events_webhook_url', '' ) );
+
+		if ( '' !== $configured_url ) {
+			return $configured_url;
+		}
+
+		$account_id = trim( (string) self::get( 'email_preferences_account_id', '' ) );
+		if ( '' === $account_id ) {
+			$account_id = trim( (string) get_option( 'overseek_account_id', '' ) );
+		}
+
+		$discovered = $this->discover_overseek_bridge_url( 'artworkEventsWebhookUrl', $account_id );
+		if ( '' !== $discovered ) {
+			return $discovered;
+		}
+
+		return CK_OWS_Utils::sanitize_https_url( home_url( '/wp-json/overseek/v1/artwork-events' ) );
+	}
+
+	private function discover_overseek_bridge_url( string $response_key, string $account_id ): string {
+		$health_url = add_query_arg( array( 'account_id' => $account_id ), home_url( '/wp-json/overseek/v1/health' ) );
+		$headers    = array( 'Accept' => 'application/json' );
+		$token      = $this->resolve_tracking_events_test_token();
+
+		if ( '' !== $token ) {
+			$headers['Authorization'] = 'Bearer ' . $token;
+		}
+
+		$response = wp_remote_get(
+			$health_url,
+			array(
+				'timeout' => 5,
+				'headers' => $headers,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return '';
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			return '';
+		}
+
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $decoded ) || empty( $decoded[ $response_key ] ) ) {
+			return '';
+		}
+
+		return CK_OWS_Utils::sanitize_https_url( (string) $decoded[ $response_key ] );
+	}
+
+	private function resolve_tracking_events_test_token(): string {
+		$keys = array(
+			'tracking_email_events_auth_token',
+			'email_preferences_webhook_secret',
+		);
+
+		foreach ( $keys as $key ) {
+			$token = trim( (string) self::get( $key, '' ) );
+			if ( '' !== $token ) {
+				return $token;
+			}
+		}
+
+		foreach ( array( 'overseek_webhook_auth_token', 'overseek_relay_api_key' ) as $key ) {
+			$token = trim( (string) get_option( $key, '' ) );
+			if ( '' !== $token ) {
+				return $token;
+			}
+		}
+
+		return '';
+	}
+
+	private function resolve_artwork_events_test_token(): string {
+		$token = trim( (string) self::get( 'artwork_events_auth_token', '' ) );
+		if ( '' !== $token ) {
+			return $token;
+		}
+
+		foreach ( array( 'overseek_webhook_auth_token', 'overseek_relay_api_key' ) as $key ) {
+			$token = trim( (string) get_option( $key, '' ) );
+			if ( '' !== $token ) {
+				return $token;
+			}
+		}
+
+		return '';
+	}
+
+	private function http_status_hint( int $code ): string {
+		return CK_OWS_Utils::http_status_hint( $code );
 	}
 
 	private function format_diagnostic_row( $row ): string {
@@ -1830,6 +1895,44 @@ class CK_OWS_Settings {
 		);
 	}
 
+	private static function setting_keys(): array {
+		return array(
+			'auspost_tracking_api_base_url',
+			'auspost_api_key',
+			'auspost_api_username',
+			'auspost_api_password',
+			'auspost_account_number',
+			'tracking_sync_enabled',
+			'tracking_sync_interval_hours',
+			'tracking_email_events_enabled',
+			'tracking_email_events_webhook_url',
+			'tracking_email_events_auth_token',
+			'tracking_email_events_timeout_seconds',
+			'tracking_email_events_retry_attempts',
+			'tracking_email_events_retry_backoff_minutes',
+			'email_preferences_api_base_url',
+			'email_preferences_account_id',
+			'email_preferences_auth_token',
+			'email_preferences_webhook_secret',
+			'show_account_dashboard_tab',
+			'show_account_orders_tab',
+			'show_account_downloads_tab',
+			'show_account_addresses_tab',
+			'show_account_details_tab',
+			'show_account_invoices_tab',
+			'show_account_security_tab',
+			'show_account_email_preferences_tab',
+			'show_account_logout_tab',
+			'registration_blocked_domains',
+			'keep_data_on_uninstall',
+			'use_new_invoice_plugin',
+			'readytoship_consumer_key_suffix',
+			'readytoship_key_description',
+			'artwork_events_webhook_url',
+			'artwork_events_auth_token',
+		);
+	}
+
 	private function encrypt_sensitive_value( string $value ): string {
 		$value = trim( $value );
 
@@ -1839,7 +1942,18 @@ class CK_OWS_Settings {
 
 		$encrypted = self::maybe_encrypt( $value );
 
-		return '' !== $encrypted ? $encrypted : $value;
+		if ( '' !== $encrypted ) {
+			return $encrypted;
+		}
+
+		if ( function_exists( 'wc_get_logger' ) ) {
+			wc_get_logger()->warning(
+				'Sensitive setting encryption failed; value was saved in plain text.',
+				array( 'source' => 'ck-order-workflow-suite' )
+			);
+		}
+
+		return $value;
 	}
 
 	private static function decrypt_sensitive_value( string $value ): string {

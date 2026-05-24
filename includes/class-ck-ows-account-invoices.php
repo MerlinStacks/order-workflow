@@ -7,19 +7,10 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Account_Invoices {
-	private static ?CK_OWS_Account_Invoices $instance = null;
+class CK_OWS_Account_Invoices extends CK_OWS_Base {
 	private static bool $address_notice_rendered = false;
 
-	public static function instance(): CK_OWS_Account_Invoices {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'init', array( $this, 'register_endpoint' ) );
 		add_action( 'template_redirect', array( $this, 'maybe_redirect_invoice_request' ) );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ), 99 );

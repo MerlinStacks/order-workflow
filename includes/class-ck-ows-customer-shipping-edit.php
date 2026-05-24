@@ -7,20 +7,11 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Customer_Shipping_Edit {
-	private static ?CK_OWS_Customer_Shipping_Edit $instance = null;
+class CK_OWS_Customer_Shipping_Edit extends CK_OWS_Base {
 	private const UPDATE_SHIPPING_NONCE       = 'ck_ows_update_shipping';
 	private const UPDATE_SHIPPING_NONCE_FIELD = 'ck_ows_update_shipping_nonce';
 
-	public static function instance(): CK_OWS_Customer_Shipping_Edit {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_form' ), 20 );
 		add_action( 'admin_post_ck_ows_update_shipping_address', array( $this, 'handle_update' ) );
 	}
@@ -96,14 +87,9 @@ class CK_OWS_Customer_Shipping_Edit {
 			wp_die( esc_html__( 'You do not have permission to edit this order.', 'ck-order-workflow-suite' ) );
 		}
 
-		if ( 'processing' !== $order->get_status() ) {
-			$this->redirect_with_notice( $order, __( 'Shipping address can only be updated while the order is processing.', 'ck-order-workflow-suite' ), 'error' );
-		}
-
 		$expected_version = isset( $_POST['order_version'] ) ? absint( wp_unslash( $_POST['order_version'] ) ) : 0;
-		$current_version  = $this->get_order_version( $order );
 
-		if ( $expected_version <= 0 || $expected_version !== $current_version ) {
+		if ( $expected_version <= 0 ) {
 			$this->redirect_with_notice( $order, __( 'This order was updated before your address change was saved. Please refresh and try again.', 'ck-order-workflow-suite' ), 'error' );
 		}
 

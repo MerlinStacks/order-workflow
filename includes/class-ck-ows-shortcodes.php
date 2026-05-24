@@ -7,18 +7,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Shortcodes {
-	private static ?CK_OWS_Shortcodes $instance = null;
-
-	public static function instance(): CK_OWS_Shortcodes {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+class CK_OWS_Shortcodes extends CK_OWS_Base {
+	protected function __construct() {
 		add_shortcode( 'order_tracking_summary', array( $this, 'order_tracking_summary' ) );
 		add_shortcode( 'wc_invoice_link', array( $this, 'invoice_link' ) );
 	}
@@ -83,32 +73,8 @@ class CK_OWS_Shortcodes {
 				return '<p class="woocommerce-info">' . esc_html__( 'Your order has been completed. Tracking information will appear shortly.', 'ck-order-workflow-suite' ) . '</p>';
 			}
 
-			$tracking_url = '';
-			foreach ( $tracking_items as $item ) {
-				if ( ! is_array( $item ) ) {
-					continue;
-				}
-
-				if ( ! empty( $item['formatted_tracking_link'] ) ) {
-					$tracking_url = (string) $item['formatted_tracking_link'];
-					break;
-				}
-
-				if ( ! empty( $item['custom_tracking_link'] ) ) {
-					$tracking_url = (string) $item['custom_tracking_link'];
-					break;
-				}
-			}
-
-			if ( '' === $tracking_url && ! empty( $tracking_items ) ) {
-				$first_item = reset( $tracking_items );
-				$provider   = strtolower( trim( (string) ( $first_item['custom_tracking_provider'] ?? $first_item['tracking_provider'] ?? '' ) ) );
-				$number     = trim( (string) ( $first_item['tracking_number'] ?? '' ) );
-
-				if ( '' !== $number && ( false !== strpos( $provider, 'auspost' ) || false !== strpos( $provider, 'australia post' ) ) ) {
-					$tracking_url = 'https://auspost.com.au/mypost/track/#/details/' . rawurlencode( $number );
-				}
-			}
+			$tracking_links = CK_OWS_Tracking_Helpers::extract_tracking_links( $order );
+			$tracking_url   = isset( $tracking_links[0] ) ? (string) $tracking_links[0] : '';
 
 			ob_start();
 			echo $eta_html;

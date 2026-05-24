@@ -7,21 +7,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Account_Email_Preferences {
-	private static ?CK_OWS_Account_Email_Preferences $instance = null;
+class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 	private const SAVE_PREFS_NONCE       = 'ck_ows_save_email_preferences';
 	private const SAVE_PREFS_NONCE_FIELD = 'ck_ows_save_email_preferences_nonce';
 	private const PREFS_CACHE_TTL         = 5 * MINUTE_IN_SECONDS;
 
-	public static function instance(): CK_OWS_Account_Email_Preferences {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'init', array( $this, 'register_endpoint' ) );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ), 99 );
 		add_action( 'woocommerce_account_email-preferences_endpoint', array( $this, 'render_endpoint' ) );
@@ -371,35 +362,7 @@ class CK_OWS_Account_Email_Preferences {
 			)
 		);
 
-		foreach ( $allowed_hosts as $allowed_host ) {
-			if ( ! is_string( $allowed_host ) || '' === $allowed_host ) {
-				continue;
-			}
-
-			if ( 0 === strpos( $allowed_host, '*.' ) ) {
-				$domain = substr( $allowed_host, 2 );
-
-				if ( '' !== $domain && ( $host === $domain || $this->string_ends_with( $host, '.' . $domain ) ) ) {
-					return true;
-				}
-
-				continue;
-			}
-
-			if ( $host === $allowed_host ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private function string_ends_with( string $haystack, string $needle ): bool {
-		if ( '' === $needle ) {
-			return true;
-		}
-
-		return substr( $haystack, -strlen( $needle ) ) === $needle;
+		return CK_OWS_Utils::is_allowed_host( $host, $allowed_hosts );
 	}
 
 	private function build_headers( array $config ): array {
@@ -431,6 +394,12 @@ class CK_OWS_Account_Email_Preferences {
 	}
 
 	private function is_valid_uuid( string $value ): bool {
+		$validator = apply_filters( 'ck_ows_email_preferences_account_id_validator', null, $value );
+
+		if ( is_callable( $validator ) ) {
+			return (bool) call_user_func( $validator, $value );
+		}
+
 		return 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', trim( $value ) );
 	}
 

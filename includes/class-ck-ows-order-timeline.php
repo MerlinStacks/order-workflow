@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Order_Timeline {
+class CK_OWS_Order_Timeline extends CK_OWS_Base {
 	private const META_TS_PROCESSING         = '_ck_ows_ts_processing';
 	private const META_TS_AWAITING_ARTWORK  = '_ck_ows_ts_awaiting_artwork_approval';
 	private const META_TS_IN_PRODUCTION     = '_ck_ows_ts_in_production';
@@ -15,17 +15,7 @@ class CK_OWS_Order_Timeline {
 	private const META_TS_DELIVERED         = '_ck_ows_ts_delivered';
 	private const META_LIVE_TRACKING        = '_ck_ows_live_tracking';
 
-	private static ?CK_OWS_Order_Timeline $instance = null;
-
-	public static function instance(): CK_OWS_Order_Timeline {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'woocommerce_order_status_changed', array( $this, 'capture_stage_timestamp' ), 30, 4 );
 		add_action( 'woocommerce_thankyou', array( $this, 'render_timeline' ), 15 );
 		add_action( 'woocommerce_view_order', array( $this, 'render_timeline' ), 5 );
@@ -67,8 +57,6 @@ class CK_OWS_Order_Timeline {
 		}
 
 		ob_start();
-
-		$this->backfill_missing_timestamps( $order );
 
 		$has_artwork_stage = class_exists( 'CK_OWS_Artwork_Proof' ) && CK_OWS_Artwork_Proof::order_has_artwork_proof( $order );
 
@@ -370,96 +358,23 @@ class CK_OWS_Order_Timeline {
 	}
 
 	private function resolve_event_timestamp( string $value ): int {
-		$value = trim( $value );
-
-		if ( '' === $value ) {
-			return 0;
-		}
-
-		$timestamp = strtotime( $value );
-
-		if ( false === $timestamp ) {
-			return 0;
-		}
-
-		return (int) $timestamp;
+		return CK_OWS_Tracking_Helpers::parse_event_timestamp( $value );
 	}
 
 	private function extract_tracking_events_from_payload( array $payload ): array {
-		$event_keys = array( 'events', 'tracking_events', 'article_events', 'tracking_details' );
-
-		foreach ( $event_keys as $key ) {
-			if ( isset( $payload[ $key ] ) && is_array( $payload[ $key ] ) ) {
-				$events = $this->normalize_tracking_events( $payload[ $key ] );
-				if ( ! empty( $events ) ) {
-					return $events;
-				}
-			}
-		}
-
-		return $this->collect_tracking_events_from_node( $payload );
+		return CK_OWS_Tracking_Helpers::extract_tracking_events_from_article( $payload );
 	}
 
 	private function normalize_tracking_events( array $events ): array {
-		$normalized = array();
-
-		foreach ( $events as $event ) {
-			if ( ! is_array( $event ) ) {
-				continue;
-			}
-
-			if ( $this->looks_like_tracking_event( $event ) ) {
-				$normalized[] = $event;
-				continue;
-			}
-
-			$nested = $this->collect_tracking_events_from_node( $event );
-			if ( ! empty( $nested ) ) {
-				$normalized = array_merge( $normalized, $nested );
-			}
-		}
-
-		return $normalized;
+		return CK_OWS_Tracking_Helpers::normalize_tracking_events( $events );
 	}
 
 	private function collect_tracking_events_from_node( $node, int $depth = 0 ): array {
-		if ( $depth > 5 || ! is_array( $node ) ) {
-			return array();
-		}
-
-		if ( $this->looks_like_tracking_event( $node ) ) {
-			return array( $node );
-		}
-
-		$events = array();
-		foreach ( $node as $child ) {
-			if ( ! is_array( $child ) ) {
-				continue;
-			}
-
-			$events = array_merge( $events, $this->collect_tracking_events_from_node( $child, $depth + 1 ) );
-		}
-
-		return $events;
+		return CK_OWS_Tracking_Helpers::collect_tracking_events_from_node( $node, $depth );
 	}
 
 	private function looks_like_tracking_event( array $event ): bool {
-		$description = trim(
-			implode(
-				' ',
-				array(
-					(string) ( $event['description'] ?? '' ),
-					(string) ( $event['event_description'] ?? '' ),
-					(string) ( $event['event'] ?? '' ),
-					(string) ( $event['status'] ?? '' ),
-					(string) ( $event['summary'] ?? '' ),
-					(string) ( $event['title'] ?? '' ),
-				)
-			)
-		);
-		$date = trim( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? $event['time'] ?? $event['timestamp'] ?? '' ) );
-
-		return '' !== $description && '' !== $date;
+		return CK_OWS_Tracking_Helpers::looks_like_tracking_event( $event );
 	}
 
 	private function get_stage_icon_svg( string $stage_key ): string {

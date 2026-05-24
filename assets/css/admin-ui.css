@@ -1,5 +1,5 @@
 .ck-ows-admin {
-	max-width: 980px;
+	max-width: 1180px;
 	margin-top: 20px;
 }
 
@@ -52,6 +52,15 @@
 .ck-ows-admin .ck-ows-tabs {
 	margin: 0 0 12px;
 	padding-top: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.ck-ows-admin .ck-ows-tabs .nav-tab {
+	margin-left: 0;
+	border-radius: 8px 8px 0 0;
 }
 
 .ck-ows-admin .ck-ows-panel {
@@ -64,6 +73,36 @@
 
 .ck-ows-admin .ck-ows-panel > p {
 	margin: 0 0 6px;
+}
+
+.ck-ows-admin .ck-ows-settings-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 16px;
+	margin-top: 14px;
+}
+
+.ck-ows-admin .ck-ows-settings-box {
+	border: 1px solid #dcdcde;
+	border-radius: 12px;
+	padding: 14px 16px 4px;
+	background: #fbfbfc;
+}
+
+.ck-ows-admin .ck-ows-settings-box h3 {
+	margin: 0 0 4px;
+	font-size: 15px;
+	line-height: 1.4;
+}
+
+.ck-ows-admin .ck-ows-settings-box .form-table {
+	margin-top: 4px;
+}
+
+.ck-ows-admin .ck-ows-settings-box .form-table th,
+.ck-ows-admin .ck-ows-settings-box .form-table td {
+	padding-top: 12px;
+	padding-bottom: 12px;
 }
 
 .ck-ows-admin .ck-ows-switch {
@@ -118,6 +157,7 @@
 }
 
 .ck-ows-admin input[type="text"],
+.ck-ows-admin input[type="password"],
 .ck-ows-admin input[type="number"] {
 	border-radius: 8px;
 	border-color: #c3c4c7;

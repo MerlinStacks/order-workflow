@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Admin_Order_Actions {
+class CK_OWS_Admin_Order_Actions extends CK_OWS_Base {
 	private const ACTION_SET_IN_PRODUCTION    = 'ck_ows_set_in_production';
 	private const ACTION_SET_IN_DISPATCH      = 'ck_ows_set_in_dispatch';
 	private const ACTION_SET_AWAITING_ARTWORK = 'ck_ows_set_awaiting_artwork';
@@ -16,17 +16,7 @@ class CK_OWS_Admin_Order_Actions {
 	private const RETURN_STATUS_KEY          = 'ck_ows_return_status_key';
 	private const RETURN_STATUS_VALUE        = 'ck_ows_return_status';
 
-	private static ?CK_OWS_Admin_Order_Actions $instance = null;
-
-	public static function instance(): CK_OWS_Admin_Order_Actions {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_filter( 'bulk_actions-edit-shop_order', array( $this, 'register_bulk_actions' ) );
 		add_filter( 'bulk_actions-woocommerce_page_wc-orders', array( $this, 'register_bulk_actions' ) );
 
@@ -43,27 +33,7 @@ class CK_OWS_Admin_Order_Actions {
 	}
 
 	public function enqueue_admin_assets(): void {
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-
-		if ( ! $screen || ! isset( $screen->id ) ) {
-			return;
-		}
-
-		$valid_screens = array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders' );
-		if ( function_exists( 'wc_get_page_screen_id' ) ) {
-			$valid_screens[] = wc_get_page_screen_id( 'shop-order' );
-		}
-
-		if ( ! in_array( $screen->id, $valid_screens, true ) ) {
-			return;
-		}
-
-		wp_enqueue_style(
-			'ck-ows-admin-ui',
-			CK_OWS_URL . 'assets/css/admin-ui.css',
-			array(),
-			CK_OWS_VERSION
-		);
+		CK_OWS_Admin_Helpers::maybe_enqueue_admin_ui();
 	}
 
 	public function register_bulk_actions( array $actions ): array {

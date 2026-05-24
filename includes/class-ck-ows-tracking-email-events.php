@@ -7,21 +7,11 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Tracking_Email_Events {
+class CK_OWS_Tracking_Email_Events extends CK_OWS_Base {
 	private const TRANSIENT_DEDUP_PREFIX = 'ck_ows_track_evt_';
 	private const RETRY_HOOK             = 'ck_ows_tracking_event_retry';
 
-	private static ?CK_OWS_Tracking_Email_Events $instance = null;
-
-	public static function instance(): CK_OWS_Tracking_Email_Events {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'ck_ows_tracking_updated', array( $this, 'forward_event_to_email_platform' ), 10, 2 );
 		add_action( self::RETRY_HOOK, array( $this, 'retry_event_delivery' ), 10, 1 );
 	}
@@ -54,23 +44,13 @@ class CK_OWS_Tracking_Email_Events {
 			'event' => $normalized_event,
 		);
 
-		$headers = array(
-			'Content-Type' => 'application/json',
-			'Accept'       => 'application/json',
-		);
-
-		$token = trim( (string) CK_OWS_Settings::get( 'tracking_email_events_auth_token', '' ) );
-		if ( '' !== $token ) {
-			$headers['Authorization'] = 'Bearer ' . $token;
-		}
-
 		$timeout = max( 3, min( 30, absint( CK_OWS_Settings::get( 'tracking_email_events_timeout_seconds', 10 ) ) ) );
 
 		$response = wp_remote_post(
 			$webhook_url,
 			array(
 				'timeout' => $timeout,
-				'headers' => $headers,
+				'headers' => $this->build_headers(),
 				'body'    => wp_json_encode( $request_body ),
 			)
 		);
@@ -226,31 +206,7 @@ class CK_OWS_Tracking_Email_Events {
 	}
 
 	private function sanitize_https_url( string $url ): string {
-		$url = trim( $url );
-
-		if ( '' === $url ) {
-			return '';
-		}
-
-		$parts = wp_parse_url( $url );
-		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
-			return '';
-		}
-
-		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
-		if ( 'https' !== $scheme ) {
-			return '';
-		}
-
-		$path  = isset( $parts['path'] ) ? (string) $parts['path'] : '';
-		$query = isset( $parts['query'] ) ? (string) $parts['query'] : '';
-		$sanitized = 'https://' . $parts['host'] . $path;
-
-		if ( '' !== $query ) {
-			$sanitized .= '?' . $query;
-		}
-
-		return esc_url_raw( $sanitized );
+		return CK_OWS_Utils::sanitize_https_url( $url );
 	}
 
 	private function build_headers(): array {
@@ -317,6 +273,8 @@ class CK_OWS_Tracking_Email_Events {
 			'overseek_tracking_events_token',
 			'overseek_tracking_email_events_token',
 			'overseek_tracking_email_events_api_key',
+			'overseek_webhook_auth_token',
+			'overseek_relay_api_key',
 		);
 
 		foreach ( $keys as $key ) {
@@ -365,8 +323,8 @@ class CK_OWS_Tracking_Email_Events {
 			'event'      => $normalized_event,
 		);
 
-		if ( count( $rows ) > 100 ) {
-			$rows = array_slice( $rows, -100 );
+		if ( count( $rows ) > 50 ) {
+			$rows = array_slice( $rows, -50 );
 		}
 
 		update_option( 'ck_ows_tracking_event_dead_letters', $rows, false );

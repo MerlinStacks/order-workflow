@@ -7,24 +7,14 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Registration_Guard {
+class CK_OWS_Registration_Guard extends CK_OWS_Base {
 	private const MIN_SECONDS = 3;
 	private const IP_LIMIT    = 5;
 	private const LOG_MAX     = 200;
 	private const LOG_TTL     = 90 * DAY_IN_SECONDS;
 	private const OPTION_LOG  = 'ckrg_block_log';
 
-	private static ?CK_OWS_Registration_Guard $instance = null;
-
-	public static function instance(): CK_OWS_Registration_Guard {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'woocommerce_register_form', array( $this, 'inject_fields' ) );
 		add_action( 'register_form', array( $this, 'inject_fields' ) );
 		add_filter( 'woocommerce_process_registration_errors', array( $this, 'validate_registration' ), 10, 4 );
@@ -264,10 +254,28 @@ class CK_OWS_Registration_Guard {
 	}
 
 	private function get_ip(): string {
-		$ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-		$ip = is_string( $ip ) ? $ip : '0.0.0.0';
+		$candidates = array();
 
-		return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '0.0.0.0';
+		if ( isset( $_SERVER['HTTP_CF_CONNECTING_IP'] ) ) {
+			$candidates[] = wp_unslash( $_SERVER['HTTP_CF_CONNECTING_IP'] );
+		}
+
+		if ( isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+			$forwarded = explode( ',', (string) wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
+			$candidates[] = trim( (string) reset( $forwarded ) );
+		}
+
+		$candidates[] = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+		foreach ( $candidates as $candidate ) {
+			$ip = is_string( $candidate ) ? trim( $candidate ) : '';
+
+			if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+				return $ip;
+			}
+		}
+
+		return '0.0.0.0';
 	}
 
 	private function get_blocked_domains(): array {

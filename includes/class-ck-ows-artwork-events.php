@@ -7,22 +7,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Artwork_Events {
+class CK_OWS_Artwork_Events extends CK_OWS_Base {
 	private const ALLOWED_STATUSES      = array( 'uploaded', 'approval_requested', 'approved', 'changes_requested', 'override_used' );
 	private const DEDUPE_TRANSIENT_BASE = 'ck_ows_artwork_evt_';
 	private const RETRY_HOOK            = 'ck_ows_artwork_event_retry';
 
-	private static ?CK_OWS_Artwork_Events $instance = null;
-
-	public static function instance(): CK_OWS_Artwork_Events {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 		add_action( self::RETRY_HOOK, array( $this, 'retry_event_delivery' ), 10, 1 );
 	}
@@ -34,26 +24,34 @@ class CK_OWS_Artwork_Events {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'handle_incoming_event' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'authenticate_incoming_event_request' ),
 			)
 		);
 	}
 
-	public function handle_incoming_event( WP_REST_Request $request ): WP_REST_Response {
+	public function authenticate_incoming_event_request( WP_REST_Request $request ) {
 		$token = trim( (string) CK_OWS_Settings::get( 'artwork_events_auth_token', '' ) );
 
-		if ( '' !== $token ) {
-			$header = trim( (string) $request->get_header( 'authorization' ) );
-			if ( '' === $header || 0 !== strpos( $header, 'Bearer ' ) ) {
-				return new WP_REST_Response( array( 'ok' => false, 'message' => 'Missing bearer token' ), 401 );
-			}
-
-			$provided = trim( substr( $header, 7 ) );
-			if ( ! hash_equals( $token, $provided ) ) {
-				return new WP_REST_Response( array( 'ok' => false, 'message' => 'Invalid bearer token' ), 401 );
-			}
+		if ( '' === $token ) {
+			return new WP_Error( 'ck_ows_artwork_events_token_missing', __( 'Artwork events endpoint is not configured.', 'ck-order-workflow-suite' ), array( 'status' => 403 ) );
 		}
 
+		$header = trim( (string) $request->get_header( 'authorization' ) );
+
+		if ( '' === $header || 0 !== strpos( $header, 'Bearer ' ) ) {
+			return new WP_Error( 'ck_ows_artwork_events_token_required', __( 'Missing bearer token.', 'ck-order-workflow-suite' ), array( 'status' => 401 ) );
+		}
+
+		$provided = trim( substr( $header, 7 ) );
+
+		if ( ! hash_equals( $token, $provided ) ) {
+			return new WP_Error( 'ck_ows_artwork_events_token_invalid', __( 'Invalid bearer token.', 'ck-order-workflow-suite' ), array( 'status' => 401 ) );
+		}
+
+		return true;
+	}
+
+	public function handle_incoming_event( WP_REST_Request $request ): WP_REST_Response {
 		$event = $request->get_param( 'event' );
 		if ( ! is_array( $event ) ) {
 			return new WP_REST_Response( array( 'ok' => false, 'message' => 'Missing or invalid event object' ), 400 );
@@ -212,7 +210,7 @@ class CK_OWS_Artwork_Events {
 			'customer_email'  => isset( $event['customer_email'] ) ? sanitize_email( (string) $event['customer_email'] ) : '',
 			'customer_phone'  => isset( $event['customer_phone'] ) ? sanitize_text_field( (string) $event['customer_phone'] ) : '',
 			'customer_name'   => isset( $event['customer_name'] ) ? sanitize_text_field( (string) $event['customer_name'] ) : '',
-			'proof_url'       => isset( $event['proof_url'] ) ? esc_url_raw( (string) $event['proof_url'] ) : '',
+			'proof_url'       => isset( $event['proof_url'] ) ? $this->sanitize_allowed_proof_url( (string) $event['proof_url'] ) : '',
 			'proof_version'   => isset( $event['proof_version'] ) ? sanitize_text_field( (string) $event['proof_version'] ) : '',
 			'notes'           => isset( $event['notes'] ) ? sanitize_textarea_field( (string) $event['notes'] ) : '',
 			'staff_user'      => isset( $event['staff_user'] ) ? sanitize_text_field( (string) $event['staff_user'] ) : '',
@@ -265,6 +263,23 @@ class CK_OWS_Artwork_Events {
 		CK_OWS_Audit::log_order_event( $order, 'artwork_event_received', array( 'event_status' => $status ) );
 
 		return true;
+	}
+
+	private function sanitize_allowed_proof_url( string $url ): string {
+		$url = CK_OWS_Utils::sanitize_https_url( $url );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$host = wp_parse_url( $url, PHP_URL_HOST );
+		$home = wp_parse_url( home_url(), PHP_URL_HOST );
+		$allowed_hosts = apply_filters(
+			'ck_ows_artwork_proof_allowed_hosts',
+			array_values( array_filter( array_merge( array( $home ), CK_OWS_Utils::default_overseek_allowed_hosts() ) ) )
+		);
+
+		return is_string( $host ) && is_array( $allowed_hosts ) && CK_OWS_Utils::is_allowed_host( $host, $allowed_hosts ) ? $url : '';
 	}
 
 	private function build_event_payload( WC_Order $order, string $event_status, array $extra ): array {
@@ -372,31 +387,7 @@ class CK_OWS_Artwork_Events {
 	}
 
 	private function sanitize_https_url( string $url ): string {
-		$url = trim( $url );
-
-		if ( '' === $url ) {
-			return '';
-		}
-
-		$parts = wp_parse_url( $url );
-		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
-			return '';
-		}
-
-		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
-		if ( 'https' !== $scheme ) {
-			return '';
-		}
-
-		$path      = isset( $parts['path'] ) ? (string) $parts['path'] : '';
-		$query     = isset( $parts['query'] ) ? (string) $parts['query'] : '';
-		$sanitized = 'https://' . $parts['host'] . $path;
-
-		if ( '' !== $query ) {
-			$sanitized .= '?' . $query;
-		}
-
-		return esc_url_raw( $sanitized );
+		return CK_OWS_Utils::sanitize_https_url( $url );
 	}
 
 	private function is_duplicate_event( array $event ): bool {
@@ -485,6 +476,10 @@ class CK_OWS_Artwork_Events {
 			'last_error' => sanitize_text_field( $error_message ),
 			'event'      => $event,
 		);
+
+		if ( count( $rows ) > 50 ) {
+			$rows = array_slice( $rows, -50 );
+		}
 
 		update_option( 'ck_ows_artwork_event_dead_letters', $rows, false );
 	}

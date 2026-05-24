@@ -7,21 +7,11 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Account_Security {
+class CK_OWS_Account_Security extends CK_OWS_Base {
 	private const META_LAST_LOGIN_TS      = '_ck_ows_last_login_ts';
 	private const META_LAST_PASSWORD_TS   = '_ck_ows_last_password_change_ts';
 
-	private static ?CK_OWS_Account_Security $instance = null;
-
-	public static function instance(): CK_OWS_Account_Security {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_action( 'init', array( $this, 'register_endpoint' ) );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ), 99 );
 		add_action( 'woocommerce_account_security_endpoint', array( $this, 'render_endpoint' ) );

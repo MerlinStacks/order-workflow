@@ -29,3 +29,9 @@ if ( isset( $wpdb->postmeta ) ) {
     $meta_prefix = '_ck_ows_%';
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->postmeta} WHERE meta_key LIKE %s", $meta_prefix ) );
 }
+
+$hpos_meta_table = $wpdb->prefix . 'wc_order_meta';
+if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $hpos_meta_table ) ) === $hpos_meta_table ) {
+    $meta_prefix = '_ck_ows_%';
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$hpos_meta_table} WHERE meta_key LIKE %s", $meta_prefix ) );
+}

@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class CK_OWS_Tracking {
+class CK_OWS_Tracking extends CK_OWS_Base {
 	private const CRON_HOOK               = 'ck_ows_tracking_sync_event';
 	private const SYNC_LOCK_KEY            = 'ck_ows_tracking_sync_lock';
 	private const SCHEDULE_CHECK_KEY       = 'ck_ows_tracking_schedule_check';
@@ -16,17 +16,7 @@ class CK_OWS_Tracking {
 	private const META_LAST_SYNC_ERROR    = '_ck_ows_live_tracking_last_error';
 	private const META_LAST_EVENT_HASH    = '_ck_ows_live_tracking_last_event_hash';
 
-	private static ?CK_OWS_Tracking $instance = null;
-
-	public static function instance(): CK_OWS_Tracking {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-
-		return self::$instance;
-	}
-
-	private function __construct() {
+	protected function __construct() {
 		add_filter( 'cron_schedules', array( $this, 'register_interval_schedule' ) );
 		add_action( 'init', array( $this, 'ensure_schedule' ) );
 		add_action( 'init', array( $this, 'suppress_default_tracking_output' ), 20 );
@@ -72,85 +62,123 @@ class CK_OWS_Tracking {
 			return;
 		}
 
-		if ( false !== get_transient( self::SYNC_LOCK_KEY ) ) {
+		$lock_owner = $this->acquire_tracking_sync_lock();
+		if ( '' === $lock_owner ) {
 			return;
 		}
 
-		set_transient( self::SYNC_LOCK_KEY, '1', 10 * MINUTE_IN_SECONDS );
-
 		try {
+			$limit  = 50;
+			$offset = 0;
 
-			$orders = wc_get_orders(
-				array(
-					'limit'   => 50,
-					'orderby' => 'date',
-					'order'   => 'DESC',
-					'date_created' => '>' . ( time() - ( 14 * DAY_IN_SECONDS ) ),
-					'status'  => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
-				)
-			);
+			do {
+				$orders = wc_get_orders(
+					array(
+						'limit'        => $limit,
+						'offset'       => $offset,
+						'orderby'      => 'date',
+						'order'        => 'DESC',
+						'date_created' => '>' . ( time() - ( 14 * DAY_IN_SECONDS ) ),
+						'status'       => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
+					)
+				);
 
-			foreach ( $orders as $order ) {
-				if ( ! $order instanceof WC_Order ) {
-					continue;
-				}
-
-				$tracking_numbers = $this->extract_tracking_numbers( $order );
-
-				if ( empty( $tracking_numbers ) ) {
-					continue;
-				}
-
-				if ( $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers ) ) {
-					continue;
-				}
-
-				$latest_payload = null;
-				$last_error     = '';
-
-				foreach ( $tracking_numbers as $tracking_number ) {
-					if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
+				foreach ( $orders as $order ) {
+					if ( ! $order instanceof WC_Order ) {
 						continue;
 					}
 
-					$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
+					$tracking_numbers = $this->extract_tracking_numbers( $order );
 
-					if ( is_wp_error( $result ) ) {
-						$last_error = $result->get_error_message();
+					if ( empty( $tracking_numbers ) ) {
 						continue;
 					}
 
-					$latest_payload = $result;
-					break;
-				}
-
-				if ( null === $latest_payload ) {
-					if ( $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
-						$order->delete_meta_data( self::META_LIVE_TRACKING );
-						$order->delete_meta_data( self::META_LAST_EVENT_HASH );
+					if ( $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers ) ) {
+						continue;
 					}
 
+					$latest_payload = null;
+					$last_error     = '';
+
+					foreach ( $tracking_numbers as $tracking_number ) {
+						if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
+							continue;
+						}
+
+						$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
+
+						if ( is_wp_error( $result ) ) {
+							$last_error = $result->get_error_message();
+							continue;
+						}
+
+						$latest_payload = $result;
+						break;
+					}
+
+					if ( null === $latest_payload ) {
+						if ( $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
+							$order->delete_meta_data( self::META_LIVE_TRACKING );
+							$order->delete_meta_data( self::META_LAST_EVENT_HASH );
+						}
+
+						$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
+						$order->update_meta_data( self::META_LAST_SYNC_ERROR, $last_error );
+						$order->save();
+						continue;
+					}
+
+					$event_hash = md5( wp_json_encode( $latest_payload ) );
+					$prev_hash  = (string) $order->get_meta( self::META_LAST_EVENT_HASH, true );
+
+					$order->update_meta_data( self::META_LIVE_TRACKING, $latest_payload );
 					$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-					$order->update_meta_data( self::META_LAST_SYNC_ERROR, $last_error );
+					$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
+					$order->update_meta_data( self::META_LAST_EVENT_HASH, $event_hash );
 					$order->save();
-					continue;
+
+					if ( $event_hash !== $prev_hash ) {
+						do_action( 'ck_ows_tracking_updated', $order->get_id(), $latest_payload );
+					}
 				}
 
-				$event_hash = md5( wp_json_encode( $latest_payload ) );
-				$prev_hash  = (string) $order->get_meta( self::META_LAST_EVENT_HASH, true );
-
-				$order->update_meta_data( self::META_LIVE_TRACKING, $latest_payload );
-				$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-				$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
-				$order->update_meta_data( self::META_LAST_EVENT_HASH, $event_hash );
-				$order->save();
-
-				if ( $event_hash !== $prev_hash ) {
-					do_action( 'ck_ows_tracking_updated', $order->get_id(), $latest_payload );
-				}
-			}
+				$offset += $limit;
+			} while ( count( $orders ) === $limit );
 		} finally {
-			delete_transient( self::SYNC_LOCK_KEY );
+			$this->release_tracking_sync_lock( $lock_owner );
+		}
+	}
+
+	private function acquire_tracking_sync_lock(): string {
+		$owner   = wp_generate_uuid4();
+		$expires = time() + ( 10 * MINUTE_IN_SECONDS );
+		$payload = array(
+			'owner'   => $owner,
+			'expires' => $expires,
+		);
+
+		if ( add_option( self::SYNC_LOCK_KEY, $payload, '', false ) ) {
+			return $owner;
+		}
+
+		$current = get_option( self::SYNC_LOCK_KEY, array() );
+		if ( is_array( $current ) && isset( $current['expires'] ) && absint( $current['expires'] ) < time() ) {
+			delete_option( self::SYNC_LOCK_KEY );
+
+			if ( add_option( self::SYNC_LOCK_KEY, $payload, '', false ) ) {
+				return $owner;
+			}
+		}
+
+		return '';
+	}
+
+	private function release_tracking_sync_lock( string $owner ): void {
+		$current = get_option( self::SYNC_LOCK_KEY, array() );
+
+		if ( is_array( $current ) && isset( $current['owner'] ) && hash_equals( $owner, (string) $current['owner'] ) ) {
+			delete_option( self::SYNC_LOCK_KEY );
 		}
 	}
 
@@ -461,7 +489,10 @@ class CK_OWS_Tracking {
 			. '})();';
 
 		echo '<style>' . esc_html( $styles ) . '</style>';
-		echo '<script>' . $script . '</script>';
+
+		wp_register_script( 'ck-ows-tracking-inline', '', array(), CK_OWS_VERSION, true );
+		wp_enqueue_script( 'ck-ows-tracking-inline' );
+		wp_add_inline_script( 'ck-ows-tracking-inline', $script );
 	}
 
 	private function refresh_tracking_for_order_view( WC_Order $order ): array {
@@ -578,54 +609,15 @@ class CK_OWS_Tracking {
 	}
 
 	private function extract_tracking_numbers( WC_Order $order ): array {
-		$numbers = array();
-		$items   = $order->get_meta( '_wc_shipment_tracking_items', true );
-
-		if ( is_array( $items ) ) {
-			foreach ( $items as $item ) {
-				if ( ! empty( $item['tracking_number'] ) ) {
-					$numbers[] = sanitize_text_field( (string) $item['tracking_number'] );
-				}
-			}
-		}
-
-		$numbers = array_unique( array_filter( $numbers ) );
-
-		return array_values( $numbers );
+		return CK_OWS_Tracking_Helpers::extract_tracking_numbers( $order );
 	}
 
 	private function extract_tracking_links( WC_Order $order ): array {
-		$links = array();
-		$items = $order->get_meta( '_wc_shipment_tracking_items', true );
-
-		if ( ! is_array( $items ) ) {
-			return array();
-		}
-
-		foreach ( $items as $item ) {
-			$provider       = strtolower( (string) ( $item['tracking_provider'] ?? $item['custom_tracking_provider'] ?? '' ) );
-			$tracking_num   = isset( $item['tracking_number'] ) ? (string) $item['tracking_number'] : '';
-
-			if ( ! empty( $item['formatted_tracking_link'] ) ) {
-				$links[] = (string) $item['formatted_tracking_link'];
-			} elseif ( ! empty( $item['custom_tracking_link'] ) ) {
-				$links[] = (string) $item['custom_tracking_link'];
-			} elseif ( '' !== $tracking_num && $this->is_auspost_provider( $provider ) ) {
-				$links[] = 'https://auspost.com.au/mypost/track/#/details/' . rawurlencode( $tracking_num );
-			}
-		}
-
-		return array_values( array_unique( array_filter( $links ) ) );
+		return CK_OWS_Tracking_Helpers::extract_tracking_links( $order );
 	}
 
 	private function is_auspost_provider( string $provider ): bool {
-		if ( '' === $provider ) {
-			return false;
-		}
-
-		$provider = strtolower( $provider );
-
-		return false !== strpos( $provider, 'australia post' ) || false !== strpos( $provider, 'auspost' );
+		return CK_OWS_Tracking_Helpers::is_auspost_provider( $provider );
 	}
 
 	private function looks_like_auspost_tracking_number( string $tracking_number ): bool {
@@ -925,180 +917,34 @@ class CK_OWS_Tracking {
 	}
 
 	private function extract_tracking_events_from_article( array $article ): array {
-		$event_keys = array( 'events', 'tracking_events', 'article_events', 'tracking_details' );
-
-		foreach ( $event_keys as $key ) {
-			if ( isset( $article[ $key ] ) && is_array( $article[ $key ] ) ) {
-				$events = $this->normalize_tracking_events( $article[ $key ] );
-				if ( ! empty( $events ) ) {
-					return $events;
-				}
-			}
-		}
-
-		return $this->collect_tracking_events_from_node( $article );
+		return CK_OWS_Tracking_Helpers::extract_tracking_events_from_article( $article );
 	}
 
 	private function normalize_tracking_events( array $events ): array {
-		$normalized = array();
-
-		foreach ( $events as $event ) {
-			if ( ! is_array( $event ) ) {
-				continue;
-			}
-
-			if ( $this->looks_like_tracking_event( $event ) ) {
-				$normalized[] = $event;
-				continue;
-			}
-
-			$nested = $this->collect_tracking_events_from_node( $event, 0 );
-			if ( ! empty( $nested ) ) {
-				$normalized = array_merge( $normalized, $nested );
-			}
-		}
-
-		return $normalized;
+		return CK_OWS_Tracking_Helpers::normalize_tracking_events( $events );
 	}
 
 	private function collect_tracking_events_from_node( $node, int $depth = 0 ): array {
-		if ( $depth > 5 || ! is_array( $node ) ) {
-			return array();
-		}
-
-		if ( $this->looks_like_tracking_event( $node ) ) {
-			return array( $node );
-		}
-
-		$events = array();
-		foreach ( $node as $child ) {
-			if ( ! is_array( $child ) ) {
-				continue;
-			}
-
-			$events = array_merge( $events, $this->collect_tracking_events_from_node( $child, $depth + 1 ) );
-		}
-
-		return $events;
+		return CK_OWS_Tracking_Helpers::collect_tracking_events_from_node( $node, $depth );
 	}
 
 	private function looks_like_tracking_event( array $event ): bool {
-		$description = trim(
-			implode(
-				' ',
-				array(
-					(string) ( $event['description'] ?? '' ),
-					(string) ( $event['event_description'] ?? '' ),
-					(string) ( $event['event'] ?? '' ),
-					(string) ( $event['status'] ?? '' ),
-					(string) ( $event['summary'] ?? '' ),
-					(string) ( $event['title'] ?? '' ),
-				)
-			)
-		);
-		$date = trim( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? $event['time'] ?? $event['timestamp'] ?? '' ) );
-
-		return '' !== $description && '' !== $date;
+		return CK_OWS_Tracking_Helpers::looks_like_tracking_event( $event );
 	}
 
 	private function resolve_latest_tracking_event( array $events ): array {
-		$latest_event = array();
-		$latest_ts    = 0;
-		$has_valid_ts = false;
-
-		foreach ( $events as $event ) {
-			if ( ! is_array( $event ) ) {
-				continue;
-			}
-
-			$event_ts = strtotime( (string) ( $event['date'] ?? $event['event_time'] ?? $event['datetime'] ?? $event['time'] ?? $event['timestamp'] ?? '' ) );
-			$event_ts = false === $event_ts ? 0 : (int) $event_ts;
-			if ( $event_ts > 0 ) {
-				$has_valid_ts = true;
-			}
-
-			if ( $event_ts > $latest_ts ) {
-				$latest_ts    = $event_ts;
-				$latest_event = $event;
-			}
-		}
-
-		if ( $has_valid_ts && ! empty( $latest_event ) ) {
-			return $latest_event;
-		}
-
-		$first = $events[0] ?? array();
-
-		return is_array( $first ) ? $first : array();
+		return CK_OWS_Tracking_Helpers::resolve_latest_event( $events );
 	}
 
 	private function contains_delivered_event( array $events ): bool {
-		foreach ( $events as $event ) {
-			if ( ! is_array( $event ) ) {
-				continue;
-			}
-
-			$haystack = strtolower(
-				trim(
-					implode(
-						' ',
-						array(
-							(string) ( $event['description'] ?? '' ),
-							(string) ( $event['event_description'] ?? '' ),
-							(string) ( $event['event'] ?? '' ),
-							(string) ( $event['status'] ?? '' ),
-							(string) ( $event['summary'] ?? '' ),
-							(string) ( $event['title'] ?? '' ),
-							(string) ( $event['event_type'] ?? '' ),
-							(string) ( $event['code'] ?? '' ),
-						)
-					)
-				)
-			);
-
-			if ( '' === $haystack ) {
-				continue;
-			}
-
-			foreach ( array( 'delivered', 'delivery complete', 'proof of delivery', 'item delivered', 'successfully delivered', 'collected by customer', 'awaiting collection', 'left in a safe place' ) as $needle ) {
-				if ( false !== strpos( $haystack, $needle ) ) {
-					return true;
-				}
-			}
-		}
-
-		return false;
+		return CK_OWS_Tracking_Helpers::contains_delivered_event( $events );
 	}
 
 	private function sort_tracking_events_newest_first( array $events ): array {
-		usort(
-			$events,
-			static function ( $a, $b ): int {
-				$a_time = is_array( $a ) ? strtotime( (string) ( $a['date'] ?? $a['event_time'] ?? $a['datetime'] ?? $a['time'] ?? $a['timestamp'] ?? '' ) ) : false;
-				$b_time = is_array( $b ) ? strtotime( (string) ( $b['date'] ?? $b['event_time'] ?? $b['datetime'] ?? $b['time'] ?? $b['timestamp'] ?? '' ) ) : false;
-
-				$a_ts = false === $a_time ? 0 : (int) $a_time;
-				$b_ts = false === $b_time ? 0 : (int) $b_time;
-
-				return $b_ts <=> $a_ts;
-			}
-		);
-
-		return $events;
+		return CK_OWS_Tracking_Helpers::sort_events_newest_first( $events );
 	}
 
 	private function format_tracking_datetime( string $value ): string {
-		$value = trim( $value );
-
-		if ( '' === $value ) {
-			return '';
-		}
-
-		$timestamp = strtotime( $value );
-		if ( false === $timestamp ) {
-			return $value;
-		}
-
-		return wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $timestamp );
+		return CK_OWS_Tracking_Helpers::format_tracking_datetime( $value );
 	}
 }
