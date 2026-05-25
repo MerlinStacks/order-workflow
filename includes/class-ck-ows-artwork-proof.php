@@ -936,7 +936,8 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 	}
 
 	private function append_change_request_history( WC_Order $order, array $entry ): void {
-		$history   = self::get_change_request_history( $order );
+		$stored_history = $order->get_meta( self::META_CHANGES_REQUEST_HISTORY, true );
+		$history        = is_array( $stored_history ) ? $stored_history : array();
 		$message   = isset( $entry['message'] ) ? sanitize_textarea_field( (string) $entry['message'] ) : '';
 		$history[] = array(
 			'requested_at' => isset( $entry['requested_at'] ) ? absint( $entry['requested_at'] ) : time(),
