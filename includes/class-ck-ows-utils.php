@@ -164,4 +164,25 @@ class CK_OWS_Utils {
 	public static function is_http_success( int $code ): bool {
 		return $code >= 200 && $code < 300;
 	}
+
+	public static function is_click_and_collect_order( WC_Order $order ): bool {
+		foreach ( $order->get_items( 'shipping' ) as $shipping_item ) {
+			if ( ! $shipping_item instanceof WC_Order_Item_Shipping ) {
+				continue;
+			}
+
+			$method_id    = strtolower( trim( (string) $shipping_item->get_method_id() ) );
+			$method_title = strtolower( trim( (string) $shipping_item->get_method_title() ) );
+			$instance_id  = strtolower( trim( (string) $shipping_item->get_instance_id() ) );
+			$haystack     = trim( $method_id . ' ' . $method_title . ' ' . $instance_id );
+
+			foreach ( array( 'local_pickup', 'click and collect', 'click & collect', 'click_collect', 'click-and-collect', 'collection' ) as $needle ) {
+				if ( false !== strpos( $haystack, $needle ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
 }

@@ -58,7 +58,8 @@ class CK_OWS_Order_Timeline extends CK_OWS_Base {
 
 		ob_start();
 
-		$has_artwork_stage = class_exists( 'CK_OWS_Artwork_Proof' ) && CK_OWS_Artwork_Proof::order_has_artwork_proof( $order );
+		$has_artwork_stage   = class_exists( 'CK_OWS_Artwork_Proof' ) && CK_OWS_Artwork_Proof::order_has_artwork_proof( $order );
+		$is_click_and_collect = CK_OWS_Utils::is_click_and_collect_order( $order );
 
 		$stages = array(
 			array(
@@ -89,7 +90,7 @@ class CK_OWS_Order_Timeline extends CK_OWS_Base {
 
 		$stages[] = array(
 			'key'   => 'completed',
-			'label' => __( 'Dispatched', 'ck-order-workflow-suite' ),
+			'label' => $is_click_and_collect ? __( 'Ready for Collection', 'ck-order-workflow-suite' ) : __( 'Dispatched', 'ck-order-workflow-suite' ),
 			'ts'    => (int) $order->get_meta( self::META_TS_DELIVERED, true ),
 		);
 

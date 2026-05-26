@@ -38,6 +38,7 @@ class CK_OWS_Shortcodes extends CK_OWS_Base {
 		}
 
 		$status = (string) $order->get_status();
+		$is_click_and_collect = CK_OWS_Utils::is_click_and_collect_order( $order );
 		$eta_html = '';
 
 		if ( class_exists( 'CK_OWS_Tracking' ) ) {
@@ -54,10 +55,18 @@ class CK_OWS_Shortcodes extends CK_OWS_Base {
 		}
 
 		if ( 'in-production' === $status ) {
+			if ( $is_click_and_collect ) {
+				return '<p class="woocommerce-info">' . esc_html__( 'Your order is now in production. Keep an eye on it, it will be ready for collection soon.', 'ck-order-workflow-suite' ) . '</p>' . $eta_html;
+			}
+
 			return '<p class="woocommerce-info">' . esc_html__( 'Your order is now in production. Keep an eye on it, it will be dispatched soon.', 'ck-order-workflow-suite' ) . '</p>' . $eta_html;
 		}
 
 		if ( 'in-dispatch' === $status ) {
+			if ( $is_click_and_collect ) {
+				return '<p class="woocommerce-info">' . esc_html__( 'We are completing final quality checks and getting your order ready for collection now.', 'ck-order-workflow-suite' ) . '</p>' . $eta_html;
+			}
+
 			return '<p class="woocommerce-info">' . esc_html__( 'We are completing final quality checks and dispatching your order now.', 'ck-order-workflow-suite' ) . '</p>' . $eta_html;
 		}
 
@@ -70,6 +79,10 @@ class CK_OWS_Shortcodes extends CK_OWS_Base {
 			$timeline_markup = CK_OWS_Order_Timeline::instance()->get_timeline_markup( $order, true );
 
 			if ( '' === $timeline_markup ) {
+				if ( $is_click_and_collect ) {
+					return '<p class="woocommerce-info">' . esc_html__( 'Your order is ready for collection.', 'ck-order-workflow-suite' ) . '</p>';
+				}
+
 				return '<p class="woocommerce-info">' . esc_html__( 'Your order has been completed. Tracking information will appear shortly.', 'ck-order-workflow-suite' ) . '</p>';
 			}
 
@@ -88,13 +101,17 @@ class CK_OWS_Shortcodes extends CK_OWS_Base {
 		}
 
 		if ( empty( $tracking_items ) ) {
+			if ( $is_click_and_collect ) {
+				return '<p class="woocommerce-info">' . esc_html__( 'Your order has been received. Collection details will be added once your order is ready.', 'ck-order-workflow-suite' ) . '</p>';
+			}
+
 			return '<p class="woocommerce-info">' . esc_html__( 'Your order has been received. Tracking information will be added once your order has been shipped.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
 		ob_start();
 		echo '<div class="woocommerce-shipment-tracking-container">';
-		echo '<h2>' . esc_html__( 'Track Your Shipment', 'ck-order-workflow-suite' ) . '</h2>';
-		echo '<p>' . esc_html__( 'Tracking details for your order are below. It may take up to 24 hours for the carrier to update the information.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<h2>' . esc_html( $is_click_and_collect ? __( 'Collection Details', 'ck-order-workflow-suite' ) : __( 'Track Your Shipment', 'ck-order-workflow-suite' ) ) . '</h2>';
+		echo '<p>' . esc_html( $is_click_and_collect ? __( 'Collection details for your order are below.', 'ck-order-workflow-suite' ) : __( 'Tracking details for your order are below. It may take up to 24 hours for the carrier to update the information.', 'ck-order-workflow-suite' ) ) . '</p>';
 
 		foreach ( $tracking_items as $item ) {
 			$provider = isset( $item['custom_tracking_provider'] ) && '' !== $item['custom_tracking_provider']
@@ -105,15 +122,28 @@ class CK_OWS_Shortcodes extends CK_OWS_Base {
 
 			echo '<div class="tracking-item">';
 			echo '<p>';
-			echo esc_html(
-				sprintf(
-					/* translators: 1: ship date, 2: carrier, 3: tracking number */
-					__( 'Shipped on %1$s via %2$s with tracking number: %3$s', 'ck-order-workflow-suite' ),
-					$shipped,
-					$provider ?: __( 'Carrier', 'ck-order-workflow-suite' ),
-					$number ?: __( 'N/A', 'ck-order-workflow-suite' )
-				)
-			);
+
+			if ( $is_click_and_collect ) {
+				echo esc_html(
+					sprintf(
+						/* translators: 1: ready for collection date, 2: reference number */
+						__( 'Ready for collection on %1$s. Reference: %2$s', 'ck-order-workflow-suite' ),
+						$shipped,
+						$number ?: __( 'N/A', 'ck-order-workflow-suite' )
+					)
+				);
+			} else {
+				echo esc_html(
+					sprintf(
+						/* translators: 1: ship date, 2: carrier, 3: tracking number */
+						__( 'Shipped on %1$s via %2$s with tracking number: %3$s', 'ck-order-workflow-suite' ),
+						$shipped,
+						$provider ?: __( 'Carrier', 'ck-order-workflow-suite' ),
+						$number ?: __( 'N/A', 'ck-order-workflow-suite' )
+					)
+				);
+			}
+
 			echo '</p>';
 
 			$tracking_url = '';
@@ -124,7 +154,7 @@ class CK_OWS_Shortcodes extends CK_OWS_Base {
 			}
 
 			if ( '' !== $tracking_url ) {
-				echo '<a href="' . esc_url( $tracking_url ) . '" target="_blank" rel="noopener noreferrer" class="button track-button">' . esc_html__( 'Track Shipment', 'ck-order-workflow-suite' ) . '</a>';
+				echo '<a href="' . esc_url( $tracking_url ) . '" target="_blank" rel="noopener noreferrer" class="button track-button">' . esc_html( $is_click_and_collect ? __( 'View Collection Details', 'ck-order-workflow-suite' ) : __( 'Track Shipment', 'ck-order-workflow-suite' ) ) . '</a>';
 			}
 
 			echo '</div>';
