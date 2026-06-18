@@ -15,10 +15,12 @@ class CK_OWS_Registration_Guard extends CK_OWS_Base {
 	private const OPTION_LOG  = 'ckrg_block_log';
 
 	protected function __construct() {
+		add_action( 'woocommerce_register_form', array( $this, 'render_account_registration_fields' ), 9 );
 		add_action( 'woocommerce_register_form', array( $this, 'inject_fields' ) );
 		add_action( 'register_form', array( $this, 'inject_fields' ) );
 		add_filter( 'woocommerce_process_registration_errors', array( $this, 'validate_registration' ), 10, 4 );
 		add_filter( 'registration_errors', array( $this, 'validate_wp_registration' ), 10, 3 );
+		add_action( 'woocommerce_created_customer', array( $this, 'save_account_registration_fields' ) );
 
 		add_action( 'admin_menu', array( $this, 'register_admin_page' ), 99 );
 		add_action( 'admin_init', array( $this, 'redirect_legacy_admin_path' ) );
@@ -54,14 +56,86 @@ class CK_OWS_Registration_Guard extends CK_OWS_Base {
 		echo '<input type="hidden" name="ck_reg_ts_token" value="' . esc_attr( $token ) . '">';
 	}
 
+	public function render_account_registration_fields(): void {
+		$first_name = $this->get_posted_value( 'billing_first_name' );
+		$last_name  = $this->get_posted_value( 'billing_last_name' );
+		$phone      = $this->get_posted_value( 'billing_phone' );
+
+		echo '<input type="hidden" name="ck_ows_account_registration" value="1">';
+		echo '<p class="woocommerce-form-row woocommerce-form-row--first form-row form-row-first">';
+		echo '<label for="reg_billing_first_name">' . esc_html__( 'First name', 'ck-order-workflow-suite' ) . '&nbsp;<span class="required" aria-hidden="true">*</span><span class="screen-reader-text">' . esc_html__( 'Required', 'woocommerce' ) . '</span></label>';
+		echo '<input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="billing_first_name" id="reg_billing_first_name" autocomplete="given-name" value="' . esc_attr( $first_name ) . '" required aria-required="true">';
+		echo '</p>';
+		echo '<p class="woocommerce-form-row woocommerce-form-row--last form-row form-row-last">';
+		echo '<label for="reg_billing_last_name">' . esc_html__( 'Last name', 'ck-order-workflow-suite' ) . '&nbsp;<span class="required" aria-hidden="true">*</span><span class="screen-reader-text">' . esc_html__( 'Required', 'woocommerce' ) . '</span></label>';
+		echo '<input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="billing_last_name" id="reg_billing_last_name" autocomplete="family-name" value="' . esc_attr( $last_name ) . '" required aria-required="true">';
+		echo '</p>';
+		echo '<p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">';
+		echo '<label for="reg_billing_phone">' . esc_html__( 'Mobile number', 'ck-order-workflow-suite' ) . '&nbsp;<span class="required" aria-hidden="true">*</span><span class="screen-reader-text">' . esc_html__( 'Required', 'woocommerce' ) . '</span></label>';
+		echo '<input type="tel" class="woocommerce-Input woocommerce-Input--text input-text" name="billing_phone" id="reg_billing_phone" autocomplete="tel" value="' . esc_attr( $phone ) . '" required aria-required="true">';
+		echo '</p><div class="clear"></div>';
+	}
+
 	public function validate_registration( WP_Error $errors, string $username, string $password, string $email ): WP_Error {
 		unset( $password );
+
+		if ( $this->is_account_registration_submission() ) {
+			$first_name = $this->get_posted_value( 'billing_first_name' );
+			$last_name  = $this->get_posted_value( 'billing_last_name' );
+			$phone      = $this->get_posted_value( 'billing_phone' );
+
+			if ( '' === $first_name ) {
+				$errors->add( 'billing_first_name_required', __( 'Please enter your first name.', 'ck-order-workflow-suite' ) );
+			}
+
+			if ( '' === $last_name ) {
+				$errors->add( 'billing_last_name_required', __( 'Please enter your last name.', 'ck-order-workflow-suite' ) );
+			}
+
+			if ( '' === $phone ) {
+				$errors->add( 'billing_phone_required', __( 'Please enter your mobile number.', 'ck-order-workflow-suite' ) );
+			}
+		}
 
 		return $this->validate_registration_attempt( $errors, $username, $email );
 	}
 
 	public function validate_wp_registration( WP_Error $errors, string $username, string $email ): WP_Error {
 		return $this->validate_registration_attempt( $errors, $username, $email );
+	}
+
+	public function save_account_registration_fields( int $customer_id ): void {
+		if ( ! $this->is_account_registration_submission() ) {
+			return;
+		}
+
+		$first_name = $this->get_posted_value( 'billing_first_name' );
+		$last_name  = $this->get_posted_value( 'billing_last_name' );
+		$phone      = $this->get_posted_value( 'billing_phone' );
+
+		update_user_meta( $customer_id, 'first_name', $first_name );
+		update_user_meta( $customer_id, 'last_name', $last_name );
+		update_user_meta( $customer_id, 'billing_first_name', $first_name );
+		update_user_meta( $customer_id, 'billing_last_name', $last_name );
+		update_user_meta( $customer_id, 'billing_phone', $phone );
+	}
+
+	private function is_account_registration_submission(): bool {
+		return '1' === $this->get_posted_value( 'ck_ows_account_registration' );
+	}
+
+	private function get_posted_value( string $key ): string {
+		if ( ! isset( $_POST[ $key ] ) ) {
+			return '';
+		}
+
+		$value = sanitize_text_field( wp_unslash( $_POST[ $key ] ) );
+
+		if ( 'billing_phone' === $key && function_exists( 'wc_sanitize_phone_number' ) ) {
+			$value = wc_sanitize_phone_number( $value );
+		}
+
+		return trim( $value );
 	}
 
 	private function validate_registration_attempt( WP_Error $errors, string $username, string $email ): WP_Error {

@@ -44,6 +44,7 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		add_filter( 'manage_woocommerce_page_wc-orders_columns', array( $this, 'add_artwork_state_order_column' ), 20 );
 		add_action( 'manage_woocommerce_page_wc-orders_custom_column', array( $this, 'render_artwork_state_order_column_hpos' ), 20, 2 );
 
+		add_action( 'woocommerce_before_account_navigation', array( $this, 'render_pending_approval_banner' ), 5 );
 		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_customer_panel' ), 30 );
 		add_action( 'admin_post_ck_ows_artwork_action', array( $this, 'handle_customer_action' ) );
 
@@ -139,6 +140,12 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		$state = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
 
 		return self::STATE_APPROVED === $state;
+	}
+
+	public static function order_is_awaiting_customer_approval( WC_Order $order ): bool {
+		$state = (string) $order->get_meta( self::META_APPROVAL_STATE, true );
+
+		return self::STATE_PENDING === $state && self::order_has_artwork_proof( $order );
 	}
 
 	public static function order_has_staff_override( WC_Order $order ): bool {
@@ -588,6 +595,53 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		echo '</div>';
 		echo '</form>';
 		echo '</section>';
+	}
+
+	public function render_pending_approval_banner(): void {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		$orders = wc_get_orders(
+			array(
+				'customer_id' => get_current_user_id(),
+				'limit'       => 25,
+				'orderby'     => 'date',
+				'order'       => 'DESC',
+				'return'      => 'objects',
+			)
+		);
+
+		$pending_orders = array();
+		foreach ( $orders as $order ) {
+			if ( ! $order instanceof WC_Order || ! self::order_is_awaiting_customer_approval( $order ) ) {
+				continue;
+			}
+
+			$pending_orders[] = $order;
+		}
+
+		if ( empty( $pending_orders ) ) {
+			return;
+		}
+
+		$order       = $pending_orders[0];
+		$proof_count = count( $pending_orders );
+
+		echo '<div class="ck-ows-artwork-approval-banner" role="status">';
+		echo '<div class="ck-ows-artwork-approval-banner__content">';
+		echo '<strong>' . esc_html__( 'Artwork proof awaiting approval', 'ck-order-workflow-suite' ) . '</strong>';
+
+		if ( $proof_count > 1 ) {
+			/* translators: %d: number of orders awaiting artwork proof approval. */
+			echo '<span>' . esc_html( sprintf( __( 'You have %d orders with artwork proofs ready to review.', 'ck-order-workflow-suite' ), $proof_count ) ) . '</span>';
+		} else {
+			echo '<span>' . esc_html__( 'Your artwork proof is ready. Please review it before production begins.', 'ck-order-workflow-suite' ) . '</span>';
+		}
+
+		echo '</div>';
+		echo '<a class="button ck-ows-artwork-approval-banner__button" href="' . esc_url( $order->get_view_order_url() ) . '">' . esc_html__( 'Review proof', 'ck-order-workflow-suite' ) . '</a>';
+		echo '</div>';
 	}
 
 	public function handle_customer_action(): void {

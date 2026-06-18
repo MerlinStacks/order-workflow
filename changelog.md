@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.11 - 2026-06-18
+
+### Changed
+
+- Moved account navigation and tracking dedupe CSS from inline PHP into the account stylesheet.
+
 ## 0.1.9 - 2026-05-17
 
 ### Fixed
