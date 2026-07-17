@@ -78,6 +78,7 @@ class CK_OWS_Plugin {
 		add_filter( 'woocommerce_process_registration_errors', array( $this, 'validate_woocommerce_registration' ), 10, 4 );
 		add_filter( 'registration_errors', array( $this, 'validate_wordpress_registration' ), 10, 3 );
 		add_action( 'woocommerce_created_customer', array( $this, 'save_account_registration_fields' ) );
+		add_filter( 'woocommerce_get_query_vars', array( $this, 'add_account_query_vars' ) );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_account_menu_items' ), 99 );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'filter_account_menu_items' ), 1000 );
 
@@ -267,6 +268,14 @@ class CK_OWS_Plugin {
 		add_rewrite_endpoint( 'invoices', EP_ROOT | EP_PAGES );
 		add_rewrite_endpoint( 'security', EP_ROOT | EP_PAGES );
 		add_rewrite_endpoint( 'email-preferences', EP_ROOT | EP_PAGES );
+	}
+
+	public function add_account_query_vars( array $query_vars ): array {
+		$query_vars['invoices']          = 'invoices';
+		$query_vars['security']          = 'security';
+		$query_vars['email-preferences'] = 'email-preferences';
+
+		return $query_vars;
 	}
 
 	public function register_shortcodes(): void {
