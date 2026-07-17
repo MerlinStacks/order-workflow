@@ -25,25 +25,35 @@ class CK_OWS_Utils {
 
 		$parts = wp_parse_url( $url );
 
-		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
 			return '';
 		}
 
 		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
 
-		if ( 'https' !== $scheme ) {
+		$is_same_origin = self::is_same_origin_url( $url );
+		if ( 'https' !== $scheme || ( ! $is_same_origin && ! self::is_safe_public_host( (string) $parts['host'] ) ) ) {
 			return '';
 		}
 
+		$host      = self::format_url_host( (string) $parts['host'] );
 		$path      = isset( $parts['path'] ) ? (string) $parts['path'] : '';
 		$query     = isset( $parts['query'] ) ? (string) $parts['query'] : '';
-		$sanitized = 'https://' . $parts['host'] . $path;
+		$sanitized = 'https://' . $host;
+
+		if ( isset( $parts['port'] ) && (int) $parts['port'] > 0 ) {
+			$sanitized .= ':' . (int) $parts['port'];
+		}
+
+		$sanitized .= $path;
 
 		if ( '' !== $query ) {
 			$sanitized .= '?' . $query;
 		}
 
-		return esc_url_raw( $sanitized );
+		$sanitized = esc_url_raw( $sanitized, array( 'https' ) );
+
+		return '' !== $sanitized && ( $is_same_origin || wp_http_validate_url( $sanitized ) ) ? $sanitized : '';
 	}
 
 	public static function sanitize_https_base_url( string $url ): string {
@@ -66,11 +76,12 @@ class CK_OWS_Utils {
 
 		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
 
-		if ( 'https' !== $scheme || empty( $parts['host'] ) ) {
+		$is_same_origin = self::is_same_origin_url( $url );
+		if ( 'https' !== $scheme || empty( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || ( ! $is_same_origin && ! self::is_safe_public_host( (string) $parts['host'] ) ) ) {
 			return '';
 		}
 
-		$sanitized = 'https://' . $parts['host'];
+		$sanitized = 'https://' . self::format_url_host( (string) $parts['host'] );
 
 		if ( isset( $parts['port'] ) && (int) $parts['port'] > 0 ) {
 			$sanitized .= ':' . (int) $parts['port'];
@@ -80,7 +91,50 @@ class CK_OWS_Utils {
 			$sanitized .= (string) $parts['path'];
 		}
 
-		return esc_url_raw( $sanitized );
+		$sanitized = esc_url_raw( $sanitized, array( 'https' ) );
+
+		return '' !== $sanitized && ( $is_same_origin || wp_http_validate_url( $sanitized ) ) ? $sanitized : '';
+	}
+
+	public static function is_same_origin_url( string $url ): bool {
+		$url_host  = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$home_host = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+		$url_port  = wp_parse_url( $url, PHP_URL_PORT );
+		$home_port = wp_parse_url( home_url(), PHP_URL_PORT );
+
+		return '' !== $url_host && $url_host === $home_host && (int) $url_port === (int) $home_port;
+	}
+
+	public static function remote_get( string $url, array $args = array() ) {
+		return self::is_same_origin_url( $url ) ? wp_remote_get( $url, $args ) : wp_safe_remote_get( $url, $args );
+	}
+
+	public static function remote_post( string $url, array $args = array() ) {
+		return self::is_same_origin_url( $url ) ? wp_remote_post( $url, $args ) : wp_safe_remote_post( $url, $args );
+	}
+
+	public static function is_safe_public_host( string $host ): bool {
+		$host = strtolower( rtrim( trim( $host, '[]' ), '.' ) );
+
+		if ( '' === $host || 'localhost' === $host || self::string_ends_with( $host, '.localhost' ) || self::string_ends_with( $host, '.local' ) || self::string_ends_with( $host, '.internal' ) ) {
+			return false;
+		}
+
+		if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
+			return false !== filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+		}
+
+		if ( preg_match( '/^[0-9.]+$/', $host ) || ! preg_match( '/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])$/', $host ) ) {
+			return false;
+		}
+
+		return false !== strpos( $host, '.' );
+	}
+
+	private static function format_url_host( string $host ): string {
+		$host = trim( $host, '[]' );
+
+		return false !== strpos( $host, ':' ) ? '[' . $host . ']' : $host;
 	}
 
 	public static function is_allowed_host( string $host, array $allowed_hosts ): bool {

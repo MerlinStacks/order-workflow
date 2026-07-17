@@ -8,10 +8,6 @@
 defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Address_Quality extends CK_OWS_Base {
-	protected function __construct() {
-		add_action( 'woocommerce_after_save_address_validation', array( $this, 'validate_quality' ), 10, 4 );
-	}
-
 	public function validate_quality( int $user_id, string $load_address, array $address, $customer = null ): void {
 		unset( $user_id, $customer );
 

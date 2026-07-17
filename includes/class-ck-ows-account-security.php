@@ -12,25 +12,7 @@ class CK_OWS_Account_Security extends CK_OWS_Base {
 	private const META_LAST_PASSWORD_TS   = '_ck_ows_last_password_change_ts';
 
 	protected function __construct() {
-		add_action( 'init', array( $this, 'register_endpoint' ) );
-		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ), 99 );
 		add_action( 'woocommerce_account_security_endpoint', array( $this, 'render_endpoint' ) );
-
-		add_action( 'wp_login', array( $this, 'track_login' ), 10, 2 );
-		add_action( 'after_password_reset', array( $this, 'track_password_reset' ), 10, 2 );
-		add_action( 'woocommerce_save_account_details', array( $this, 'track_account_password_change' ), 20, 1 );
-	}
-
-	public function register_endpoint(): void {
-		add_rewrite_endpoint( 'security', EP_ROOT | EP_PAGES );
-	}
-
-	public function add_menu_item( array $items ): array {
-		return CK_OWS_Account_Menu_Helper::insert_before_logout(
-			$items,
-			'security',
-			__( 'Security', 'ck-order-workflow-suite' )
-		);
 	}
 
 	public function track_login( string $user_login, WP_User $user ): void {

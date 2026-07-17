@@ -23,6 +23,32 @@ define( 'CK_OWS_FILE', __FILE__ );
 define( 'CK_OWS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CK_OWS_URL', plugin_dir_url( __FILE__ ) );
 
+register_activation_hook(
+	__FILE__,
+	static function (): void {
+		add_rewrite_endpoint( 'invoices', EP_ROOT | EP_PAGES );
+		add_rewrite_endpoint( 'security', EP_ROOT | EP_PAGES );
+		add_rewrite_endpoint( 'email-preferences', EP_ROOT | EP_PAGES );
+		flush_rewrite_rules();
+	}
+);
+
+register_deactivation_hook(
+	__FILE__,
+	static function (): void {
+		foreach ( array( 'ck_ows_tracking_sync_event', 'ck_ows_tracking_sync_continuation', 'ck_ows_tracking_refresh_order', 'ck_ows_tracking_event_retry', 'ck_ows_artwork_event_retry' ) as $hook ) {
+			wp_clear_scheduled_hook( $hook );
+			if ( function_exists( 'as_unschedule_all_actions' ) ) {
+				as_unschedule_all_actions( $hook );
+			}
+		}
+		delete_option( 'ck_ows_tracking_sync_lock' );
+		delete_option( 'ck_ows_tracking_sync_cursor' );
+		delete_transient( 'ck_ows_tracking_schedule_check' );
+		flush_rewrite_rules();
+	}
+);
+
 add_action(
 	'before_woocommerce_init',
 	static function (): void {

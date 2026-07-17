@@ -33,12 +33,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 
 	private static ?array $settings_cache = null;
 
-	private string $settings_page_hook = '';
-
 	protected function __construct() {
-		add_action( 'admin_menu', array( $this, 'register_admin_page' ) );
-		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_post_ck_ows_run_tracking_sync', array( $this, 'run_tracking_sync_now' ) );
 		add_action( 'admin_post_ck_ows_test_tracking_number', array( $this, 'test_tracking_number' ) );
 		add_action( 'admin_post_ck_ows_test_connections', array( $this, 'test_connections' ) );
@@ -48,7 +43,6 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		add_action( 'admin_post_ck_ows_retry_dead_letter', array( $this, 'retry_dead_letter' ) );
 		add_action( 'admin_post_ck_ows_clear_dead_letters', array( $this, 'clear_dead_letters' ) );
 		add_action( 'admin_post_ck_ows_retry_all_dead_letters', array( $this, 'retry_all_dead_letters' ) );
-		add_filter( 'woocommerce_account_menu_items', array( $this, 'filter_account_menu_items' ), 1000 );
 	}
 
 	public static function get( string $key, $default = '' ) {
@@ -181,42 +175,6 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		}
 
 		return $decoded;
-	}
-
-	public function register_admin_page(): void {
-		$this->settings_page_hook = (string) add_menu_page(
-			esc_html__( 'CK Order Workflow Settings', 'ck-order-workflow-suite' ),
-			esc_html__( 'CK Workflow', 'ck-order-workflow-suite' ),
-			'manage_woocommerce',
-			'ck-ows-settings',
-			array( $this, 'render_settings_page' ),
-			$this->get_menu_icon(),
-			56
-		);
-	}
-
-	public function enqueue_admin_assets( string $hook_suffix ): void {
-		$is_settings_page = '' !== $this->settings_page_hook && $hook_suffix === $this->settings_page_hook;
-		$is_settings_submenu = CK_OWS_Utils::string_ends_with( $hook_suffix, '_page_ck-reg-guard' );
-
-		if ( ! $is_settings_page && ! $is_settings_submenu ) {
-			return;
-		}
-
-		wp_enqueue_style(
-			'ck-ows-admin-ui',
-			CK_OWS_URL . 'assets/css/admin-ui.css',
-			array(),
-			CK_OWS_VERSION
-		);
-
-		wp_enqueue_script(
-			'ck-ows-admin-settings',
-			CK_OWS_URL . 'assets/js/admin-settings.js',
-			array(),
-			CK_OWS_VERSION,
-			true
-		);
 	}
 
 	public function register_settings(): void {
@@ -579,7 +537,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		echo '</div>';
 
 		if ( isset( $_GET['ck_ows_sync_ran'] ) ) {
-			echo '<div class="notice notice-success"><p>' . esc_html__( 'Tracking sync completed. Check order tracking panels for latest data.', 'ck-order-workflow-suite' ) . '</p></div>';
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Tracking sync queued. Updates will run in the background.', 'ck-order-workflow-suite' ) . '</p></div>';
 		}
 
 		if ( isset( $_GET['ck_ows_tested'] ) ) {
@@ -658,7 +616,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		check_admin_referer( self::TRACKING_SYNC_NONCE, self::TRACKING_SYNC_NONCE_FIELD );
 
 		if ( class_exists( 'CK_OWS_Tracking' ) ) {
-			CK_OWS_Tracking::instance()->sync_tracking_data();
+			CK_OWS_Tracking::instance()->queue_tracking_sync();
 		}
 
 		$redirect = add_query_arg(
@@ -779,7 +737,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 	}
 
 	public function export_settings(): void {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
 		}
 
@@ -804,7 +762,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 	}
 
 	public function import_settings(): void {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'ck-order-workflow-suite' ) );
 		}
 
@@ -861,7 +819,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		$attempt   = 1;
 
 		if ( $order_id > 0 && ! empty( $event ) ) {
-			wp_schedule_single_event(
+			$scheduled = wp_schedule_single_event(
 				time() + 5,
 				'ck_ows_tracking_event_retry',
 				array(
@@ -873,10 +831,12 @@ class CK_OWS_Settings extends CK_OWS_Base {
 				)
 			);
 
-			unset( $rows[ $index ] );
-			$rows = array_values( $rows );
-			update_option( 'ck_ows_tracking_event_dead_letters', $rows, false );
-			CK_OWS_Audit::log_system_event( 'dead_letter_retried', array( 'order_id' => $order_id ) );
+			if ( $scheduled ) {
+				unset( $rows[ $index ] );
+				$rows = array_values( $rows );
+				update_option( 'ck_ows_tracking_event_dead_letters', $rows, false );
+				CK_OWS_Audit::log_system_event( 'dead_letter_retried', array( 'order_id' => $order_id ) );
+			}
 		}
 
 		$redirect = add_query_arg(
@@ -924,8 +884,10 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		$rows = is_array( $rows ) ? array_values( $rows ) : array();
 		$queued = 0;
 
+		$remaining = array();
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) ) {
+				$remaining[] = $row;
 				continue;
 			}
 
@@ -933,10 +895,11 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			$event    = isset( $row['event'] ) && is_array( $row['event'] ) ? $row['event'] : array();
 
 			if ( $order_id <= 0 || empty( $event ) ) {
+				$remaining[] = $row;
 				continue;
 			}
 
-			wp_schedule_single_event(
+			$scheduled = wp_schedule_single_event(
 				time() + 5,
 				'ck_ows_tracking_event_retry',
 				array(
@@ -948,10 +911,14 @@ class CK_OWS_Settings extends CK_OWS_Base {
 				)
 			);
 
-			$queued++;
+			if ( $scheduled ) {
+				$queued++;
+			} else {
+				$remaining[] = $row;
+			}
 		}
 
-		delete_option( 'ck_ows_tracking_event_dead_letters' );
+		update_option( 'ck_ows_tracking_event_dead_letters', $remaining, false );
 		CK_OWS_Audit::log_system_event( 'dead_letters_retried_all', array( 'queued' => $queued ) );
 
 		$redirect = add_query_arg(
@@ -964,58 +931,6 @@ class CK_OWS_Settings extends CK_OWS_Base {
 
 		wp_safe_redirect( $redirect );
 		exit;
-	}
-
-	public function filter_account_menu_items( array $items ): array {
-		$visibility_to_endpoint = array(
-			'show_account_dashboard_tab'         => array(
-				'endpoint'   => 'dashboard',
-				'legacy_key' => 'hide_account_dashboard_tab',
-			),
-			'show_account_orders_tab'            => array(
-				'endpoint'   => 'orders',
-				'legacy_key' => 'hide_account_orders_tab',
-			),
-			'show_account_downloads_tab'         => array(
-				'endpoint'   => 'downloads',
-				'legacy_key' => 'hide_account_downloads_tab',
-			),
-			'show_account_addresses_tab'         => array(
-				'endpoint'   => 'edit-address',
-				'legacy_key' => 'hide_account_addresses_tab',
-			),
-			'show_account_details_tab'           => array(
-				'endpoint'   => 'edit-account',
-				'legacy_key' => 'hide_account_details_tab',
-			),
-			'show_account_invoices_tab'          => array(
-				'endpoint'   => 'invoices',
-				'legacy_key' => 'hide_account_invoices_tab',
-			),
-			'show_account_security_tab'          => array(
-				'endpoint'   => 'security',
-				'legacy_key' => 'hide_account_security_tab',
-			),
-			'show_account_email_preferences_tab' => array(
-				'endpoint'   => 'email-preferences',
-				'legacy_key' => 'hide_account_email_preferences_tab',
-			),
-			'show_account_logout_tab'            => array(
-				'endpoint'   => 'customer-logout',
-				'legacy_key' => 'hide_account_logout_tab',
-			),
-		);
-
-		foreach ( $visibility_to_endpoint as $show_key => $config ) {
-			$endpoint_key = (string) $config['endpoint'];
-			$legacy_key   = (string) $config['legacy_key'];
-
-			if ( ! $this->is_account_tab_visible( $show_key, $legacy_key ) ) {
-				unset( $items[ $endpoint_key ] );
-			}
-		}
-
-		return $items;
 	}
 
 	private function register_field( string $key, string $label, string $type, string $section = 'ck_ows_tracking_section' ): void {
@@ -1258,7 +1173,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			return false;
 		}
 
-		return '1' === (string) $input[ $key ];
+		return in_array( strtolower( trim( (string) $input[ $key ] ) ), array( '1', 'yes', 'true', 'on' ), true );
 	}
 
 	private function sanitize_sensitive_setting( array $input, array $current, string $key ): string {
@@ -1272,28 +1187,14 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			return isset( $current[ $key ] ) ? (string) $current[ $key ] : '';
 		}
 
-		return $this->encrypt_sensitive_value( $value );
-	}
-
-	private function is_account_tab_visible( string $show_key, string $legacy_hide_key ): bool {
-		$options = get_option( self::OPTION_KEY, array() );
-		$options = is_array( $options ) ? $options : array();
-
-		if ( array_key_exists( $show_key, $options ) ) {
-			return 'yes' === (string) $options[ $show_key ];
+		$encrypted = $this->encrypt_sensitive_value( $value );
+		if ( '' !== $encrypted ) {
+			return $encrypted;
 		}
 
-		if ( array_key_exists( $legacy_hide_key, $options ) ) {
-			return 'yes' !== (string) $options[ $legacy_hide_key ];
-		}
+		add_settings_error( self::OPTION_KEY, 'ck_ows_encryption_failed_' . $key, esc_html__( 'A sensitive value was not changed because secure encryption is unavailable.', 'ck-order-workflow-suite' ), 'error' );
 
-		return true;
-	}
-
-	private function get_menu_icon(): string {
-		$svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"><path d="M3 6.25h14M3 10h14M3 13.75h9" stroke="black" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.2" cy="13.75" r="2.2" fill="black"/></svg>';
-
-		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+		return isset( $current[ $key ] ) ? (string) $current[ $key ] : '';
 	}
 
 	private function sanitize_https_base_url( string $url ): string {
@@ -1612,7 +1513,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			}
 			$request_url = $base_url . '/accounts/' . rawurlencode( $account_number );
 
-			$response = wp_remote_get(
+			$response = CK_OWS_Utils::remote_get(
 				$request_url,
 				array(
 					'timeout' => 10,
@@ -1628,7 +1529,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			}
 			$request_url = 'https://digitalapi.auspost.com.au/postcode/search.json?q=2000';
 
-			$response = wp_remote_get(
+			$response = CK_OWS_Utils::remote_get(
 				$request_url,
 				array(
 					'timeout' => 10,
@@ -1667,7 +1568,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			$headers['Authorization'] = 'Bearer ' . $token;
 		}
 
-		$response = wp_remote_post(
+		$response = CK_OWS_Utils::remote_post(
 			$url,
 			array(
 				'timeout' => 8,
@@ -1735,8 +1636,15 @@ class CK_OWS_Settings extends CK_OWS_Base {
 				'source_version' => CK_OWS_VERSION,
 			),
 		);
+		$account_id = trim( (string) self::get( 'email_preferences_account_id', '' ) );
+		if ( '' === $account_id ) {
+			$account_id = trim( (string) get_option( 'overseek_account_id', '' ) );
+		}
+		if ( '' !== $account_id ) {
+			$body['account_id'] = $account_id;
+		}
 
-		$response = wp_remote_post(
+		$response = CK_OWS_Utils::remote_post(
 			$url,
 			array(
 				'timeout' => 8,
@@ -1807,7 +1715,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			$headers['Authorization'] = 'Bearer ' . $token;
 		}
 
-		$response = wp_remote_get(
+		$response = CK_OWS_Utils::remote_get(
 			$health_url,
 			array(
 				'timeout' => 5,
@@ -1948,12 +1856,12 @@ class CK_OWS_Settings extends CK_OWS_Base {
 
 		if ( function_exists( 'wc_get_logger' ) ) {
 			wc_get_logger()->warning(
-				'Sensitive setting encryption failed; value was saved in plain text.',
+				'Sensitive setting encryption failed; value was not saved.',
 				array( 'source' => 'ck-order-workflow-suite' )
 			);
 		}
 
-		return $value;
+		return '';
 	}
 
 	private static function decrypt_sensitive_value( string $value ): string {

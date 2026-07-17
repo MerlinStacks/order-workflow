@@ -9,22 +9,12 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Registration_Guard extends CK_OWS_Base {
 	private const MIN_SECONDS = 3;
+	private const TOKEN_TTL   = 30 * MINUTE_IN_SECONDS;
 	private const IP_LIMIT    = 5;
-	private const LOG_MAX     = 200;
-	private const LOG_TTL     = 90 * DAY_IN_SECONDS;
-	private const OPTION_LOG  = 'ckrg_block_log';
-
-	protected function __construct() {
-		add_action( 'woocommerce_register_form', array( $this, 'render_account_registration_fields' ), 9 );
-		add_action( 'woocommerce_register_form', array( $this, 'inject_fields' ) );
-		add_action( 'register_form', array( $this, 'inject_fields' ) );
-		add_filter( 'woocommerce_process_registration_errors', array( $this, 'validate_registration' ), 10, 4 );
-		add_filter( 'registration_errors', array( $this, 'validate_wp_registration' ), 10, 3 );
-		add_action( 'woocommerce_created_customer', array( $this, 'save_account_registration_fields' ) );
-
-		add_action( 'admin_menu', array( $this, 'register_admin_page' ), 99 );
-		add_action( 'admin_init', array( $this, 'redirect_legacy_admin_path' ) );
-	}
+	private const LOG_MAX      = 200;
+	private const LOG_TTL      = 90 * DAY_IN_SECONDS;
+	private const RATE_LOG_TTL = HOUR_IN_SECONDS;
+	private const OPTION_LOG   = 'ckrg_block_log';
 
 	public function redirect_legacy_admin_path(): void {
 		if ( wp_doing_ajax() ) {
@@ -45,8 +35,8 @@ class CK_OWS_Registration_Guard extends CK_OWS_Base {
 	}
 
 	public function inject_fields(): void {
-		$token = wp_generate_password( 24, false );
-		set_transient( 'ckrg_ts_' . $token, time(), 30 * MINUTE_IN_SECONDS );
+		$timestamp = time();
+		$token     = $timestamp . '.' . hash_hmac( 'sha256', 'registration|' . $timestamp, wp_salt( 'nonce' ) );
 
 		echo '<div class="ck-ows-reg-guard-trap" style="position:absolute;left:-9999px;height:0;overflow:hidden;" aria-hidden="true">';
 		echo '<label for="ck_website_url">Website</label>';
@@ -139,6 +129,22 @@ class CK_OWS_Registration_Guard extends CK_OWS_Base {
 	}
 
 	private function validate_registration_attempt( WP_Error $errors, string $username, string $email ): WP_Error {
+		$ip     = $this->get_ip();
+		$ip_key = 'ckrg_ip_' . md5( $ip );
+		$hits   = (int) get_transient( $ip_key );
+
+		if ( $hits >= self::IP_LIMIT ) {
+			$rate_log_key = 'ckrg_rate_log_' . md5( $ip );
+			if ( false === get_transient( $rate_log_key ) ) {
+				set_transient( $rate_log_key, '1', self::RATE_LOG_TTL );
+				$this->log_block( $email, $username, 'rate_limit:' . $ip );
+			}
+
+			$errors->add( 'bot_detected', __( 'Too many registration attempts. Please try again later.', 'woocommerce' ) );
+			return $errors;
+		}
+
+		set_transient( $ip_key, $hits + 1, HOUR_IN_SECONDS );
 
 		$hp1 = sanitize_text_field( wp_unslash( $_POST['ck_website_url'] ?? '' ) );
 		$hp2 = sanitize_text_field( wp_unslash( $_POST['ck_company_name'] ?? '' ) );
@@ -148,15 +154,12 @@ class CK_OWS_Registration_Guard extends CK_OWS_Base {
 			return $errors;
 		}
 
-		$token = sanitize_text_field( wp_unslash( $_POST['ck_reg_ts_token'] ?? '' ) );
-		if ( '' !== $token ) {
-			$page_load_ts = (int) get_transient( 'ckrg_ts_' . $token );
-			delete_transient( 'ckrg_ts_' . $token );
-			if ( $page_load_ts > 0 && ( time() - $page_load_ts ) < self::MIN_SECONDS ) {
-				$this->log_block( $email, $username, 'too_fast' );
-				$errors->add( 'bot_detected', __( 'Registration failed. Please try again.', 'woocommerce' ) );
-				return $errors;
-			}
+		$token        = sanitize_text_field( wp_unslash( $_POST['ck_reg_ts_token'] ?? '' ) );
+		$page_load_ts = $this->validate_intent_token( $token );
+		if ( null !== $page_load_ts && ( time() - $page_load_ts ) < self::MIN_SECONDS ) {
+			$this->log_block( $email, $username, 'too_fast' );
+			$errors->add( 'bot_detected', __( 'Registration failed. Please try again.', 'woocommerce' ) );
+			return $errors;
 		}
 
 		$domain = strtolower( substr( strrchr( $email, '@' ) ?: '', 1 ) );
@@ -179,29 +182,24 @@ class CK_OWS_Registration_Guard extends CK_OWS_Base {
 			}
 		}
 
-		$ip     = $this->get_ip();
-		$ip_key = 'ckrg_ip_' . md5( $ip );
-		$hits   = (int) get_transient( $ip_key );
-		if ( $hits >= self::IP_LIMIT ) {
-			$this->log_block( $email, $username, 'rate_limit:' . $ip );
-			$errors->add( 'bot_detected', __( 'Too many registration attempts. Please try again later.', 'woocommerce' ) );
-			return $errors;
-		}
-
-		set_transient( $ip_key, $hits + 1, HOUR_IN_SECONDS );
-
 		return $errors;
 	}
 
-	public function register_admin_page(): void {
-		add_submenu_page(
-			'ck-ows-settings',
-			esc_html__( 'CK Registration Guard', 'ck-order-workflow-suite' ),
-			esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ),
-			'manage_woocommerce',
-			'ck-reg-guard',
-			array( $this, 'render_admin_page' )
-		);
+	private function validate_intent_token( string $token ): ?int {
+		if ( ! preg_match( '/^(\d{10})\.([a-f0-9]{64})$/', $token, $matches ) ) {
+			return null;
+		}
+
+		$timestamp = (int) $matches[1];
+		$age       = time() - $timestamp;
+
+		if ( $age < 0 || $age > self::TOKEN_TTL ) {
+			return null;
+		}
+
+		$expected = hash_hmac( 'sha256', 'registration|' . $timestamp, wp_salt( 'nonce' ) );
+
+		return hash_equals( $expected, $matches[2] ) ? $timestamp : null;
 	}
 
 	public function render_admin_page(): void {

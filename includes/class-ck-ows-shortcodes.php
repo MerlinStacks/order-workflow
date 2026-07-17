@@ -8,11 +8,6 @@
 defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Shortcodes extends CK_OWS_Base {
-	protected function __construct() {
-		add_shortcode( 'order_tracking_summary', array( $this, 'order_tracking_summary' ) );
-		add_shortcode( 'wc_invoice_link', array( $this, 'invoice_link' ) );
-	}
-
 	public function order_tracking_summary(): string {
 		$order_id = absint( get_query_var( 'order-received' ) );
 

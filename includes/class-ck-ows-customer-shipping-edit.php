@@ -227,7 +227,8 @@ class CK_OWS_Customer_Shipping_Edit extends CK_OWS_Base {
 	private function is_valid_address( array $address ): bool {
 		$country = strtoupper( (string) ( $address['country'] ?? '' ) );
 
-		if ( 1 !== preg_match( '/^[A-Z]{2}$/', $country ) ) {
+		$countries = WC()->countries;
+		if ( ! $countries || ! array_key_exists( $country, $countries->get_countries() ) ) {
 			return false;
 		}
 

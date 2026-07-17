@@ -22,6 +22,9 @@ $tracking_file        = $root . '/includes/class-ck-ows-tracking.php';
 $invoice_file         = $root . '/includes/class-ck-ows-invoice-integration.php';
 $settings_file        = $root . '/includes/class-ck-ows-settings.php';
 $statuses_file        = $root . '/includes/class-ck-ows-statuses.php';
+$artwork_file         = $root . '/includes/class-ck-ows-artwork-events.php';
+$proof_file           = $root . '/includes/class-ck-ows-artwork-proof.php';
+$plugin_file          = $root . '/includes/class-ck-ows-plugin.php';
 $uninstall_file       = $root . '/uninstall.php';
 
 $tracking_source = file_get_contents($tracking_events_file);
@@ -29,6 +32,9 @@ $tracking_core_source = file_get_contents($tracking_file);
 $invoice_source = file_get_contents($invoice_file);
 $settings_source = file_get_contents($settings_file);
 $statuses_source = file_get_contents($statuses_file);
+$artwork_source = file_get_contents($artwork_file);
+$proof_source = file_get_contents($proof_file);
+$plugin_source = file_get_contents($plugin_file);
 $uninstall_source = file_get_contents($uninstall_file);
 
 if (! is_string($tracking_source) || '' === $tracking_source) {
@@ -55,10 +61,17 @@ if (! is_string($uninstall_source) || '' === $uninstall_source) {
 	$failures[] = '[FAIL] Could not read uninstall source';
 }
 
+if (! is_string($plugin_source) || '' === $plugin_source) {
+	$failures[] = '[FAIL] Could not read plugin bootstrap source';
+}
+
 if (empty($failures)) {
-	assert_contains($tracking_source, "add_action( self::RETRY_HOOK", 'retry hook registration', $failures);
+	assert_contains($plugin_source, "add_action( 'ck_ows_tracking_event_retry'", 'lazy retry hook registration', $failures);
 	assert_contains($tracking_source, 'schedule_retry(', 'retry scheduler usage', $failures);
 	assert_contains($tracking_source, 'push_dead_letter(', 'dead-letter writer usage', $failures);
+	assert_contains($tracking_source, 'schedule_delivery(', 'queued tracking webhook delivery', $failures);
+	assert_contains($tracking_core_source, 'ORDER_REFRESH_HOOK', 'background order tracking refresh', $failures);
+	assert_contains($tracking_core_source, 'CONTINUATION_HOOK', 'bounded tracking continuation', $failures);
 	assert_contains($tracking_source, "'ck_ows_last_webhook_delivery'", 'last webhook status tracking', $failures);
 	assert_contains($tracking_core_source, 'isset( $first[\'items\'][0] )', 'AusPost tracking_results items parser', $failures);
 	assert_contains($tracking_core_source, 'isset( $body[\'items\'][0] )', 'AusPost top-level items parser', $failures);
@@ -79,6 +92,10 @@ if (empty($failures)) {
 	assert_contains($statuses_source, 'woocommerce_rest_prepare_shop_order_object', 'REST order response status mask hook', $failures);
 	assert_contains($statuses_source, 'woocommerce_rest_shop_order_object_query', 'ReadyToShip REST order query gate hook', $failures);
 	assert_contains($statuses_source, 'mask_paid_cancelled_status_in_rest_response', 'REST paid-cancelled status response mask', $failures);
+	assert_contains($artwork_source, 'get_event_dedupe_state', 'artwork post-success event deduplication', $failures);
+	assert_contains($artwork_source, 'schedule_delivery(', 'queued artwork webhook delivery', $failures);
+	assert_contains($proof_source, 'proof_identity', 'proof revision-bound customer action', $failures);
+	assert_contains($proof_source, 'production_gate_guard', 'request-local production gate recursion guard', $failures);
 	assert_contains($statuses_source, 'gate_readytoship_rest_order_query', 'ReadyToShip REST order query gate', $failures);
 	assert_contains($statuses_source, 'is_readytoship_rest_request', 'ReadyToShip REST request detector', $failures);
 	assert_contains($statuses_source, 'get_readytoship_rest_status', 'ReadyToShip REST status mapper', $failures);
@@ -93,6 +110,7 @@ if (empty($failures)) {
 	assert_contains($uninstall_source, "keep_data_on_uninstall", 'uninstall keep-data toggle', $failures);
 	assert_contains($uninstall_source, "delete_option( 'ckrg_block_log' )", 'registration guard cleanup on uninstall', $failures);
 	assert_contains($uninstall_source, "delete_option( 'ck_ows_tracking_event_dead_letters' )", 'dead-letter cleanup on uninstall', $failures);
+	assert_contains($uninstall_source, "esc_like( '_ck_ows_' )", 'literal uninstall metadata prefix', $failures);
 }
 
 if (! empty($failures)) {

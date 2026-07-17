@@ -13,6 +13,8 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 	public const STATUS_AWAITING_ARTWORK    = 'wc-awaiting-artwork';
 	private const META_EXTERNAL_SAFE_STATUS = '_ck_ows_external_safe_status';
 	private const WEBHOOK_BLOCK_TRANSIENT   = 'ck_ows_block_webhook_status_';
+	private array $readytoship_request_cache = array();
+	private array $consumer_description_cache = array();
 
 	protected function __construct() {
 		add_action( 'init', array( $this, 'register_statuses' ) );
@@ -129,11 +131,6 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 			return $should_deliver;
 		}
 
-		$order_id = is_numeric( $arg ) ? absint( $arg ) : 0;
-		if ( $order_id > 0 && false !== get_transient( self::WEBHOOK_BLOCK_TRANSIENT . $order_id ) ) {
-			return false;
-		}
-
 		return $should_deliver;
 	}
 
@@ -191,11 +188,6 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 			return $response;
 		}
 
-		$status = $order->get_status();
-		if ( $this->should_mask_cancelled_status( $order, $status ) ) {
-			return $response;
-		}
-
 		return $response;
 	}
 
@@ -218,6 +210,11 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 	}
 
 	private function is_readytoship_rest_request( WP_REST_Request $request ): bool {
+		$request_id = spl_object_id( $request );
+		if ( array_key_exists( $request_id, $this->readytoship_request_cache ) ) {
+			return $this->readytoship_request_cache[ $request_id ];
+		}
+
 		$suffix = '';
 
 		if ( class_exists( 'CK_OWS_Settings' ) ) {
@@ -225,33 +222,28 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 		}
 
 		if ( '' === $suffix ) {
+			$this->readytoship_request_cache[ $request_id ] = false;
 			return false;
 		}
 
 		$consumer_key = $this->get_rest_consumer_key_from_request( $request );
 		if ( '' === $consumer_key || ! CK_OWS_Utils::string_ends_with( sanitize_key( $consumer_key ), $suffix ) ) {
+			$this->readytoship_request_cache[ $request_id ] = false;
 			return false;
 		}
 
 		$description = class_exists( 'CK_OWS_Settings' ) ? trim( (string) CK_OWS_Settings::get( 'readytoship_key_description', '' ) ) : '';
 		if ( '' === $description ) {
+			$this->readytoship_request_cache[ $request_id ] = true;
 			return true;
 		}
 
-		return $this->rest_consumer_key_description_matches( $consumer_key, $description );
+		$this->readytoship_request_cache[ $request_id ] = $this->rest_consumer_key_description_matches( $consumer_key, $description );
+
+		return $this->readytoship_request_cache[ $request_id ];
 	}
 
 	private function get_rest_consumer_key_from_request( WP_REST_Request $request ): string {
-		$consumer_key = (string) $request->get_param( 'consumer_key' );
-		if ( '' !== $consumer_key ) {
-			return $consumer_key;
-		}
-
-		$consumer_key = (string) $request->get_param( 'oauth_consumer_key' );
-		if ( '' !== $consumer_key ) {
-			return $consumer_key;
-		}
-
 		if ( isset( $_SERVER['PHP_AUTH_USER'] ) ) {
 			return sanitize_text_field( wp_unslash( (string) $_SERVER['PHP_AUTH_USER'] ) );
 		}
@@ -263,16 +255,23 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 			$authorization = sanitize_text_field( wp_unslash( (string) $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) );
 		}
 
-		if ( 0 !== stripos( $authorization, 'Basic ' ) ) {
-			return '';
+		if ( 0 === stripos( $authorization, 'Basic ' ) ) {
+			$decoded = base64_decode( substr( $authorization, 6 ), true );
+			if ( is_string( $decoded ) && false !== strpos( $decoded, ':' ) ) {
+				return (string) strtok( $decoded, ':' );
+			}
 		}
 
-		$decoded = base64_decode( substr( $authorization, 6 ), true );
-		if ( ! is_string( $decoded ) || false === strpos( $decoded, ':' ) ) {
-			return '';
+		if ( 0 === stripos( $authorization, 'OAuth ' ) && preg_match( '/(?:^|[,\s])oauth_consumer_key="?([^",\s]+)"?/i', substr( $authorization, 6 ), $matches ) ) {
+			return rawurldecode( (string) $matches[1] );
 		}
 
-		return (string) strtok( $decoded, ':' );
+		$consumer_key = (string) $request->get_param( 'oauth_consumer_key' );
+		if ( '' !== $consumer_key ) {
+			return $consumer_key;
+		}
+
+		return (string) $request->get_param( 'consumer_key' );
 	}
 
 	private function rest_consumer_key_description_matches( string $consumer_key, string $description ): bool {
@@ -280,9 +279,14 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 
 		$consumer_key = sanitize_key( $consumer_key );
 		$suffix       = substr( $consumer_key, -7 );
+		$cache_key    = $suffix . '|' . $description;
 
 		if ( '' === $suffix ) {
 			return false;
+		}
+
+		if ( array_key_exists( $cache_key, $this->consumer_description_cache ) ) {
+			return $this->consumer_description_cache[ $cache_key ];
 		}
 
 		$table = $wpdb->prefix . 'woocommerce_api_keys';
@@ -294,7 +298,9 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 			)
 		);
 
-		return null !== $match;
+		$this->consumer_description_cache[ $cache_key ] = null !== $match;
+
+		return $this->consumer_description_cache[ $cache_key ];
 	}
 
 	private function should_mask_cancelled_status( WC_Order $order, string $status ): bool {

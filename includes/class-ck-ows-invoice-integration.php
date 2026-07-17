@@ -11,6 +11,8 @@ class CK_OWS_Invoice_Integration {
 	public const PROVIDER_LEGACY = 'legacy';
 	public const PROVIDER_NEW    = 'new_plugin';
 
+	private static array $new_invoice_cache = array();
+
 	public static function get_invoice_view_url( WC_Order $order ): string {
 		if ( self::PROVIDER_NEW === self::get_provider() ) {
 			$order_id = $order->get_id();
@@ -70,24 +72,34 @@ class CK_OWS_Invoice_Integration {
 	}
 
 	private static function get_new_invoice_data( int $order_id ): ?array {
-		if ( ! function_exists( 'overseek_get_invoice_for_order' ) ) {
-			return null;
+		$user_id   = is_user_logged_in() ? get_current_user_id() : 0;
+		$cache_key = $order_id . ':' . $user_id;
+
+		if ( array_key_exists( $cache_key, self::$new_invoice_cache ) ) {
+			return self::$new_invoice_cache[ $cache_key ];
 		}
 
-		$user_id = is_user_logged_in() ? get_current_user_id() : null;
+		if ( ! function_exists( 'overseek_get_invoice_for_order' ) ) {
+			self::$new_invoice_cache[ $cache_key ] = null;
+			return self::$new_invoice_cache[ $cache_key ];
+		}
 
 		try {
-			$invoice = overseek_get_invoice_for_order( $order_id, $user_id );
+			$invoice = overseek_get_invoice_for_order( $order_id, $user_id ?: null );
 		} catch ( Throwable $throwable ) {
 			unset( $throwable );
-			return null;
+			self::$new_invoice_cache[ $cache_key ] = null;
+			return self::$new_invoice_cache[ $cache_key ];
 		}
 
 		if ( ! is_array( $invoice ) || empty( $invoice ) ) {
-			return null;
+			self::$new_invoice_cache[ $cache_key ] = null;
+			return self::$new_invoice_cache[ $cache_key ];
 		}
 
-		return $invoice;
+		self::$new_invoice_cache[ $cache_key ] = $invoice;
+
+		return self::$new_invoice_cache[ $cache_key ];
 	}
 
 	private static function build_rest_download_url( WC_Order $order, array $invoice ): string {

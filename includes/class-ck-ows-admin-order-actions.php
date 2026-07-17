@@ -324,7 +324,7 @@ class CK_OWS_Admin_Order_Actions extends CK_OWS_Base {
 			return $this->order_has_artwork_proof( $order );
 		}
 
-		if ( 'in-production' === $status ) {
+		if ( in_array( $status, array( 'in-production', 'in-dispatch', 'completed' ), true ) ) {
 			return $this->order_can_move_to_production( $order );
 		}
 
@@ -356,8 +356,8 @@ class CK_OWS_Admin_Order_Actions extends CK_OWS_Base {
 			return __( 'Upload a proof PDF before moving to Awaiting Artwork Approval.', 'ck-order-workflow-suite' );
 		}
 
-		if ( 'in-production' === $status ) {
-			return __( 'Artwork must be approved or overridden before moving to In Production.', 'ck-order-workflow-suite' );
+		if ( in_array( $status, array( 'in-production', 'in-dispatch', 'completed' ), true ) ) {
+			return __( 'Artwork must be approved or overridden before moving beyond artwork review.', 'ck-order-workflow-suite' );
 		}
 
 		return __( 'This quick status action is not currently available.', 'ck-order-workflow-suite' );

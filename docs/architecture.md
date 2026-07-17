@@ -5,7 +5,17 @@
 1. `ck-order-workflow-suite.php` loads on plugin activation.
 2. Declares HPOS compatibility via `before_woocommerce_init`.
 3. Validates WooCommerce availability on `plugins_loaded`.
-4. Loads `CK_OWS_Plugin` and boots all modules.
+4. Loads `CK_OWS_Plugin`, registers its constrained autoloader, and boots only the status module.
+5. Loads account, admin, tracking, event, and workflow modules only when their request context or proxy hook runs.
+
+## Request-Scoped Loading
+
+- Steady-state storefront requests load the bootstrap, singleton base, and status module. The hourly tracking schedule check is the only periodic exception.
+- My Account navigation is built by the bootstrap; endpoint classes load only for their matching endpoint.
+- Order-detail modules load only for View Order and authenticated thank-you requests.
+- Settings and order-management classes load only on their admin page, WooCommerce order screen, or matching action handler.
+- Tracking workers, webhook handlers, registration checks, timeline capture, and artwork gating use lightweight proxy hooks that autoload their module only when the corresponding event occurs.
+- Shortcode classes load only when one of the plugin shortcodes is rendered.
 
 ## Module Map
 
@@ -19,13 +29,13 @@
   - Renders shipping edit form on My Account order view.
   - Saves shipping details for processing orders only.
 - `CK_OWS_Account_Invoices`
-  - Adds `invoices` endpoint and menu entry.
+  - Renders the bootstrap-registered `invoices` endpoint.
   - Renders customer invoice list with fallback actions.
 - `CK_OWS_Registration_Guard`
   - Adds WooCommerce and WordPress registration anti-bot controls.
   - Provides an admin block log for review and cleanup.
 - `CK_OWS_Shortcodes`
-  - Registers `[order_tracking_summary]` and `[wc_invoice_link]`.
+  - Implements lazy callbacks for `[order_tracking_summary]` and `[wc_invoice_link]`.
 - `CK_OWS_Order_Timeline`
   - Captures stage timestamps and renders order progress timeline.
 - `CK_OWS_Account_Order_Cards`
@@ -33,9 +43,9 @@
 - `CK_OWS_Address_Quality`
   - Applies postcode/suburb validation on My Account saves.
 - `CK_OWS_Account_Security`
-  - Adds `security` endpoint and account activity panel.
+  - Renders the security endpoint and tracks account activity events.
 - `CK_OWS_Account_Email_Preferences`
-  - Adds `email-preferences` endpoint for customer subscription controls.
+  - Renders the email preferences endpoint for customer subscription controls.
   - Syncs preferences with OverSeek Email Preferences API.
 - `CK_OWS_Artwork_Proof`
   - Handles proof upload, customer approval/change request, and production gate.

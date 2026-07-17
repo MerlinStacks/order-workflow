@@ -16,7 +16,6 @@ class CK_OWS_Order_Timeline extends CK_OWS_Base {
 	private const META_LIVE_TRACKING        = '_ck_ows_live_tracking';
 
 	protected function __construct() {
-		add_action( 'woocommerce_order_status_changed', array( $this, 'capture_stage_timestamp' ), 30, 4 );
 		add_action( 'woocommerce_thankyou', array( $this, 'render_timeline' ), 15 );
 		add_action( 'woocommerce_view_order', array( $this, 'render_timeline' ), 5 );
 	}
@@ -24,12 +23,12 @@ class CK_OWS_Order_Timeline extends CK_OWS_Base {
 	public function capture_stage_timestamp( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
 		$meta_key = $this->status_to_meta_key( $to_status );
 
-		if ( '' === $meta_key ) {
+		if ( '' === $meta_key || $order->get_status() !== $to_status || (int) $order->get_meta( $meta_key, true ) > 0 ) {
 			return;
 		}
 
 		$order->update_meta_data( $meta_key, time() );
-		$order->save();
+		$order->save_meta_data();
 	}
 
 	public function render_timeline( $order ): void {
@@ -278,7 +277,7 @@ class CK_OWS_Order_Timeline extends CK_OWS_Base {
 			),
 			'delivered'           => array(
 				'label'    => __( 'Delivered', 'ck-order-workflow-suite' ),
-				'patterns' => array( 'delivered', 'proof of delivery', 'item delivered', 'successfully delivered', 'delivery complete', 'left in a safe place', 'awaiting collection', 'collected by customer' ),
+				'patterns' => array( 'delivered', 'proof of delivery', 'item delivered', 'successfully delivered', 'delivery complete', 'left in a safe place', 'collected by customer' ),
 			),
 			'return-to-sender'    => array(
 				'label'    => __( 'Returning to CustomKings', 'ck-order-workflow-suite' ),
@@ -306,6 +305,10 @@ class CK_OWS_Order_Timeline extends CK_OWS_Base {
 			);
 
 			foreach ( $milestones as $key => $milestone ) {
+				if ( 'delivered' === $key && ! CK_OWS_Tracking_Helpers::is_delivered_status_text( $haystack ) ) {
+					continue;
+				}
+
 				foreach ( $milestone['patterns'] as $pattern ) {
 					if ( false !== strpos( $haystack, $pattern ) ) {
 						if ( ! isset( $found_timestamps[ $key ] ) || ( $event_ts > 0 && $event_ts < $found_timestamps[ $key ] ) ) {
@@ -321,7 +324,7 @@ class CK_OWS_Order_Timeline extends CK_OWS_Base {
 		$status_ts       = $this->resolve_event_timestamp( (string) ( $tracking['last_event']['date'] ?? '' ) );
 
 		if ( '' !== $tracking_status ) {
-			if ( false !== strpos( $tracking_status, 'delivered' ) ) {
+			if ( CK_OWS_Tracking_Helpers::is_delivered_status_text( $tracking_status ) ) {
 				if ( ! isset( $found_timestamps['delivered'] ) ) {
 					$found_timestamps['delivered'] = $status_ts;
 				}

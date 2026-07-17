@@ -9,19 +9,21 @@ defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Tracking extends CK_OWS_Base {
 	private const CRON_HOOK               = 'ck_ows_tracking_sync_event';
+	private const CONTINUATION_HOOK        = 'ck_ows_tracking_sync_continuation';
+	private const ORDER_REFRESH_HOOK       = 'ck_ows_tracking_refresh_order';
 	private const SYNC_LOCK_KEY            = 'ck_ows_tracking_sync_lock';
+	private const SYNC_CURSOR_KEY          = 'ck_ows_tracking_sync_cursor';
 	private const SCHEDULE_CHECK_KEY       = 'ck_ows_tracking_schedule_check';
 	private const META_LIVE_TRACKING      = '_ck_ows_live_tracking';
 	private const META_LAST_SYNC_TS       = '_ck_ows_live_tracking_last_sync';
 	private const META_LAST_SYNC_ERROR    = '_ck_ows_live_tracking_last_error';
 	private const META_LAST_EVENT_HASH    = '_ck_ows_live_tracking_last_event_hash';
+	private const BATCH_SIZE              = 20;
+	private const MAX_PARCELS_PER_ORDER   = 3;
+	private const REFRESH_INTERVAL        = 15 * MINUTE_IN_SECONDS;
+	private const REQUEST_TIMEOUT         = 10;
 
 	protected function __construct() {
-		add_filter( 'cron_schedules', array( $this, 'register_interval_schedule' ) );
-		add_action( 'init', array( $this, 'ensure_schedule' ) );
-		add_action( 'init', array( $this, 'suppress_default_tracking_output' ), 20 );
-		add_action( self::CRON_HOOK, array( $this, 'sync_tracking_data' ) );
-
 		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_live_tracking_panel' ), 25 );
 	}
 
@@ -53,7 +55,11 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		}
 	}
 
-	public function sync_tracking_data(): void {
+	public function sync_tracking_data( int $offset = 0, int $run_started_at = 0, bool $allow_disabled = false ): void {
+		if ( ! $allow_disabled && ! $this->is_tracking_sync_enabled() ) {
+			return;
+		}
+
 		$api_key = trim( (string) CK_OWS_Settings::get( 'auspost_api_key', '' ) );
 		$username = trim( (string) CK_OWS_Settings::get( 'auspost_api_username', '' ) );
 		$password = trim( (string) CK_OWS_Settings::get( 'auspost_api_password', '' ) );
@@ -68,91 +74,50 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		}
 
 		try {
-			$limit  = 50;
-			$offset = 0;
+			$offset         = absint( $offset );
+			$run_started_at = $run_started_at > 0 ? $run_started_at : time();
+			$orders = wc_get_orders(
+				array(
+					'limit'        => self::BATCH_SIZE,
+					'offset'       => $offset,
+					'orderby'      => 'date',
+					'order'        => 'DESC',
+					'date_created' => ( $run_started_at - ( 14 * DAY_IN_SECONDS ) ) . '...' . $run_started_at,
+					'status'       => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
+				)
+			);
 
-			do {
-				$orders = wc_get_orders(
-					array(
-						'limit'        => $limit,
-						'offset'       => $offset,
-						'orderby'      => 'date',
-						'order'        => 'DESC',
-						'date_created' => '>' . ( time() - ( 14 * DAY_IN_SECONDS ) ),
-						'status'       => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
-					)
-				);
-
-				foreach ( $orders as $order ) {
-					if ( ! $order instanceof WC_Order ) {
-						continue;
-					}
-
-					$tracking_numbers = $this->extract_tracking_numbers( $order );
-
-					if ( empty( $tracking_numbers ) ) {
-						continue;
-					}
-
-					if ( $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers ) ) {
-						continue;
-					}
-
-					$latest_payload = null;
-					$last_error     = '';
-
-					foreach ( $tracking_numbers as $tracking_number ) {
-						if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
-							continue;
-						}
-
-						$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
-
-						if ( is_wp_error( $result ) ) {
-							$last_error = $result->get_error_message();
-							continue;
-						}
-
-						$latest_payload = $result;
-						break;
-					}
-
-					if ( null === $latest_payload ) {
-						if ( $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
-							$order->delete_meta_data( self::META_LIVE_TRACKING );
-							$order->delete_meta_data( self::META_LAST_EVENT_HASH );
-						}
-
-						$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-						$order->update_meta_data( self::META_LAST_SYNC_ERROR, $last_error );
-						$order->save();
-						continue;
-					}
-
-					$event_hash = md5( wp_json_encode( $latest_payload ) );
-					$prev_hash  = (string) $order->get_meta( self::META_LAST_EVENT_HASH, true );
-
-					$order->update_meta_data( self::META_LIVE_TRACKING, $latest_payload );
-					$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-					$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
-					$order->update_meta_data( self::META_LAST_EVENT_HASH, $event_hash );
-					$order->save();
-
-					if ( $event_hash !== $prev_hash ) {
-						do_action( 'ck_ows_tracking_updated', $order->get_id(), $latest_payload );
-					}
+			foreach ( $orders as $index => $order ) {
+				if ( ! $order instanceof WC_Order || empty( $this->extract_auspost_tracking_numbers( $order ) ) ) {
+					continue;
 				}
 
-				$offset += $limit;
-			} while ( count( $orders ) === $limit );
+				$this->schedule_unique_action(
+					self::ORDER_REFRESH_HOOK,
+					array( $order->get_id(), $allow_disabled ),
+					time() + 1 + (int) $index
+				);
+			}
+
+			if ( count( $orders ) === self::BATCH_SIZE ) {
+				$this->schedule_unique_action(
+					self::CONTINUATION_HOOK,
+					array( $offset + count( $orders ), $run_started_at, $allow_disabled ),
+					time() + 30
+				);
+			}
 		} finally {
 			$this->release_tracking_sync_lock( $lock_owner );
 		}
 	}
 
+	public function queue_tracking_sync(): bool {
+		return $this->schedule_unique_action( self::CONTINUATION_HOOK, array( 0, time(), true ), time() + 1 );
+	}
+
 	private function acquire_tracking_sync_lock(): string {
 		$owner   = wp_generate_uuid4();
-		$expires = time() + ( 10 * MINUTE_IN_SECONDS );
+		$expires = time() + ( 2 * MINUTE_IN_SECONDS );
 		$payload = array(
 			'owner'   => $owner,
 			'expires' => $expires,
@@ -164,14 +129,36 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 
 		$current = get_option( self::SYNC_LOCK_KEY, array() );
 		if ( is_array( $current ) && isset( $current['expires'] ) && absint( $current['expires'] ) < time() ) {
-			delete_option( self::SYNC_LOCK_KEY );
+			global $wpdb;
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
+					self::SYNC_LOCK_KEY,
+					maybe_serialize( $current )
+				)
+			);
+			wp_cache_delete( self::SYNC_LOCK_KEY, 'options' );
 
-			if ( add_option( self::SYNC_LOCK_KEY, $payload, '', false ) ) {
+			if ( 1 === $deleted && add_option( self::SYNC_LOCK_KEY, $payload, '', false ) ) {
 				return $owner;
 			}
 		}
 
 		return '';
+	}
+
+	private function renew_tracking_sync_lock( string $owner ): bool {
+		$current = get_option( self::SYNC_LOCK_KEY, array() );
+
+		if ( ! is_array( $current ) || ! isset( $current['owner'] ) || ! hash_equals( $owner, (string) $current['owner'] ) ) {
+			return false;
+		}
+
+		$current['expires'] = time() + ( 2 * MINUTE_IN_SECONDS );
+		update_option( self::SYNC_LOCK_KEY, $current, false );
+
+		$updated = get_option( self::SYNC_LOCK_KEY, array() );
+		return is_array( $updated ) && isset( $updated['owner'] ) && hash_equals( $owner, (string) $updated['owner'] );
 	}
 
 	private function release_tracking_sync_lock( string $owner ): void {
@@ -339,15 +326,22 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 	}
 
 	public function get_tracking_payload_for_order( WC_Order $order, bool $force_refresh = false ): array {
-		$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
-		$last_sync_ts = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
-		$is_refresh_due = $last_sync_ts <= 0 || ( time() - $last_sync_ts ) >= ( 15 * MINUTE_IN_SECONDS );
+		$tracking        = $order->get_meta( self::META_LIVE_TRACKING, true );
+		$tracking_numbers = $this->extract_auspost_tracking_numbers( $order );
+		$last_sync_ts    = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
+		$is_refresh_due  = $last_sync_ts <= 0 || ( time() - $last_sync_ts ) >= self::REFRESH_INTERVAL;
+		$can_refresh     = $this->is_tracking_sync_enabled()
+			&& $this->has_tracking_credentials()
+			&& $this->is_order_eligible_for_tracking( $order )
+			&& ! empty( $tracking_numbers )
+			&& ! $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers );
 
-		if ( $force_refresh || $is_refresh_due || ! $this->is_tracking_payload_usable( $tracking ) ) {
-			$tracking = $this->refresh_tracking_for_order_view( $order );
-			if ( ! $this->is_tracking_payload_usable( $tracking ) ) {
-				$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
-			}
+		if ( $can_refresh && ( $force_refresh || $is_refresh_due || ! $this->is_tracking_payload_usable( $tracking ) ) ) {
+			$this->schedule_unique_action( self::ORDER_REFRESH_HOOK, array( $order->get_id(), false ), time() + 1, $order );
+		}
+
+		if ( is_array( $tracking ) && $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
+			return array();
 		}
 
 		return $this->is_tracking_payload_usable( $tracking ) ? $tracking : array();
@@ -495,12 +489,14 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		wp_add_inline_script( 'ck-ows-tracking-inline', $script );
 	}
 
-	private function refresh_tracking_for_order_view( WC_Order $order ): array {
-		$last_sync_ts     = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
-		$existing_payload = $order->get_meta( self::META_LIVE_TRACKING, true );
+	public function refresh_single_order( int $order_id, bool $allow_disabled = false ): void {
+		if ( ! $allow_disabled && ! $this->is_tracking_sync_enabled() ) {
+			return;
+		}
 
-		if ( $last_sync_ts > 0 && ( time() - $last_sync_ts ) < ( 15 * MINUTE_IN_SECONDS ) && $this->is_tracking_payload_usable( $existing_payload ) ) {
-			return is_array( $existing_payload ) ? $existing_payload : array();
+		$order = wc_get_order( $order_id );
+		if ( ! $order instanceof WC_Order || ! $this->is_order_eligible_for_tracking( $order ) ) {
+			return;
 		}
 
 		$api_key = trim( (string) CK_OWS_Settings::get( 'auspost_api_key', '' ) );
@@ -508,49 +504,126 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		$password = trim( (string) CK_OWS_Settings::get( 'auspost_api_password', '' ) );
 
 		if ( '' === $api_key && ( '' === $username || '' === $password ) ) {
-			return array();
+			return;
 		}
 
-		$tracking_numbers = $this->extract_tracking_numbers( $order );
+		$this->refresh_order_tracking( $order, $api_key );
+	}
+
+	private function refresh_order_tracking( WC_Order $order, string $api_key, string $lock_owner = '' ): bool {
+		$tracking_numbers = array_slice( $this->extract_auspost_tracking_numbers( $order ), 0, self::MAX_PARCELS_PER_ORDER );
 
 		if ( empty( $tracking_numbers ) ) {
-			return array();
+			return true;
 		}
 
 		if ( $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers ) ) {
-			$tracking = $order->get_meta( self::META_LIVE_TRACKING, true );
-			return is_array( $tracking ) ? $tracking : array();
+			return true;
 		}
 
+		$existing_payload = $order->get_meta( self::META_LIVE_TRACKING, true );
+		$payloads_by_number = array();
+		$normalized_tracking_numbers = array_map( static fn ( $number ): string => strtolower( trim( (string) $number ) ), $tracking_numbers );
+		if ( is_array( $existing_payload ) ) {
+			foreach ( $this->get_parcel_payloads( $existing_payload ) as $existing_parcel ) {
+				$existing_number = strtolower( trim( (string) ( $existing_parcel['tracking_number'] ?? '' ) ) );
+				if ( '' !== $existing_number && in_array( $existing_number, $normalized_tracking_numbers, true ) ) {
+					$payloads_by_number[ $existing_number ] = $existing_parcel;
+				}
+			}
+		}
+		$successful = 0;
+		$last_error = '';
 		foreach ( $tracking_numbers as $tracking_number ) {
 			if ( ! $this->looks_like_auspost_tracking_number( $tracking_number ) ) {
 				continue;
+			}
+			if ( '' !== $lock_owner && ! $this->renew_tracking_sync_lock( $lock_owner ) ) {
+				return false;
 			}
 
 			$result = $this->fetch_auspost_tracking( $tracking_number, $api_key );
 
 			if ( is_wp_error( $result ) ) {
+				$last_error = $result->get_error_message();
 				continue;
 			}
 
-			$order->update_meta_data( self::META_LIVE_TRACKING, $result );
-			$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-			$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
-			$order->save();
-
-			return $result;
+			$payloads_by_number[ strtolower( trim( $tracking_number ) ) ] = $result;
+			++$successful;
 		}
+		$payloads = array_values( $payloads_by_number );
 
 		$order->update_meta_data( self::META_LAST_SYNC_TS, time() );
-
-		if ( $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
-			$order->delete_meta_data( self::META_LIVE_TRACKING );
-			$order->delete_meta_data( self::META_LAST_EVENT_HASH );
+		if ( 0 === $successful ) {
+			if ( $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
+				$order->delete_meta_data( self::META_LIVE_TRACKING );
+				$order->delete_meta_data( self::META_LAST_EVENT_HASH );
+			}
+			$order->update_meta_data( self::META_LAST_SYNC_ERROR, $last_error );
+			$order->save_meta_data();
+			return true;
 		}
 
-		$order->save();
+		$latest_payload = $this->select_latest_payload( $payloads );
+		if ( count( $payloads ) > 1 ) {
+			$latest_payload['parcels'] = $payloads;
+		}
+		$event_hash = md5( wp_json_encode( $latest_payload ) );
+		$prev_hash  = (string) $order->get_meta( self::META_LAST_EVENT_HASH, true );
 
-		return array();
+		if ( $event_hash !== $prev_hash ) {
+			$order->update_meta_data( self::META_LIVE_TRACKING, $latest_payload );
+			$order->update_meta_data( self::META_LAST_EVENT_HASH, $event_hash );
+		}
+		$order->delete_meta_data( self::META_LAST_SYNC_ERROR );
+		$order->save_meta_data();
+
+		if ( $event_hash !== $prev_hash ) {
+			do_action( 'ck_ows_tracking_updated', $order->get_id(), $latest_payload );
+		}
+
+		return true;
+	}
+
+	private function select_latest_payload( array $payloads ): array {
+		usort(
+			$payloads,
+			static function ( array $a, array $b ): int {
+				$a_time = strtotime( (string) ( $a['last_event']['date'] ?? '' ) ) ?: 0;
+				$b_time = strtotime( (string) ( $b['last_event']['date'] ?? '' ) ) ?: 0;
+				return $b_time <=> $a_time;
+			}
+		);
+
+		return $payloads[0];
+	}
+
+	private function schedule_unique_action( string $hook, array $args, int $timestamp, ?WC_Order $order = null ): bool {
+		$scheduled = false;
+
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			$pending = function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( $hook, $args, 'ck-ows-tracking' );
+			if ( ! $pending ) {
+				$scheduled = 0 !== as_schedule_single_action( $timestamp, $hook, $args, 'ck-ows-tracking', true );
+			} else {
+				$scheduled = true;
+			}
+		} elseif ( wp_next_scheduled( $hook, $args ) ) {
+			$scheduled = true;
+		} else {
+			$scheduled = wp_schedule_single_event( $timestamp, $hook, $args );
+		}
+
+		if ( ! $scheduled && function_exists( 'wc_get_logger' ) ) {
+			$context = array( 'source' => 'ck-order-workflow-suite' );
+			if ( $order instanceof WC_Order ) {
+				$context['order_id'] = $order->get_id();
+			}
+			wc_get_logger()->warning( 'Unable to schedule tracking refresh.', $context );
+		}
+
+		return $scheduled;
 	}
 
 	private function is_stale_tracking_payload( WC_Order $order, array $tracking_numbers ): bool {
@@ -560,14 +633,18 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 			return false;
 		}
 
-		$stored_tracking_number = trim( (string) ( $tracking['tracking_number'] ?? '' ) );
+		$stored_numbers = array();
+		foreach ( $this->get_parcel_payloads( $tracking ) as $payload ) {
+			$stored_numbers[] = strtolower( trim( (string) ( $payload['tracking_number'] ?? '' ) ) );
+		}
+		$stored_numbers = array_filter( array_unique( $stored_numbers ) );
 
-		if ( '' === $stored_tracking_number || empty( $tracking_numbers ) ) {
+		if ( empty( $stored_numbers ) || empty( $tracking_numbers ) ) {
 			return false;
 		}
 
 		foreach ( $tracking_numbers as $tracking_number ) {
-			if ( strtolower( trim( (string) $tracking_number ) ) === strtolower( $stored_tracking_number ) ) {
+			if ( in_array( strtolower( trim( (string) $tracking_number ) ), $stored_numbers, true ) ) {
 				return false;
 			}
 		}
@@ -612,6 +689,31 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		return CK_OWS_Tracking_Helpers::extract_tracking_numbers( $order );
 	}
 
+	private function extract_auspost_tracking_numbers( WC_Order $order ): array {
+		return array_values(
+			array_filter(
+				CK_OWS_Tracking_Helpers::extract_auspost_tracking_numbers( $order ),
+				array( $this, 'looks_like_auspost_tracking_number' )
+			)
+		);
+	}
+
+	private function is_tracking_sync_enabled(): bool {
+		return 'yes' === CK_OWS_Settings::get( 'tracking_sync_enabled', 'yes' );
+	}
+
+	private function has_tracking_credentials(): bool {
+		$api_key  = trim( (string) CK_OWS_Settings::get( 'auspost_api_key', '' ) );
+		$username = trim( (string) CK_OWS_Settings::get( 'auspost_api_username', '' ) );
+		$password = trim( (string) CK_OWS_Settings::get( 'auspost_api_password', '' ) );
+
+		return '' !== $api_key || ( '' !== $username && '' !== $password );
+	}
+
+	private function is_order_eligible_for_tracking( WC_Order $order ): bool {
+		return in_array( $order->get_status(), array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ), true );
+	}
+
 	private function extract_tracking_links( WC_Order $order ): array {
 		return CK_OWS_Tracking_Helpers::extract_tracking_links( $order );
 	}
@@ -645,24 +747,35 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 			return false;
 		}
 
-		$stored_tracking_number = isset( $tracking['tracking_number'] ) ? sanitize_text_field( (string) $tracking['tracking_number'] ) : '';
-
-		if ( '' !== $stored_tracking_number && ! in_array( $stored_tracking_number, $tracking_numbers, true ) ) {
-			return false;
+		$delivered_numbers = array();
+		foreach ( $this->get_parcel_payloads( $tracking ) as $payload ) {
+			if ( $this->is_delivered_payload( $payload ) ) {
+				$delivered_numbers[] = strtolower( trim( (string) ( $payload['tracking_number'] ?? '' ) ) );
+			}
 		}
 
-		if ( $this->is_delivered_payload( $tracking ) ) {
-			return true;
+		foreach ( $tracking_numbers as $tracking_number ) {
+			if ( ! in_array( strtolower( trim( $tracking_number ) ), $delivered_numbers, true ) ) {
+				return false;
+			}
 		}
 
-		return false;
+		return ! empty( $tracking_numbers );
+	}
+
+	private function get_parcel_payloads( array $tracking ): array {
+		if ( ! empty( $tracking['parcels'] ) && is_array( $tracking['parcels'] ) ) {
+			return array_values( array_filter( $tracking['parcels'], 'is_array' ) );
+		}
+
+		return array( $tracking );
 	}
 
 	private function is_delivered_payload( array $payload ): bool {
 		$status      = strtolower( trim( (string) ( $payload['status'] ?? $payload['tracking_status'] ?? '' ) ) );
 		$description = strtolower( trim( (string) ( $payload['last_event']['description'] ?? '' ) ) );
 
-		if ( false !== strpos( $status, 'delivered' ) || false !== strpos( $description, 'delivered' ) ) {
+		if ( CK_OWS_Tracking_Helpers::is_delivered_status_text( $status . ' ' . $description ) ) {
 			return true;
 		}
 
@@ -673,7 +786,7 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 
 		$raw_status = strtolower( trim( (string) ( $raw['status'] ?? $raw['tracking_status'] ?? $raw['delivery_status'] ?? '' ) ) );
 
-		if ( false !== strpos( $raw_status, 'delivered' ) ) {
+		if ( CK_OWS_Tracking_Helpers::is_delivered_status_text( $raw_status ) ) {
 			return true;
 		}
 
@@ -705,10 +818,10 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 			$headers['AUTH-KEY'] = $api_key;
 		}
 
-		$response = wp_remote_get(
+		$response = wp_safe_remote_get(
 			$url,
 			array(
-				'timeout' => 20,
+				'timeout' => self::REQUEST_TIMEOUT,
 				'headers' => $headers,
 			)
 		);

@@ -11,11 +11,9 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 	private const ALLOWED_STATUSES      = array( 'uploaded', 'approval_requested', 'approved', 'changes_requested', 'override_used' );
 	private const DEDUPE_TRANSIENT_BASE = 'ck_ows_artwork_evt_';
 	private const RETRY_HOOK            = 'ck_ows_artwork_event_retry';
-
-	protected function __construct() {
-		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
-		add_action( self::RETRY_HOOK, array( $this, 'retry_event_delivery' ), 10, 1 );
-	}
+	private const META_EVENT_REVISION   = '_ck_ows_artwork_event_revision';
+	private const META_EVENT_TIMESTAMP  = '_ck_ows_artwork_event_timestamp';
+	private const META_EVENT_STATUS     = '_ck_ows_artwork_event_status';
 
 	public function register_routes(): void {
 		register_rest_route(
@@ -71,8 +69,12 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			return new WP_REST_Response( array( 'ok' => false, 'message' => 'OverSeek plugin not connected' ), 503 );
 		}
 
-		if ( $this->is_duplicate_event( $validated ) ) {
+		$dedupe_state = $this->get_event_dedupe_state( $validated );
+		if ( 'success' === $dedupe_state ) {
 			return new WP_REST_Response( array( 'ok' => true, 'duplicate' => true ), 202 );
+		}
+		if ( 'pending' === $dedupe_state ) {
+			return new WP_REST_Response( array( 'ok' => false, 'message' => 'Event is already being applied' ), 409 );
 		}
 
 		$order = wc_get_order( (int) $validated['order_id'] );
@@ -80,10 +82,13 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			return new WP_REST_Response( array( 'ok' => false, 'message' => 'Order not found' ), 400 );
 		}
 
+		$this->set_event_dedupe_state( $validated, 'pending' );
 		$applied = $this->apply_event_to_order( $order, $validated );
 		if ( is_wp_error( $applied ) ) {
-			return new WP_REST_Response( array( 'ok' => false, 'message' => $applied->get_error_message() ), 502 );
+			$this->clear_event_dedupe_state( $validated );
+			return new WP_REST_Response( array( 'ok' => false, 'message' => $applied->get_error_message() ), 409 );
 		}
+		$this->set_event_dedupe_state( $validated, 'success' );
 
 		return new WP_REST_Response( array( 'ok' => true, 'forwarded' => true ), 202 );
 	}
@@ -93,60 +98,27 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			return false;
 		}
 
-		$webhook_url = $this->resolve_artwork_events_webhook_url();
-		if ( '' === $webhook_url ) {
-			return false;
-		}
-
 		$event = $this->build_event_payload( $order, $event_status, $extra );
 		if ( empty( $event ) ) {
 			return false;
 		}
 
-		$response = wp_remote_post(
-			$webhook_url,
-			array(
-				'timeout' => max( 3, min( 30, absint( CK_OWS_Settings::get( 'tracking_email_events_timeout_seconds', 10 ) ) ) ),
-				'headers' => $this->build_headers(),
-				'body'    => wp_json_encode( array( 'event' => $event ) ),
-			)
+		$payload = array(
+			'order_id' => $order->get_id(),
+			'event'    => $event,
+			'attempt'  => 0,
 		);
-
-		if ( is_wp_error( $response ) ) {
-			$this->track_delivery_result( false, $order->get_id(), $event, $response->get_error_message() );
-			$this->schedule_retry( $order->get_id(), $event, 1, $response->get_error_message() );
-			do_action( 'ck_ows_artwork_event_delivery_failed', $order->get_id(), $event, $response->get_error_message() );
-			CK_OWS_Audit::log_order_event(
-				$order,
-				'artwork_event_dispatch_failed',
-				array(
-					'event_status' => $event_status,
-					'error'        => $response->get_error_message(),
-				)
-			);
-			return false;
+		if ( $this->schedule_delivery( $payload, time() + 1 ) ) {
+			CK_OWS_Audit::log_order_event( $order, 'artwork_event_queued', array( 'event_status' => $event_status ) );
+			return true;
 		}
 
-		$status_code = (int) wp_remote_retrieve_response_code( $response );
-		if ( $status_code < 200 || $status_code >= 300 ) {
-			$this->track_delivery_result( false, $order->get_id(), $event, 'HTTP ' . $status_code );
-			$this->schedule_retry( $order->get_id(), $event, 1, 'HTTP ' . $status_code );
-			do_action( 'ck_ows_artwork_event_delivery_failed', $order->get_id(), $event, 'HTTP ' . $status_code );
-			CK_OWS_Audit::log_order_event(
-				$order,
-				'artwork_event_dispatch_failed',
-				array(
-					'event_status' => $event_status,
-					'error'        => 'HTTP ' . $status_code,
-				)
-			);
-			return false;
-		}
-
-		$this->track_delivery_result( true, $order->get_id(), $event, 'HTTP ' . $status_code );
-		CK_OWS_Audit::log_order_event( $order, 'artwork_event_dispatched', array( 'event_status' => $event_status, 'http' => $status_code ) );
-		do_action( 'ck_ows_artwork_event_delivered', $order->get_id(), $event, $status_code );
-		return true;
+		$error = 'Unable to schedule artwork event delivery';
+		$this->track_delivery_result( false, $order->get_id(), $event, $error );
+		$this->push_dead_letter( $order->get_id(), $event, 1, $error );
+		do_action( 'ck_ows_artwork_event_delivery_failed', $order->get_id(), $event, $error );
+		CK_OWS_Audit::log_order_event( $order, 'artwork_event_dispatch_failed', array( 'event_status' => $event_status, 'error' => $error ) );
+		return false;
 	}
 
 	public function retry_event_delivery( array $payload ): void {
@@ -155,6 +127,7 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 		$event    = isset( $payload['event'] ) && is_array( $payload['event'] ) ? $payload['event'] : array();
 
 		if ( $order_id <= 0 || empty( $event ) ) {
+			$this->push_dead_letter( $order_id, $event, $attempt, 'Invalid queued delivery payload' );
 			return;
 		}
 
@@ -163,13 +136,21 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			$this->schedule_retry( $order_id, $event, $attempt + 1, 'Missing webhook URL' );
 			return;
 		}
+		$body       = array( 'event' => $event );
+		$account_id = trim( (string) CK_OWS_Settings::get( 'email_preferences_account_id', '' ) );
+		if ( '' === $account_id ) {
+			$account_id = trim( (string) get_option( 'overseek_account_id', '' ) );
+		}
+		if ( '' !== $account_id ) {
+			$body['account_id'] = $account_id;
+		}
 
-		$response = wp_remote_post(
+		$response = CK_OWS_Utils::remote_post(
 			$webhook_url,
 			array(
 				'timeout' => max( 3, min( 30, absint( CK_OWS_Settings::get( 'tracking_email_events_timeout_seconds', 10 ) ) ) ),
 				'headers' => $this->build_headers(),
-				'body'    => wp_json_encode( array( 'event' => $event ) ),
+				'body'    => wp_json_encode( $body ),
 			)
 		);
 
@@ -187,6 +168,7 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 		}
 
 		$this->track_delivery_result( true, $order_id, $event, 'HTTP ' . $status_code );
+		do_action( 'ck_ows_artwork_event_delivered', $order_id, $event, $status_code );
 	}
 
 	private function sanitize_event_payload( array $event ) {
@@ -202,6 +184,7 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 		}
 
 		return array(
+			'event_id'        => isset( $event['event_id'] ) ? sanitize_text_field( (string) $event['event_id'] ) : '',
 			'event_name'      => isset( $event['event_name'] ) ? sanitize_text_field( (string) $event['event_name'] ) : '',
 			'event_status'    => $status,
 			'occurred_at'     => isset( $event['occurred_at'] ) ? sanitize_text_field( (string) $event['occurred_at'] ) : gmdate( 'c' ),
@@ -222,22 +205,33 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 	private function apply_event_to_order( WC_Order $order, array $event ) {
 		$proof_url = (string) $event['proof_url'];
 		$status    = (string) $event['event_status'];
+		$revision  = absint( $event['proof_version'] );
+		$occurred  = strtotime( (string) $event['occurred_at'] );
+		$occurred  = false === $occurred ? time() : $occurred;
+		$last_revision  = absint( $order->get_meta( self::META_EVENT_REVISION, true ) );
+		$last_timestamp = absint( $order->get_meta( self::META_EVENT_TIMESTAMP, true ) );
+		$target_status  = '';
+		$status_note    = '';
+
+		if ( ( $revision > 0 && $last_revision > $revision ) || ( ( 0 === $revision || $revision === $last_revision ) && $last_timestamp > $occurred ) ) {
+			return new WP_Error( 'stale_artwork_event', __( 'A newer artwork event has already been applied.', 'ck-order-workflow-suite' ) );
+		}
 
 		if ( in_array( $status, array( 'uploaded', 'approval_requested' ), true ) ) {
 			if ( '' !== $proof_url ) {
 				$order->update_meta_data( CK_OWS_Artwork_Proof::META_PROOF_URL, $proof_url );
 			}
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_APPROVAL_STATE, CK_OWS_Artwork_Proof::STATE_PENDING );
-			if ( 'awaiting-artwork' !== $order->get_status() ) {
-				$order->update_status( 'awaiting-artwork', __( 'Artwork proof received from OverSeek.', 'ck-order-workflow-suite' ), true );
-			}
+			$target_status = 'awaiting-artwork';
+			$status_note   = __( 'Artwork proof received from OverSeek.', 'ck-order-workflow-suite' );
 		}
 
 		if ( 'approved' === $status ) {
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_APPROVAL_STATE, CK_OWS_Artwork_Proof::STATE_APPROVED );
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_APPROVED_AT, time() );
 			if ( 'awaiting-artwork' === $order->get_status() ) {
-				$order->update_status( 'in-production', __( 'Artwork approved via OverSeek event.', 'ck-order-workflow-suite' ), true );
+				$target_status = 'in-production';
+				$status_note   = __( 'Artwork approved via OverSeek event.', 'ck-order-workflow-suite' );
 			}
 		}
 
@@ -246,19 +240,26 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_APPROVAL_STATE, CK_OWS_Artwork_Proof::STATE_CHANGES );
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_CHANGES_REQUESTED_AT, time() );
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_CHANGES_REQUEST_MESSAGE, $note );
-			if ( 'awaiting-artwork' !== $order->get_status() ) {
-				$order->update_status( 'awaiting-artwork', __( 'Artwork changes requested via OverSeek event.', 'ck-order-workflow-suite' ), true );
-			}
+			$target_status = 'awaiting-artwork';
+			$status_note   = __( 'Artwork changes requested via OverSeek event.', 'ck-order-workflow-suite' );
 		}
 
 		if ( 'override_used' === $status ) {
 			$reason = '' !== trim( (string) $event['notes'] ) ? (string) $event['notes'] : __( 'Staff override used in OverSeek.', 'ck-order-workflow-suite' );
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_OVERRIDE_REASON, $reason );
 			$order->update_meta_data( CK_OWS_Artwork_Proof::META_OVERRIDE_AT, time() );
-			$order->update_status( 'in-production', __( 'Staff override received from OverSeek event.', 'ck-order-workflow-suite' ), true );
+			$target_status = 'in-production';
+			$status_note   = __( 'Staff override received from OverSeek event.', 'ck-order-workflow-suite' );
 		}
 
-		$order->save();
+		$order->update_meta_data( self::META_EVENT_REVISION, max( $revision, $last_revision ) );
+		$order->update_meta_data( self::META_EVENT_TIMESTAMP, $occurred );
+		$order->update_meta_data( self::META_EVENT_STATUS, $status );
+		if ( '' !== $target_status && $target_status !== $order->get_status() ) {
+			$order->update_status( $target_status, $status_note, true );
+		} else {
+			$order->save_meta_data();
+		}
 		$order->add_order_note( sprintf( __( 'Artwork event received: %s', 'ck-order-workflow-suite' ), $status ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_event_received', array( 'event_status' => $status ) );
 
@@ -355,7 +356,7 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 		}
 
 		$health_url = home_url( '/wp-json/overseek/v1/health' );
-		$response   = wp_remote_get(
+		$response   = CK_OWS_Utils::remote_get(
 			$health_url,
 			array(
 				'timeout' => 5,
@@ -390,18 +391,10 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 		return CK_OWS_Utils::sanitize_https_url( $url );
 	}
 
-	private function is_duplicate_event( array $event ): bool {
-		if ( isset( $event['event_id'] ) && '' !== trim( (string) $event['event_id'] ) ) {
-			$key = self::DEDUPE_TRANSIENT_BASE . md5( 'id|' . (string) $event['event_id'] );
-			if ( false !== get_transient( $key ) ) {
-				return true;
-			}
-
-			set_transient( $key, '1', 7 * DAY_IN_SECONDS );
-
-			return false;
+	private function get_event_dedupe_key( array $event ): string {
+		if ( '' !== trim( (string) ( $event['event_id'] ?? '' ) ) ) {
+			return self::DEDUPE_TRANSIENT_BASE . md5( 'id|' . (string) $event['event_id'] );
 		}
-
 		$key_material = implode(
 			'|',
 			array(
@@ -412,18 +405,26 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			)
 		);
 
-		if ( '' === trim( $key_material, '|' ) ) {
-			return false;
+		return '' === trim( $key_material, '|' ) ? '' : self::DEDUPE_TRANSIENT_BASE . md5( $key_material );
+	}
+
+	private function get_event_dedupe_state( array $event ): string {
+		$key = $this->get_event_dedupe_key( $event );
+		return '' === $key ? '' : (string) get_transient( $key );
+	}
+
+	private function set_event_dedupe_state( array $event, string $state ): void {
+		$key = $this->get_event_dedupe_key( $event );
+		if ( '' !== $key ) {
+			set_transient( $key, $state, 'success' === $state ? 7 * DAY_IN_SECONDS : 5 * MINUTE_IN_SECONDS );
 		}
+	}
 
-		$key = self::DEDUPE_TRANSIENT_BASE . md5( $key_material );
-		if ( false !== get_transient( $key ) ) {
-			return true;
+	private function clear_event_dedupe_state( array $event ): void {
+		$key = $this->get_event_dedupe_key( $event );
+		if ( '' !== $key ) {
+			delete_transient( $key );
 		}
-
-		set_transient( $key, '1', 7 * DAY_IN_SECONDS );
-
-		return false;
 	}
 
 	private function track_delivery_result( bool $ok, int $order_id, array $event, string $message ): void {
@@ -452,17 +453,21 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 		$backoff_minutes = max( 1, min( 60, absint( CK_OWS_Settings::get( 'tracking_email_events_retry_backoff_minutes', 5 ) ) ) );
 		$delay_seconds   = max( 60, $backoff_minutes * 60 * max( 1, $attempt ) );
 
-		wp_schedule_single_event(
-			time() + $delay_seconds,
-			self::RETRY_HOOK,
-			array(
-				array(
-					'order_id' => $order_id,
-					'event'    => $event,
-					'attempt'  => $attempt,
-				),
-			)
-		);
+		$payload = array( 'order_id' => $order_id, 'event' => $event, 'attempt' => $attempt );
+		if ( ! $this->schedule_delivery( $payload, time() + $delay_seconds ) ) {
+			$this->push_dead_letter( $order_id, $event, $attempt, 'Unable to schedule retry: ' . $error_message );
+		}
+	}
+
+	private function schedule_delivery( array $payload, int $timestamp ): bool {
+		$args = array( $payload );
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( self::RETRY_HOOK, $args, 'ck-ows-artwork' ) ) {
+				return true;
+			}
+			return 0 !== as_schedule_single_action( $timestamp, self::RETRY_HOOK, $args, 'ck-ows-artwork', true );
+		}
+		return wp_next_scheduled( self::RETRY_HOOK, $args ) || wp_schedule_single_event( $timestamp, self::RETRY_HOOK, $args );
 	}
 
 	private function push_dead_letter( int $order_id, array $event, int $attempts, string $error_message ): void {

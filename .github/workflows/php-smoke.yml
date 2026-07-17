@@ -25,3 +25,15 @@ jobs:
 
       - name: Run security contract smoke tests
         run: php tests/smoke/security-contracts.php
+
+      - name: Run workflow contract smoke tests
+        run: php tests/smoke/workflow-contracts.php
+
+      - name: Run performance contract smoke tests
+        run: php tests/smoke/performance-contracts.php
+
+      - name: Run tracking classification tests
+        run: php tests/smoke/tracking-classification.php
+
+      - name: Run bootstrap loading tests
+        run: php tests/smoke/bootstrap-loading.php

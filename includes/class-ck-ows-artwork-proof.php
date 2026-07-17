@@ -27,6 +27,11 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 	private const UPLOAD_ACTION_NONCE_FIELD   = 'ck_ows_artwork_upload_nonce';
 	private const CUSTOMER_ACTION_NONCE       = 'ck_ows_artwork_customer';
 	private const CUSTOMER_ACTION_NONCE_FIELD = 'ck_ows_artwork_customer_nonce';
+	private const ATTACHMENT_OWNED_META       = '_ck_ows_artwork_owned';
+	private const ATTACHMENT_ORDER_META       = '_ck_ows_artwork_order_id';
+
+	/** @var array<int, bool> Orders currently being restored by the production gate. */
+	private array $production_gate_guard = array();
 
 	public const STATE_PENDING  = 'pending';
 	public const STATE_APPROVED = 'approved';
@@ -49,7 +54,6 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		add_action( 'admin_post_ck_ows_artwork_action', array( $this, 'handle_customer_action' ) );
 
 		add_action( 'admin_post_ck_ows_artwork_override', array( $this, 'handle_staff_override' ) );
-		add_action( 'woocommerce_order_status_changed', array( $this, 'enforce_production_gate' ), 20, 4 );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 	}
 
@@ -370,7 +374,8 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 			exit;
 		}
 
-		$deleted_version = $this->get_revision_label( $rev );
+		$deleted_revision = $revisions[ $rev ];
+		$deleted_version  = $this->get_revision_label( $rev );
 		unset( $revisions[ $rev ] );
 		$revisions = array_values( $revisions );
 
@@ -387,7 +392,8 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 			$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_PENDING );
 		}
 
-		$order->save();
+		$order->save_meta_data();
+		$this->delete_owned_revision_attachment( $order_id, $deleted_revision, $revisions );
 		/* translators: %s: deleted artwork revision label. */
 		$order->add_order_note( sprintf( __( 'Artwork proof %s deleted by staff.', 'ck-order-workflow-suite' ), $deleted_version ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_revision_deleted', array( 'version' => $deleted_version ) );
@@ -398,7 +404,7 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		exit;
 	}
 
-	public function save_order_meta( int $order_id, $post ): void {
+	public function save_order_meta( int $order_id, $order_or_post ): void {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
@@ -407,7 +413,7 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 			return;
 		}
 
-		if ( ! $post || ! isset( $post->post_type ) || 'shop_order' !== $post->post_type ) {
+		if ( ! $order_or_post instanceof WC_Order && ( ! $order_or_post || ! isset( $order_or_post->post_type ) || 'shop_order' !== $order_or_post->post_type ) ) {
 			return;
 		}
 
@@ -469,13 +475,16 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 				'post_status'    => 'inherit',
 			),
 			$file_path,
-			$order_id
+			0
 		);
 
 		if ( is_wp_error( $attachment_id ) ) {
+			wp_delete_file( $file_path );
 			return $attachment_id;
 		}
 
+		update_post_meta( $attachment_id, self::ATTACHMENT_OWNED_META, '1' );
+		update_post_meta( $attachment_id, self::ATTACHMENT_ORDER_META, $order_id );
 		wp_update_attachment_metadata( $attachment_id, wp_generate_attachment_metadata( $attachment_id, $file_path ) );
 
 		$order->update_meta_data( self::META_PROOF_ID, $attachment_id );
@@ -490,15 +499,16 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 			)
 		);
 		$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_PENDING );
-		$order->save();
+
+		if ( 'awaiting-artwork' !== $order->get_status() ) {
+			$order->update_status( 'awaiting-artwork', __( 'Order moved to Awaiting Artwork Approval after proof upload.', 'ck-order-workflow-suite' ), true );
+		} else {
+			$order->save_meta_data();
+		}
 
 		$order->add_order_note( __( 'Artwork proof PDF uploaded and approval requested.', 'ck-order-workflow-suite' ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_uploaded' );
 		CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'approval_requested' );
-
-		if ( 'awaiting-artwork' !== $order->get_status() ) {
-			$order->update_status( 'awaiting-artwork', __( 'Order moved to Awaiting Artwork Approval after proof upload.', 'ck-order-workflow-suite' ), true );
-		}
 
 		return true;
 	}
@@ -570,10 +580,18 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 
 		$action_url = admin_url( 'admin-post.php' );
 		$changes_open_attr = self::STATE_CHANGES === $state ? ' open' : '';
+		$current_proof = $this->get_current_proof_identity( $order );
+
+		if ( self::STATE_PENDING !== $state || is_wp_error( $current_proof ) ) {
+			echo '<p class="woocommerce-info">' . esc_html__( 'This proof is no longer available for approval. Please refresh the order or contact us.', 'ck-order-workflow-suite' ) . '</p>';
+			echo '</section>';
+			return;
+		}
 
 		echo '<form method="post" action="' . esc_url( $action_url ) . '" class="ck-ows-artwork-proof__form">';
 		echo '<input type="hidden" name="action" value="ck_ows_artwork_action">';
 		echo '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order->get_id() ) . '">';
+		echo '<input type="hidden" name="proof_identity" value="' . esc_attr( $current_proof ) . '">';
 		wp_nonce_field( self::CUSTOMER_ACTION_NONCE . '_' . $order->get_id(), self::CUSTOMER_ACTION_NONCE_FIELD );
 
 		echo '<div class="ck-ows-artwork-proof__actions">';
@@ -605,9 +623,12 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		$orders = wc_get_orders(
 			array(
 				'customer_id' => get_current_user_id(),
-				'limit'       => 25,
+				'limit'       => 2,
 				'orderby'     => 'date',
 				'order'       => 'DESC',
+				'status'      => array( 'awaiting-artwork' ),
+				'meta_key'    => self::META_APPROVAL_STATE,
+				'meta_value'  => self::STATE_PENDING,
 				'return'      => 'objects',
 			)
 		);
@@ -633,8 +654,7 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		echo '<strong>' . esc_html__( 'Artwork proof awaiting approval', 'ck-order-workflow-suite' ) . '</strong>';
 
 		if ( $proof_count > 1 ) {
-			/* translators: %d: number of orders awaiting artwork proof approval. */
-			echo '<span>' . esc_html( sprintf( __( 'You have %d orders with artwork proofs ready to review.', 'ck-order-workflow-suite' ), $proof_count ) ) . '</span>';
+			echo '<span>' . esc_html__( 'You have multiple orders with artwork proofs ready to review.', 'ck-order-workflow-suite' ) . '</span>';
 		} else {
 			echo '<span>' . esc_html__( 'Your artwork proof is ready. Please review it before production begins.', 'ck-order-workflow-suite' ) . '</span>';
 		}
@@ -663,19 +683,31 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		}
 
 		$action = isset( $_POST['artwork_action'] ) ? sanitize_key( wp_unslash( $_POST['artwork_action'] ) ) : '';
+		$submitted_proof = isset( $_POST['proof_identity'] ) ? sanitize_text_field( wp_unslash( $_POST['proof_identity'] ) ) : '';
+		$current_proof   = $this->get_current_proof_identity( $order );
+
+		if ( self::STATE_PENDING !== (string) $order->get_meta( self::META_APPROVAL_STATE, true ) ) {
+			$this->redirect_customer_with_notice( $order, __( 'This artwork action has already been finalized.', 'ck-order-workflow-suite' ), 'error' );
+		}
+
+		if ( is_wp_error( $current_proof ) || '' === $submitted_proof || ! hash_equals( $current_proof, $submitted_proof ) ) {
+			$this->redirect_customer_with_notice( $order, __( 'This proof is missing, deleted, or no longer current. Please refresh and review the latest proof.', 'ck-order-workflow-suite' ), 'error' );
+		}
 
 		if ( 'approve' === $action ) {
 			$order->update_meta_data( self::META_APPROVAL_STATE, self::STATE_APPROVED );
 			$order->update_meta_data( self::META_APPROVED_AT, time() );
 			$order->update_meta_data( self::META_APPROVED_BY, get_current_user_id() );
-			$order->save();
-			$order->add_order_note( __( 'Customer approved artwork proof.', 'ck-order-workflow-suite' ) );
-			CK_OWS_Audit::log_order_event( $order, 'artwork_approved_by_customer' );
-			CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'approved' );
 
 			if ( 'awaiting-artwork' === $order->get_status() ) {
 				$order->update_status( 'in-production', __( 'Artwork approved by customer. Order moved to In Production.', 'ck-order-workflow-suite' ), true );
+			} else {
+				$order->save_meta_data();
 			}
+
+			$order->add_order_note( __( 'Customer approved artwork proof.', 'ck-order-workflow-suite' ) );
+			CK_OWS_Audit::log_order_event( $order, 'artwork_approved_by_customer' );
+			CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'approved' );
 
 			$this->redirect_customer_with_notice( $order, '', 'success' );
 		}
@@ -702,10 +734,10 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 					'message'      => $message,
 				)
 			);
-			$order->save();
-
 			if ( 'awaiting-artwork' !== $order->get_status() ) {
 				$order->update_status( 'awaiting-artwork', __( 'Order moved back to Awaiting Artwork Approval after customer change request.', 'ck-order-workflow-suite' ), true );
+			} else {
+				$order->save_meta_data();
 			}
 
 			CK_OWS_Audit::log_order_event( $order, 'artwork_changes_requested' );
@@ -794,13 +826,16 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		$order->update_meta_data( self::META_OVERRIDE_REASON, $reason );
 		$order->update_meta_data( self::META_OVERRIDE_BY, get_current_user_id() );
 		$order->update_meta_data( self::META_OVERRIDE_AT, time() );
-		$order->save();
+		if ( 'in-production' !== $order->get_status() ) {
+			$order->update_status( 'in-production', __( 'Staff override moved order to In Production.', 'ck-order-workflow-suite' ), true );
+		} else {
+			$order->save_meta_data();
+		}
 
 		/* translators: %s: staff override reason text. */
 		$order->add_order_note( sprintf( __( 'Staff override approved artwork and moved to production. Reason: %s', 'ck-order-workflow-suite' ), $reason ) );
 		CK_OWS_Audit::log_order_event( $order, 'artwork_staff_override', array( 'reason' => $reason ) );
 		CK_OWS_Artwork_Events::instance()->dispatch_event_for_order( $order, 'override_used', array( 'notes' => $reason ) );
-		$order->update_status( 'in-production', __( 'Staff override moved order to In Production.', 'ck-order-workflow-suite' ), true );
 
 		$redirect = $this->get_safe_admin_referer_url( admin_url( 'post.php?post=' . $order_id . '&action=edit' ) );
 		$redirect = add_query_arg( 'ck_ows_override_success', 1, $redirect );
@@ -809,22 +844,32 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 	}
 
 	public function enforce_production_gate( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
-		if ( 'in-production' !== $to_status || 'in-production' === $from_status ) {
+		$status_rank = array(
+			'in-production' => 1,
+			'in-dispatch'   => 2,
+			'completed'     => 3,
+		);
+
+		if ( ! isset( $status_rank[ $to_status ] ) || $from_status === $to_status ) {
 			return;
 		}
 
-		$guard_key = 'ck_ows_production_gate_' . $order_id;
-		if ( false !== get_transient( $guard_key ) ) {
+		if ( isset( $status_rank[ $from_status ] ) && $status_rank[ $from_status ] >= $status_rank[ $to_status ] ) {
 			return;
 		}
 
-		if ( self::order_can_move_to_production( $order ) ) {
+		if ( isset( $this->production_gate_guard[ $order_id ] ) || self::order_can_move_to_production( $order ) ) {
 			return;
 		}
 
-		set_transient( $guard_key, '1', 5 );
-		$order->update_status( $from_status, __( 'Transition to In Production blocked: artwork approval required.', 'ck-order-workflow-suite' ), true );
-		$order->add_order_note( __( 'Order attempted to move to In Production without required artwork approval.', 'ck-order-workflow-suite' ) );
+		$this->production_gate_guard[ $order_id ] = true;
+		try {
+			$order->update_status( $from_status, __( 'Forward transition blocked: artwork approval or staff override required.', 'ck-order-workflow-suite' ), true );
+			/* translators: %s: blocked order status. */
+			$order->add_order_note( sprintf( __( 'Order attempted to move to %s without required artwork approval.', 'ck-order-workflow-suite' ), wc_get_order_status_name( $to_status ) ) );
+		} finally {
+			unset( $this->production_gate_guard[ $order_id ] );
+		}
 	}
 
 	public static function order_can_move_to_production( WC_Order $order ): bool {
@@ -900,6 +945,59 @@ class CK_OWS_Artwork_Proof extends CK_OWS_Base {
 		}
 
 		return (string) $order->get_meta( self::META_PROOF_URL, true );
+	}
+
+	/**
+	 * Return a stable identity for the current, usable proof.
+	 *
+	 * @return string|WP_Error
+	 */
+	private function get_current_proof_identity( WC_Order $order ) {
+		$revisions = self::get_proof_revisions( $order );
+		$current   = ! empty( $revisions ) ? $revisions[ count( $revisions ) - 1 ] : array(
+			'attachment_id' => absint( $order->get_meta( self::META_PROOF_ID, true ) ),
+			'url'           => esc_url_raw( (string) $order->get_meta( self::META_PROOF_URL, true ) ),
+			'uploaded_at'   => 0,
+		);
+
+		$attachment_id = isset( $current['attachment_id'] ) ? absint( $current['attachment_id'] ) : 0;
+		$url           = isset( $current['url'] ) ? esc_url_raw( (string) $current['url'] ) : '';
+
+		if ( $attachment_id > 0 ) {
+			$attachment = get_post( $attachment_id );
+			if ( ( ! $attachment instanceof WP_Post || 'attachment' !== $attachment->post_type ) && '' === $url ) {
+				return new WP_Error( 'ck_ows_artwork_proof_missing', __( 'Artwork proof is missing.', 'ck-order-workflow-suite' ) );
+			}
+
+			$attachment_url = $attachment instanceof WP_Post && 'attachment' === $attachment->post_type ? wp_get_attachment_url( $attachment_id ) : false;
+			if ( ( ! is_string( $attachment_url ) || '' === $attachment_url ) && '' === $url ) {
+				return new WP_Error( 'ck_ows_artwork_proof_missing', __( 'Artwork proof is missing.', 'ck-order-workflow-suite' ) );
+			}
+			if ( is_string( $attachment_url ) && '' !== $attachment_url ) {
+				$url = esc_url_raw( $attachment_url );
+			}
+		}
+
+		if ( '' === $url ) {
+			return new WP_Error( 'ck_ows_artwork_proof_missing', __( 'Artwork proof is missing.', 'ck-order-workflow-suite' ) );
+		}
+
+		return hash( 'sha256', implode( '|', array( (string) $attachment_id, $url, (string) ( $current['uploaded_at'] ?? 0 ) ) ) );
+	}
+
+	private function delete_owned_revision_attachment( int $order_id, array $revision, array $remaining_revisions ): void {
+		$attachment_id = isset( $revision['attachment_id'] ) ? absint( $revision['attachment_id'] ) : 0;
+		if ( $attachment_id <= 0 || '1' !== (string) get_post_meta( $attachment_id, self::ATTACHMENT_OWNED_META, true ) || $order_id !== absint( get_post_meta( $attachment_id, self::ATTACHMENT_ORDER_META, true ) ) ) {
+			return;
+		}
+
+		foreach ( $remaining_revisions as $remaining_revision ) {
+			if ( is_array( $remaining_revision ) && $attachment_id === absint( $remaining_revision['attachment_id'] ?? 0 ) ) {
+				return;
+			}
+		}
+
+		wp_delete_attachment( $attachment_id, true );
 	}
 
 	private static function get_proof_revisions( WC_Order $order ): array {

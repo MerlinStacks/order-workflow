@@ -25,6 +25,32 @@ class CK_OWS_Tracking_Helpers {
 		return array_values( array_unique( array_filter( $numbers ) ) );
 	}
 
+	public static function extract_auspost_tracking_numbers( WC_Order $order ): array {
+		$numbers = array();
+		$items   = $order->get_meta( '_wc_shipment_tracking_items', true );
+
+		if ( ! is_array( $items ) ) {
+			return array();
+		}
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) || empty( $item['tracking_number'] ) ) {
+				continue;
+			}
+
+			$provider = trim( (string) ( $item['tracking_provider'] ?? '' ) . ' ' . (string) ( $item['custom_tracking_provider'] ?? '' ) );
+			$links    = strtolower( trim( (string) ( $item['formatted_tracking_link'] ?? '' ) . ' ' . (string) ( $item['custom_tracking_link'] ?? '' ) ) );
+
+			if ( ! self::is_auspost_provider( $provider ) && false === strpos( $links, 'auspost.com.au' ) ) {
+				continue;
+			}
+
+			$numbers[] = sanitize_text_field( (string) $item['tracking_number'] );
+		}
+
+		return array_values( array_unique( array_filter( $numbers ) ) );
+	}
+
 	public static function extract_tracking_links( WC_Order $order ): array {
 		$links = array();
 		$items = $order->get_meta( '_wc_shipment_tracking_items', true );
@@ -54,9 +80,41 @@ class CK_OWS_Tracking_Helpers {
 	}
 
 	public static function is_auspost_provider( string $provider ): bool {
-		$provider = strtolower( $provider );
+		$provider = strtolower( str_replace( array( '_', '-' ), ' ', $provider ) );
 
 		return '' !== $provider && ( false !== strpos( $provider, 'australia post' ) || false !== strpos( $provider, 'auspost' ) );
+	}
+
+	public static function is_delivered_status_text( string $text ): bool {
+		$text = strtolower( trim( $text ) );
+
+		if ( '' === $text ) {
+			return false;
+		}
+
+		$negative_patterns = array(
+			'/\bnot(?: yet)? delivered\b/',
+			'/\b(?:unable to be|cannot be|can not be|could not be|couldn\'t be) delivered\b/',
+			'/\bundeliver(?:ed|able)\b/',
+			'/\bdelivery (?:attempted|failed|failure|exception)\b/',
+			'/\b(?:attempted|failed) delivery\b/',
+			'/\b(?:awaiting|ready for) collection\b/',
+			'/\breturn(?:ed|ing)? to sender\b/',
+		);
+
+		foreach ( $negative_patterns as $pattern ) {
+			if ( 1 === preg_match( $pattern, $text ) ) {
+				return false;
+			}
+		}
+
+		foreach ( array( '/\bdelivered\b/', '/\bdelivery complete(?:d)?\b/', '/\bproof of delivery\b/', '/\bcollected by customer\b/', '/\bleft in (?:a )?safe place\b/' ) as $pattern ) {
+			if ( 1 === preg_match( $pattern, $text ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public static function looks_like_tracking_event( array $event ): bool {
@@ -196,10 +254,8 @@ class CK_OWS_Tracking_Helpers {
 
 			$haystack = strtolower( trim( implode( ' ', array( (string) ( $event['description'] ?? '' ), (string) ( $event['event_description'] ?? '' ), (string) ( $event['event'] ?? '' ), (string) ( $event['status'] ?? '' ), (string) ( $event['summary'] ?? '' ), (string) ( $event['title'] ?? '' ), (string) ( $event['event_type'] ?? '' ), (string) ( $event['code'] ?? '' ) ) ) ) );
 
-			foreach ( array( 'delivered', 'delivery complete', 'proof of delivery', 'item delivered', 'successfully delivered', 'collected by customer', 'awaiting collection', 'left in a safe place' ) as $needle ) {
-				if ( false !== strpos( $haystack, $needle ) ) {
-					return true;
-				}
+			if ( self::is_delivered_status_text( $haystack ) ) {
+				return true;
 			}
 		}
 

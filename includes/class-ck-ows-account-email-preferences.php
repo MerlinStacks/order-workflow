@@ -11,24 +11,13 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 	private const SAVE_PREFS_NONCE       = 'ck_ows_save_email_preferences';
 	private const SAVE_PREFS_NONCE_FIELD = 'ck_ows_save_email_preferences_nonce';
 	private const PREFS_CACHE_TTL         = 5 * MINUTE_IN_SECONDS;
+	private const PREFS_STALE_CACHE_TTL   = DAY_IN_SECONDS;
+	private const PREFS_FAILURE_TTL       = MINUTE_IN_SECONDS;
+	private const API_TIMEOUT             = 5;
 
 	protected function __construct() {
-		add_action( 'init', array( $this, 'register_endpoint' ) );
-		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ), 99 );
 		add_action( 'woocommerce_account_email-preferences_endpoint', array( $this, 'render_endpoint' ) );
 		add_action( 'admin_post_ck_ows_save_email_preferences', array( $this, 'handle_update' ) );
-	}
-
-	public function register_endpoint(): void {
-		add_rewrite_endpoint( 'email-preferences', EP_ROOT | EP_PAGES );
-	}
-
-	public function add_menu_item( array $items ): array {
-		return CK_OWS_Account_Menu_Helper::insert_before_logout(
-			$items,
-			'email-preferences',
-			__( 'Email Preferences', 'ck-order-workflow-suite' )
-		);
 	}
 
 	public function render_endpoint(): void {
@@ -46,6 +35,10 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 			echo '<p>' . esc_html__( 'Email preferences are not configured yet. Please contact support.', 'ck-order-workflow-suite' ) . '</p>';
 			echo '</div>';
 			return;
+		}
+
+		if ( isset( $_GET['ck_ows_pref_error'] ) ) {
+			echo '<div class="woocommerce-error" role="alert">' . esc_html__( 'We could not update your email preferences. Your previous settings have been kept. Please try again.', 'ck-order-workflow-suite' ) . '</div>';
 		}
 
 		$user        = wp_get_current_user();
@@ -125,14 +118,14 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 		$config = $this->get_api_config();
 
 		if ( ! $config['is_configured'] ) {
-			$this->redirect_to_page();
+			$this->redirect_to_page( false, true );
 		}
 
 		$user                 = wp_get_current_user();
 		$email                = strtolower( (string) $user->user_email );
 
 		if ( ! is_email( $email ) ) {
-			$this->redirect_to_page();
+			$this->redirect_to_page( false, true );
 		}
 
 		$global_subscribed    = isset( $_POST['global_subscribed'] ) && '1' === (string) wp_unslash( $_POST['global_subscribed'] );
@@ -152,12 +145,12 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 		$response = null;
 
 		foreach ( $this->get_email_preferences_endpoint_candidates( $config['base_url'] ) as $endpoint_url ) {
-			$response = wp_remote_post(
+			$response = CK_OWS_Utils::remote_post(
 				$endpoint_url,
 				array(
 					'headers' => $this->build_headers( $config ),
 					'body'    => wp_json_encode( $payload ),
-					'timeout' => 15,
+					'timeout' => self::API_TIMEOUT,
 				)
 			);
 
@@ -173,16 +166,18 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 		}
 
 		if ( is_wp_error( $response ) ) {
-			$this->redirect_to_page();
+			set_transient( $this->get_preferences_failure_key( $config, $email ), '1', self::PREFS_FAILURE_TTL );
+			$this->redirect_to_page( false, true );
 		}
 
 		$status_code = (int) wp_remote_retrieve_response_code( $response );
 
 		if ( $status_code < 200 || $status_code > 299 ) {
-			$this->redirect_to_page();
+			set_transient( $this->get_preferences_failure_key( $config, $email ), '1', self::PREFS_FAILURE_TTL );
+			$this->redirect_to_page( false, true );
 		}
 
-		$this->clear_preferences_cache( $config, $email );
+		$this->cache_submitted_preferences( $config, $email, $global_subscribed, $marketing_subscribed, $list_ids );
 
 		$this->redirect_to_page( true );
 	}
@@ -199,6 +194,40 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 			return $cached;
 		}
 
+		$stale_cache_key = $this->get_stale_preferences_cache_key( $config, $email );
+		$stale            = get_transient( $stale_cache_key );
+		$failure_key      = $this->get_preferences_failure_key( $config, $email );
+
+		if ( false !== get_transient( $failure_key ) ) {
+			return is_array( $stale ) ? $stale : $this->get_preferences_unavailable_error();
+		}
+
+		$lock_key = $this->get_preferences_lock_key( $config, $email );
+		if ( false !== get_transient( $lock_key ) ) {
+			return is_array( $stale ) ? $stale : $this->get_preferences_unavailable_error();
+		}
+
+		set_transient( $lock_key, '1', self::API_TIMEOUT + 2 );
+
+		try {
+			$data = $this->request_preferences( $config, $email );
+
+			if ( is_wp_error( $data ) ) {
+				set_transient( $failure_key, '1', self::PREFS_FAILURE_TTL );
+				return is_array( $stale ) ? $stale : $data;
+			}
+
+			$this->store_preferences_cache( $config, $email, $data );
+			delete_transient( $failure_key );
+
+			return $data;
+		} finally {
+			delete_transient( $lock_key );
+		}
+	}
+
+	private function request_preferences( array $config, string $email ) {
+
 		$response = null;
 
 		foreach ( $this->get_email_preferences_endpoint_candidates( $config['base_url'] ) as $endpoint_url ) {
@@ -210,11 +239,11 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 				$endpoint_url
 			);
 
-			$response = wp_remote_get(
+			$response = CK_OWS_Utils::remote_get(
 				$url,
 				array(
 					'headers' => $this->build_headers( $config ),
-					'timeout' => 15,
+					'timeout' => self::API_TIMEOUT,
 				)
 			);
 
@@ -230,13 +259,13 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 		}
 
 		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'ck_ows_email_pref_api_error', __( 'Unable to load email preferences right now. Please try again later.', 'ck-order-workflow-suite' ) );
+			return $this->get_preferences_unavailable_error();
 		}
 
 		$status_code = (int) wp_remote_retrieve_response_code( $response );
 
 		if ( $status_code < 200 || $status_code > 299 ) {
-			return new WP_Error( 'ck_ows_email_pref_api_status', __( 'Unable to load email preferences right now. Please try again later.', 'ck-order-workflow-suite' ) );
+			return $this->get_preferences_unavailable_error();
 		}
 
 		$body = wp_remote_retrieve_body( $response );
@@ -257,20 +286,66 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 			);
 		}
 
-		set_transient( $cache_key, $data, self::PREFS_CACHE_TTL );
-
 		return $data;
 	}
 
 	private function get_preferences_cache_key( array $config, string $email ): string {
 		$account_id = isset( $config['account_id'] ) ? (string) $config['account_id'] : '';
-		$key_source = strtolower( $account_id . '|' . trim( $email ) );
+		$base_url   = isset( $config['base_url'] ) ? (string) $config['base_url'] : '';
+		$key_source = strtolower( $base_url . '|' . $account_id . '|' . trim( $email ) );
 
 		return 'ck_ows_email_prefs_' . md5( $key_source );
 	}
 
-	private function clear_preferences_cache( array $config, string $email ): void {
-		delete_transient( $this->get_preferences_cache_key( $config, $email ) );
+	private function get_stale_preferences_cache_key( array $config, string $email ): string {
+		return $this->get_preferences_cache_key( $config, $email ) . '_stale';
+	}
+
+	private function get_preferences_failure_key( array $config, string $email ): string {
+		return $this->get_preferences_cache_key( $config, $email ) . '_failed';
+	}
+
+	private function get_preferences_lock_key( array $config, string $email ): string {
+		return $this->get_preferences_cache_key( $config, $email ) . '_lock';
+	}
+
+	private function get_preferences_unavailable_error(): WP_Error {
+		return new WP_Error( 'ck_ows_email_pref_api_error', __( 'Unable to load email preferences right now. Please try again later.', 'ck-order-workflow-suite' ) );
+	}
+
+	private function store_preferences_cache( array $config, string $email, array $data ): void {
+		set_transient( $this->get_preferences_cache_key( $config, $email ), $data, self::PREFS_CACHE_TTL );
+		set_transient( $this->get_stale_preferences_cache_key( $config, $email ), $data, self::PREFS_STALE_CACHE_TTL );
+	}
+
+	private function cache_submitted_preferences( array $config, string $email, bool $global_subscribed, bool $marketing_subscribed, array $list_ids ): void {
+		$data = get_transient( $this->get_preferences_cache_key( $config, $email ) );
+		if ( ! is_array( $data ) ) {
+			$data = get_transient( $this->get_stale_preferences_cache_key( $config, $email ) );
+		}
+		if ( ! is_array( $data ) ) {
+			$data = array( 'success' => true, 'preferences' => array() );
+		}
+
+		$preferences                          = is_array( $data['preferences'] ?? null ) ? $data['preferences'] : array();
+		$preferences['globalSubscribed']      = $global_subscribed;
+		$preferences['marketingSubscribed']   = $marketing_subscribed;
+		$lists                                = is_array( $preferences['lists'] ?? null ) ? $preferences['lists'] : array();
+
+		foreach ( $lists as $index => $list ) {
+			if ( ! is_array( $list ) ) {
+				continue;
+			}
+
+			$list_id = isset( $list['id'] ) ? (string) $list['id'] : '';
+			$lists[ $index ]['isSubscribed'] = '' !== $list_id && in_array( $list_id, $list_ids, true );
+		}
+
+		$preferences['lists'] = $lists;
+		$data['success']       = true;
+		$data['preferences']   = $preferences;
+		$this->store_preferences_cache( $config, $email, $data );
+		delete_transient( $this->get_preferences_failure_key( $config, $email ) );
 	}
 
 	private function get_api_config(): array {
@@ -295,35 +370,7 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 	}
 
 	private function normalize_api_base_url( string $base_url ): string {
-		$base_url = untrailingslashit( trim( $base_url ) );
-
-		if ( '' === $base_url ) {
-			return '';
-		}
-
-		$parts = wp_parse_url( $base_url );
-
-		if ( ! is_array( $parts ) ) {
-			return '';
-		}
-
-		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
-
-		if ( 'https' !== $scheme ) {
-			return '';
-		}
-
-		if ( empty( $parts['host'] ) ) {
-			return '';
-		}
-
-		$normalized = $scheme . '://' . strtolower( (string) $parts['host'] );
-
-		if ( isset( $parts['port'] ) && is_numeric( $parts['port'] ) ) {
-			$normalized .= ':' . (string) $parts['port'];
-		}
-
-		return esc_url_raw( $normalized );
+		return CK_OWS_Utils::sanitize_https_base_url( untrailingslashit( trim( $base_url ) ) );
 	}
 
 	private function is_allowed_api_base_url( string $base_url ): bool {
@@ -403,11 +450,13 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 		return 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', trim( $value ) );
 	}
 
-	private function redirect_to_page( bool $saved = false ): void {
+	private function redirect_to_page( bool $saved = false, bool $failed = false ): void {
 		$redirect_url = wc_get_endpoint_url( 'email-preferences', '', wc_get_page_permalink( 'myaccount' ) );
 
 		if ( $saved ) {
 			$redirect_url = add_query_arg( 'ck_ows_pref_saved', '1', $redirect_url );
+		} elseif ( $failed ) {
+			$redirect_url = add_query_arg( 'ck_ows_pref_error', '1', $redirect_url );
 		}
 
 		wp_safe_redirect( $redirect_url );

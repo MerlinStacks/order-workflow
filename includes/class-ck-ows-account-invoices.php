@@ -11,23 +11,9 @@ class CK_OWS_Account_Invoices extends CK_OWS_Base {
 	private static bool $address_notice_rendered = false;
 
 	protected function __construct() {
-		add_action( 'init', array( $this, 'register_endpoint' ) );
 		add_action( 'template_redirect', array( $this, 'maybe_redirect_invoice_request' ) );
-		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ), 99 );
 		add_action( 'woocommerce_account_invoices_endpoint', array( $this, 'render_endpoint' ) );
 		add_action( 'woocommerce_before_edit_account_address_form', array( $this, 'render_address_notice' ) );
-	}
-
-	public function register_endpoint(): void {
-		add_rewrite_endpoint( 'invoices', EP_ROOT | EP_PAGES );
-	}
-
-	public function add_menu_item( array $items ): array {
-		return CK_OWS_Account_Menu_Helper::insert_before_logout(
-			$items,
-			'invoices',
-			__( 'Invoices', 'ck-order-workflow-suite' )
-		);
 	}
 
 	public function render_address_notice(): void {
@@ -43,26 +29,33 @@ class CK_OWS_Account_Invoices extends CK_OWS_Base {
 		echo '</div>';
 	}
 
-	public function render_endpoint(): void {
+	public function render_endpoint( $current_page = 1 ): void {
 		if ( ! is_user_logged_in() ) {
 			return;
 		}
 
-		$orders = wc_get_orders(
+		$current_page = max( 1, absint( $current_page ) );
+		$limit        = max( 1, (int) apply_filters( 'ck_ows_account_invoices_limit', 20 ) );
+		$results      = wc_get_orders(
 			array(
 				'customer_id' => get_current_user_id(),
-				'limit'       => 20,
+				'limit'       => $limit,
+				'page'        => $current_page,
+				'paginate'    => true,
 				'orderby'     => 'date',
 				'order'       => 'DESC',
 				'status'      => array( 'wc-processing', 'wc-completed', CK_OWS_Statuses::STATUS_IN_PRODUCTION, CK_OWS_Statuses::STATUS_IN_DISPATCH ),
 			)
 		);
+		$orders        = is_object( $results ) && isset( $results->orders ) ? $results->orders : array();
+		$max_num_pages = is_object( $results ) && isset( $results->max_num_pages ) ? (int) $results->max_num_pages : 0;
 
 		echo '<div class="ck-invoices">';
 		echo '<h3 class="ck-invoices__title">' . esc_html__( 'Your Invoices', 'ck-order-workflow-suite' ) . '</h3>';
 
 		if ( empty( $orders ) ) {
 			echo '<div class="ck-invoices__empty">' . esc_html__( 'No invoices available yet.', 'ck-order-workflow-suite' ) . '</div>';
+			$this->render_pagination( $current_page, $max_num_pages );
 			echo '</div>';
 			return;
 		}
@@ -103,7 +96,23 @@ class CK_OWS_Account_Invoices extends CK_OWS_Base {
 		}
 
 		echo '</div>';
+		$this->render_pagination( $current_page, $max_num_pages );
 		echo '</div>';
+	}
+
+	private function render_pagination( int $current_page, int $max_num_pages ): void {
+		if ( $max_num_pages <= 1 ) {
+			return;
+		}
+
+		echo '<nav class="woocommerce-pagination woocommerce-pagination--without-numbers woocommerce-Pagination" aria-label="' . esc_attr__( 'Invoices pagination', 'ck-order-workflow-suite' ) . '">';
+		if ( $current_page > 1 ) {
+			echo '<a class="woocommerce-button woocommerce-button--previous woocommerce-Button woocommerce-Button--previous button" href="' . esc_url( wc_get_endpoint_url( 'invoices', $current_page - 1 ) ) . '">' . esc_html__( 'Previous', 'woocommerce' ) . '</a>';
+		}
+		if ( $current_page < $max_num_pages ) {
+			echo '<a class="woocommerce-button woocommerce-button--next woocommerce-Button woocommerce-Button--next button" href="' . esc_url( wc_get_endpoint_url( 'invoices', $current_page + 1 ) ) . '">' . esc_html__( 'Next', 'woocommerce' ) . '</a>';
+		}
+		echo '</nav>';
 	}
 
 	public function maybe_redirect_invoice_request(): void {

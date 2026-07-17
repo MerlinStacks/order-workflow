@@ -8,10 +8,6 @@
 defined( 'ABSPATH' ) || exit;
 
 class CK_OWS_Account_Order_Cards extends CK_OWS_Base {
-	protected function __construct() {
-		add_action( 'wp', array( $this, 'replace_orders_endpoint_renderer' ) );
-	}
-
 	public function replace_orders_endpoint_renderer(): void {
 		if ( ! function_exists( 'is_account_page' ) || ! is_account_page() ) {
 			return;
@@ -21,29 +17,35 @@ class CK_OWS_Account_Order_Cards extends CK_OWS_Base {
 		add_action( 'woocommerce_account_orders_endpoint', array( $this, 'render_orders_endpoint' ) );
 	}
 
-	public function render_orders_endpoint(): void {
+	public function render_orders_endpoint( $current_page = 1 ): void {
 		if ( ! is_user_logged_in() ) {
 			return;
 		}
 
-		$customer_id = get_current_user_id();
-		$limit       = (int) apply_filters( 'ck_ows_account_orders_card_limit', 20 );
+		$customer_id  = get_current_user_id();
+		$limit        = max( 1, (int) apply_filters( 'ck_ows_account_orders_card_limit', 20 ) );
+		$current_page = max( 1, absint( $current_page ) );
 
-		$orders = wc_get_orders(
+		$results = wc_get_orders(
 			array(
 				'customer_id' => $customer_id,
 				'limit'       => $limit,
+				'page'        => $current_page,
+				'paginate'    => true,
 				'orderby'     => 'date',
 				'order'       => 'DESC',
 				'return'      => 'objects',
 			)
 		);
+		$orders        = is_object( $results ) && isset( $results->orders ) ? $results->orders : array();
+		$max_num_pages = is_object( $results ) && isset( $results->max_num_pages ) ? (int) $results->max_num_pages : 0;
 
 		echo '<div class="ck-ows-orders-cards">';
 		echo '<h2 class="ck-ows-orders-cards__title">' . esc_html__( 'Your Orders', 'ck-order-workflow-suite' ) . '</h2>';
 
 		if ( empty( $orders ) ) {
 			echo '<div class="ck-ows-orders-cards__empty">' . esc_html__( 'No orders found yet.', 'ck-order-workflow-suite' ) . '</div>';
+			$this->render_pagination( $current_page, $max_num_pages );
 			echo '</div>';
 			return;
 		}
@@ -56,7 +58,23 @@ class CK_OWS_Account_Order_Cards extends CK_OWS_Base {
 			$this->render_order_card( $order );
 		}
 
+		$this->render_pagination( $current_page, $max_num_pages );
 		echo '</div>';
+	}
+
+	private function render_pagination( int $current_page, int $max_num_pages ): void {
+		if ( $max_num_pages <= 1 ) {
+			return;
+		}
+
+		echo '<nav class="woocommerce-pagination woocommerce-pagination--without-numbers woocommerce-Pagination" aria-label="' . esc_attr__( 'Orders pagination', 'ck-order-workflow-suite' ) . '">';
+		if ( $current_page > 1 ) {
+			echo '<a class="woocommerce-button woocommerce-button--previous woocommerce-Button woocommerce-Button--previous button" href="' . esc_url( wc_get_endpoint_url( 'orders', $current_page - 1 ) ) . '">' . esc_html__( 'Previous', 'woocommerce' ) . '</a>';
+		}
+		if ( $current_page < $max_num_pages ) {
+			echo '<a class="woocommerce-button woocommerce-button--next woocommerce-Button woocommerce-Button--next button" href="' . esc_url( wc_get_endpoint_url( 'orders', $current_page + 1 ) ) . '">' . esc_html__( 'Next', 'woocommerce' ) . '</a>';
+		}
+		echo '</nav>';
 	}
 
 	private function render_order_card( WC_Order $order ): void {
