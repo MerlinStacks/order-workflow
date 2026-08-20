@@ -103,7 +103,7 @@ class CK_OWS_Account_Email_Preferences extends CK_OWS_Base {
 			}
 		}
 
-		submit_button( __( 'Save Email Preferences', 'ck-order-workflow-suite' ) );
+		echo '<button type="submit" class="woocommerce-Button button">' . esc_html__( 'Save Email Preferences', 'ck-order-workflow-suite' ) . '</button>';
 		echo '</form>';
 		echo '</div>';
 	}
