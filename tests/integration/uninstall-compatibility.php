@@ -101,6 +101,7 @@ try {
 if ( ! empty( $failures ) ) {
 	foreach ( $failures as $failure ) {
 		fwrite( STDERR, '[FAIL] ' . $failure . "\n" );
+		fwrite( STDERR, '::error title=Uninstall compatibility::' . str_replace( array( "\r", "\n" ), ' ', $failure ) . "\n" );
 	}
 	exit( 1 );
 }

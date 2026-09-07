@@ -111,7 +111,7 @@ jobs:
           wp option update woocommerce_custom_orders_table_enabled ${{ matrix.hpos }} --path="$WP_PATH"
 
       - name: Run WooCommerce compatibility checks
-        run: |
-          WP_PATH="${RUNNER_TEMP}/wordpress"
-          wp eval-file "$GITHUB_WORKSPACE/tests/integration/woocommerce-compatibility.php" --path="$WP_PATH"
-          wp eval-file "$GITHUB_WORKSPACE/tests/integration/uninstall-compatibility.php" --path="$WP_PATH"
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/woocommerce-compatibility.php" --path="${RUNNER_TEMP}/wordpress"
+
+      - name: Run uninstall compatibility checks
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/uninstall-compatibility.php" --path="${RUNNER_TEMP}/wordpress"

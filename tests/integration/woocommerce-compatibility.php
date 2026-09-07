@@ -50,6 +50,11 @@ if ( class_exists( 'WooCommerce' ) && function_exists( 'wc_create_order' ) ) {
 			}
 
 			foreach ( array( 'awaiting-artwork', 'in-production', 'in-dispatch' ) as $status ) {
+				if ( 'in-production' === $status ) {
+					$order->update_meta_data( CK_OWS_Artwork_Proof::META_APPROVAL_STATE, CK_OWS_Artwork_Proof::STATE_APPROVED );
+					$order->save_meta_data();
+				}
+
 				$order->update_status( $status );
 				$order = wc_get_order( $order_id );
 				$assert( $order instanceof WC_Order && $status === $order->get_status(), sprintf( 'Order transition to %s failed.', $status ) );
@@ -80,6 +85,7 @@ if ( class_exists( 'WooCommerce' ) && function_exists( 'wc_create_order' ) ) {
 if ( ! empty( $failures ) ) {
 	foreach ( $failures as $failure ) {
 		fwrite( STDERR, '[FAIL] ' . $failure . "\n" );
+		fwrite( STDERR, '::error title=WooCommerce compatibility::' . str_replace( array( "\r", "\n" ), ' ', $failure ) . "\n" );
 	}
 	exit( 1 );
 }
