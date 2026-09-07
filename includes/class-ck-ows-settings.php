@@ -351,6 +351,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
 			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
 			delete_transient( 'ck_ows_tracking_schedule_check' );
+			delete_transient( 'ck_ows_schedule_health_check' );
 		}
 
 		self::$settings_cache = $current;
@@ -816,20 +817,9 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		$row       = $rows[ $index ];
 		$order_id  = isset( $row['order_id'] ) ? absint( $row['order_id'] ) : 0;
 		$event     = isset( $row['event'] ) && is_array( $row['event'] ) ? $row['event'] : array();
-		$attempt   = 1;
 
 		if ( $order_id > 0 && ! empty( $event ) ) {
-			$scheduled = wp_schedule_single_event(
-				time() + 5,
-				'ck_ows_tracking_event_retry',
-				array(
-					array(
-						'order_id' => $order_id,
-						'event'    => $event,
-						'attempt'  => $attempt,
-					),
-				)
-			);
+			$scheduled = CK_OWS_Tracking_Email_Events::instance()->queue_dead_letter_retry( $order_id, $event, time() + 5 );
 
 			if ( $scheduled ) {
 				unset( $rows[ $index ] );
@@ -884,7 +874,8 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		$rows = is_array( $rows ) ? array_values( $rows ) : array();
 		$queued = 0;
 
-		$remaining = array();
+		$remaining    = array();
+		$scheduled_at = time() + 5;
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) ) {
 				$remaining[] = $row;
@@ -899,20 +890,11 @@ class CK_OWS_Settings extends CK_OWS_Base {
 				continue;
 			}
 
-			$scheduled = wp_schedule_single_event(
-				time() + 5,
-				'ck_ows_tracking_event_retry',
-				array(
-					array(
-						'order_id' => $order_id,
-						'event'    => $event,
-						'attempt'  => 1,
-					),
-				)
-			);
+			$scheduled = CK_OWS_Tracking_Email_Events::instance()->queue_dead_letter_retry( $order_id, $event, $scheduled_at );
 
 			if ( $scheduled ) {
 				$queued++;
+				$scheduled_at += 3;
 			} else {
 				$remaining[] = $row;
 			}

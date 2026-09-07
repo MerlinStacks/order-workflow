@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.14 - 2026-09-07
+
+- Reduce recurring tracking work by filtering tracked orders on supported WooCommerce versions and deduplicating refresh scheduling within each request.
+- Cache webhook endpoint discovery and consolidate recurring schedule health checks.
+- Avoid redundant order metadata writes and account pagination count queries.
+- Route manual dead-letter retries through Action Scheduler and stagger bulk retries.
+
 ## 0.1.13 - 2026-09-07
 
 - Purge completed CK Order Workflow Suite Action Scheduler records after 24 hours in bounded, plugin-scoped batches.

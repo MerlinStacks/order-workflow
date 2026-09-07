@@ -10,6 +10,9 @@ defined( 'ABSPATH' ) || exit;
 class CK_OWS_Tracking_Email_Events extends CK_OWS_Base {
 	private const TRANSIENT_DEDUP_PREFIX = 'ck_ows_track_evt_';
 	private const RETRY_HOOK             = 'ck_ows_tracking_event_retry';
+	private const WEBHOOK_CACHE_PREFIX   = 'ck_ows_track_hook_';
+	private const WEBHOOK_CACHE_TTL      = 15 * MINUTE_IN_SECONDS;
+	private const WEBHOOK_FAILURE_TTL    = MINUTE_IN_SECONDS;
 
 	public function forward_event_to_email_platform( int $order_id, array $tracking_payload ): void {
 		if ( 'yes' !== CK_OWS_Settings::get( 'tracking_email_events_enabled', 'no' ) ) {
@@ -76,6 +79,14 @@ class CK_OWS_Tracking_Email_Events extends CK_OWS_Base {
 		$this->track_delivery_result( true, $order_id, $normalized_event, 'HTTP ' . $status_code );
 		$this->mark_event_delivered( $normalized_event );
 		do_action( 'ck_ows_tracking_event_delivered', $order_id, $normalized_event, $status_code );
+	}
+
+	public function queue_dead_letter_retry( int $order_id, array $event, int $timestamp ): bool {
+		if ( $order_id <= 0 || empty( $event ) ) {
+			return false;
+		}
+
+		return $this->schedule_delivery( $order_id, $event, 1, $timestamp );
 	}
 
 	private function build_normalized_event( WC_Order $order, array $tracking_payload ): array {
@@ -231,6 +242,13 @@ class CK_OWS_Tracking_Email_Events extends CK_OWS_Base {
 			$account_id = trim( (string) get_option( 'overseek_account_id', '' ) );
 		}
 
+		$cache_key = self::WEBHOOK_CACHE_PREFIX . md5( home_url( '/' ) . '|' . $account_id );
+		$cached    = get_transient( $cache_key );
+
+		if ( is_string( $cached ) && '' !== $cached ) {
+			return $this->sanitize_https_url( $cached );
+		}
+
 		$health_url = add_query_arg( array( 'account_id' => $account_id ), $health_url );
 		$response   = CK_OWS_Utils::remote_get(
 			$health_url,
@@ -248,12 +266,18 @@ class CK_OWS_Tracking_Email_Events extends CK_OWS_Base {
 				$discovered = $this->sanitize_https_url( (string) $decoded['trackingEventsWebhookUrl'] );
 
 				if ( '' !== $discovered ) {
+					set_transient( $cache_key, $discovered, self::WEBHOOK_CACHE_TTL );
 					return $discovered;
 				}
 			}
 		}
 
-		return $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/tracking-email-events' ) );
+		$fallback = $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/tracking-email-events' ) );
+		if ( '' !== $fallback ) {
+			set_transient( $cache_key, $fallback, self::WEBHOOK_FAILURE_TTL );
+		}
+
+		return $fallback;
 	}
 
 	private function resolve_overseek_tracking_events_token(): string {
@@ -309,7 +333,7 @@ class CK_OWS_Tracking_Email_Events extends CK_OWS_Base {
 				return true;
 			}
 
-			return 0 !== as_schedule_single_action( $timestamp, self::RETRY_HOOK, $args, 'ck-ows-tracking-events', true );
+			return 0 !== as_schedule_single_action( $timestamp, self::RETRY_HOOK, $args, 'ck-ows-tracking-events', false );
 		}
 
 		return wp_next_scheduled( self::RETRY_HOOK, $args ) || wp_schedule_single_event( $timestamp, self::RETRY_HOOK, $args );

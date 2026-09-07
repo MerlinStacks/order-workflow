@@ -37,6 +37,7 @@ delete_option( 'ck_ows_tracking_sync_lock' );
 delete_option( 'ck_ows_tracking_sync_cursor' );
 delete_transient( 'ck_ows_tracking_schedule_check' );
 delete_transient( 'ck_ows_action_scheduler_cleanup_schedule_check' );
+delete_transient( 'ck_ows_schedule_health_check' );
 delete_option( 'ck_ows_action_scheduler_cleanup_lock' );
 
 $proof_attachments = get_posts(

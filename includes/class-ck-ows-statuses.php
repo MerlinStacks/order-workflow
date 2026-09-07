@@ -136,8 +136,12 @@ class CK_OWS_Statuses extends CK_OWS_Base {
 
 	public function track_webhook_blocked_status_transition( int $order_id, string $from_status, string $to_status, WC_Order $order ): void {
 		if ( $this->is_external_safe_status( $to_status ) ) {
-			$order->update_meta_data( self::META_EXTERNAL_SAFE_STATUS, $this->get_external_safe_status( $to_status ) );
-			$order->save_meta_data();
+			$external_safe_status = $this->get_external_safe_status( $to_status );
+
+			if ( $external_safe_status !== $this->get_saved_external_safe_status( $order ) ) {
+				$order->update_meta_data( self::META_EXTERNAL_SAFE_STATUS, $external_safe_status );
+				$order->save_meta_data();
+			}
 		}
 
 		if ( $this->is_blocked_external_status_transition( $from_status, $to_status ) ) {

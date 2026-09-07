@@ -22,6 +22,7 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 	private const MAX_PARCELS_PER_ORDER   = 3;
 	private const REFRESH_INTERVAL        = HOUR_IN_SECONDS;
 	private const REQUEST_TIMEOUT         = 10;
+	private array $refresh_schedule_attempted = array();
 
 	protected function __construct() {
 		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_live_tracking_panel' ), 25 );
@@ -43,15 +44,20 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 			return;
 		}
 
-		set_transient( self::SCHEDULE_CHECK_KEY, '1', HOUR_IN_SECONDS );
-
 		if ( 'yes' !== CK_OWS_Settings::get( 'tracking_sync_enabled', 'yes' ) ) {
 			wp_clear_scheduled_hook( self::CRON_HOOK );
+			set_transient( self::SCHEDULE_CHECK_KEY, '1', HOUR_IN_SECONDS );
 			return;
 		}
 
-		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-			wp_schedule_event( time() + 300, 'ck_ows_tracking_interval', self::CRON_HOOK );
+		if ( wp_next_scheduled( self::CRON_HOOK ) ) {
+			set_transient( self::SCHEDULE_CHECK_KEY, '1', HOUR_IN_SECONDS );
+			return;
+		}
+
+		$result = wp_schedule_event( time() + 300, 'ck_ows_tracking_interval', self::CRON_HOOK, array(), true );
+		if ( ! is_wp_error( $result ) && false !== $result ) {
+			set_transient( self::SCHEDULE_CHECK_KEY, '1', HOUR_IN_SECONDS );
 		}
 	}
 
@@ -76,16 +82,25 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		try {
 			$offset         = absint( $offset );
 			$run_started_at = $run_started_at > 0 ? $run_started_at : time();
-			$orders = wc_get_orders(
-				array(
-					'limit'        => self::BATCH_SIZE,
-					'offset'       => $offset,
-					'orderby'      => 'date',
-					'order'        => 'DESC',
-					'date_created' => ( $run_started_at - ( 14 * DAY_IN_SECONDS ) ) . '...' . $run_started_at,
-					'status'       => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
-				)
+			$query_args = array(
+				'limit'        => self::BATCH_SIZE,
+				'offset'       => $offset,
+				'orderby'      => 'date',
+				'order'        => 'DESC',
+				'date_created' => ( $run_started_at - ( 14 * DAY_IN_SECONDS ) ) . '...' . $run_started_at,
+				'status'       => array( 'processing', 'awaiting-artwork', 'in-production', 'in-dispatch', 'completed' ),
 			);
+
+			if ( defined( 'WC_VERSION' ) && version_compare( WC_VERSION, '8.2', '>=' ) ) {
+				$query_args['meta_query'] = array(
+					array(
+						'key'     => '_wc_shipment_tracking_items',
+						'compare' => 'EXISTS',
+					),
+				);
+			}
+
+			$orders = wc_get_orders( $query_args );
 
 			foreach ( $orders as $index => $order ) {
 				if ( ! $order instanceof WC_Order ) {
@@ -342,8 +357,15 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 			&& ! $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers );
 
 		if ( $can_refresh && ( $force_refresh || $is_refresh_due ) ) {
-			$args = $force_refresh ? array( $order->get_id(), false, true ) : array( $order->get_id(), false );
-			$this->schedule_unique_action( self::ORDER_REFRESH_HOOK, $args, time() + 1, $order );
+			$schedule_key = $order->get_id() . ':' . ( $force_refresh ? 'force' : 'normal' );
+
+			if ( empty( $this->refresh_schedule_attempted[ $schedule_key ] ) ) {
+				$args = $force_refresh ? array( $order->get_id(), false, true ) : array( $order->get_id(), false );
+
+				if ( $this->schedule_unique_action( self::ORDER_REFRESH_HOOK, $args, time() + 1, $order ) ) {
+					$this->refresh_schedule_attempted[ $schedule_key ] = true;
+				}
+			}
 		}
 
 		if ( is_array( $tracking ) && $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
@@ -616,7 +638,7 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		if ( function_exists( 'as_schedule_single_action' ) ) {
 			$pending = function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( $hook, $args, 'ck-ows-tracking' );
 			if ( ! $pending ) {
-				$scheduled = 0 !== as_schedule_single_action( $timestamp, $hook, $args, 'ck-ows-tracking', true );
+				$scheduled = 0 !== as_schedule_single_action( $timestamp, $hook, $args, 'ck-ows-tracking', false );
 			} else {
 				$scheduled = true;
 			}

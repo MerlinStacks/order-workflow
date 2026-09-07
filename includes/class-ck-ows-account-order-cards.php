@@ -29,23 +29,23 @@ class CK_OWS_Account_Order_Cards extends CK_OWS_Base {
 		$results = wc_get_orders(
 			array(
 				'customer_id' => $customer_id,
-				'limit'       => $limit,
-				'page'        => $current_page,
-				'paginate'    => true,
+				'limit'       => $limit + 1,
+				'offset'      => ( $current_page - 1 ) * $limit,
 				'orderby'     => 'date',
 				'order'       => 'DESC',
 				'return'      => 'objects',
 			)
 		);
-		$orders        = is_object( $results ) && isset( $results->orders ) ? $results->orders : array();
-		$max_num_pages = is_object( $results ) && isset( $results->max_num_pages ) ? (int) $results->max_num_pages : 0;
+		$orders   = is_array( $results ) ? $results : array();
+		$has_next = count( $orders ) > $limit;
+		$orders   = array_slice( $orders, 0, $limit );
 
 		echo '<div class="ck-ows-orders-cards">';
 		echo '<h2 class="ck-ows-orders-cards__title">' . esc_html__( 'Your Orders', 'ck-order-workflow-suite' ) . '</h2>';
 
 		if ( empty( $orders ) ) {
 			echo '<div class="ck-ows-orders-cards__empty">' . esc_html__( 'No orders found yet.', 'ck-order-workflow-suite' ) . '</div>';
-			$this->render_pagination( $current_page, $max_num_pages );
+			$this->render_pagination( $current_page, $has_next );
 			echo '</div>';
 			return;
 		}
@@ -58,12 +58,12 @@ class CK_OWS_Account_Order_Cards extends CK_OWS_Base {
 			$this->render_order_card( $order );
 		}
 
-		$this->render_pagination( $current_page, $max_num_pages );
+		$this->render_pagination( $current_page, $has_next );
 		echo '</div>';
 	}
 
-	private function render_pagination( int $current_page, int $max_num_pages ): void {
-		if ( $max_num_pages <= 1 ) {
+	private function render_pagination( int $current_page, bool $has_next ): void {
+		if ( $current_page <= 1 && ! $has_next ) {
 			return;
 		}
 
@@ -71,7 +71,7 @@ class CK_OWS_Account_Order_Cards extends CK_OWS_Base {
 		if ( $current_page > 1 ) {
 			echo '<a class="woocommerce-button woocommerce-button--previous woocommerce-Button woocommerce-Button--previous button" href="' . esc_url( wc_get_endpoint_url( 'orders', $current_page - 1 ) ) . '">' . esc_html__( 'Previous', 'woocommerce' ) . '</a>';
 		}
-		if ( $current_page < $max_num_pages ) {
+		if ( $has_next ) {
 			echo '<a class="woocommerce-button woocommerce-button--next woocommerce-Button woocommerce-Button--next button" href="' . esc_url( wc_get_endpoint_url( 'orders', $current_page + 1 ) ) . '">' . esc_html__( 'Next', 'woocommerce' ) . '</a>';
 		}
 		echo '</nav>';

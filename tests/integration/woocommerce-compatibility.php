@@ -20,7 +20,7 @@ $assert( class_exists( 'WooCommerce' ), 'WooCommerce is not active.' );
 $assert( defined( 'WC_VERSION' ), 'WC_VERSION is unavailable.' );
 $assert( class_exists( 'CK_OWS_Plugin' ), 'The plugin bootstrap did not load.' );
 $assert( class_exists( 'CK_OWS_Statuses' ), 'The custom status module did not load.' );
-$assert( defined( 'CK_OWS_VERSION' ) && '0.1.13' === CK_OWS_VERSION, 'The runtime plugin version is not 0.1.13.' );
+$assert( defined( 'CK_OWS_VERSION' ) && '0.1.14' === CK_OWS_VERSION, 'The runtime plugin version is not 0.1.14.' );
 
 if ( class_exists( 'WooCommerce' ) && function_exists( 'wc_create_order' ) ) {
 	$statuses = wc_get_order_statuses();

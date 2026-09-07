@@ -1,6 +1,6 @@
 {
   "name": "ck-order-workflow-suite",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "private": true,
   "description": "Development tooling for CK WooCommerce Order Workflow Suite.",
   "scripts": {

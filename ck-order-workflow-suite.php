@@ -3,7 +3,7 @@
  * Plugin Name: CK WooCommerce Order Workflow Suite
  * Plugin URI:  https://example.com
  * Description: Custom order workflow, customer account enhancements, artwork approvals, and tracking tools for WooCommerce.
- * Version:     0.1.13
+ * Version:     0.1.14
  * Requires at least: 7.0
  * Requires PHP: 8.0
  * Author:      CK
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CK_OWS_VERSION', '0.1.13' );
+define( 'CK_OWS_VERSION', '0.1.14' );
 define( 'CK_OWS_FILE', __FILE__ );
 define( 'CK_OWS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CK_OWS_URL', plugin_dir_url( __FILE__ ) );
@@ -47,6 +47,7 @@ register_deactivation_hook(
 		delete_option( 'ck_ows_tracking_sync_cursor' );
 		delete_transient( 'ck_ows_tracking_schedule_check' );
 		delete_transient( 'ck_ows_action_scheduler_cleanup_schedule_check' );
+		delete_transient( 'ck_ows_schedule_health_check' );
 		delete_option( 'ck_ows_action_scheduler_cleanup_lock' );
 		flush_rewrite_rules();
 	}

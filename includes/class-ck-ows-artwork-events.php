@@ -14,6 +14,9 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 	private const META_EVENT_REVISION   = '_ck_ows_artwork_event_revision';
 	private const META_EVENT_TIMESTAMP  = '_ck_ows_artwork_event_timestamp';
 	private const META_EVENT_STATUS     = '_ck_ows_artwork_event_status';
+	private const WEBHOOK_CACHE_PREFIX  = 'ck_ows_art_hook_';
+	private const WEBHOOK_CACHE_TTL     = 15 * MINUTE_IN_SECONDS;
+	private const WEBHOOK_FAILURE_TTL   = MINUTE_IN_SECONDS;
 
 	public function register_routes(): void {
 		register_rest_route(
@@ -355,6 +358,13 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			return esc_url_raw( $configured );
 		}
 
+		$cache_key = self::WEBHOOK_CACHE_PREFIX . md5( home_url( '/' ) );
+		$cached    = get_transient( $cache_key );
+
+		if ( is_string( $cached ) && '' !== $cached ) {
+			return $this->sanitize_https_url( $cached );
+		}
+
 		$health_url = home_url( '/wp-json/overseek/v1/health' );
 		$response   = CK_OWS_Utils::remote_get(
 			$health_url,
@@ -364,27 +374,27 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			)
 		);
 
-		if ( is_wp_error( $response ) ) {
-			return $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/artwork-events' ) );
+		if ( ! is_wp_error( $response ) ) {
+			$code    = (int) wp_remote_retrieve_response_code( $response );
+			$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+			if ( $code >= 200 && $code < 300 && is_array( $decoded ) ) {
+				$url        = isset( $decoded['artworkEventsWebhookUrl'] ) ? trim( (string) $decoded['artworkEventsWebhookUrl'] ) : '';
+				$discovered = $this->sanitize_https_url( $url );
+
+				if ( '' !== $discovered ) {
+					set_transient( $cache_key, $discovered, self::WEBHOOK_CACHE_TTL );
+					return $discovered;
+				}
+			}
 		}
 
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		if ( $code < 200 || $code >= 300 ) {
-			return $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/artwork-events' ) );
+		$fallback = $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/artwork-events' ) );
+		if ( '' !== $fallback ) {
+			set_transient( $cache_key, $fallback, self::WEBHOOK_FAILURE_TTL );
 		}
 
-		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
-		if ( ! is_array( $decoded ) ) {
-			return $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/artwork-events' ) );
-		}
-
-		$url = isset( $decoded['artworkEventsWebhookUrl'] ) ? trim( (string) $decoded['artworkEventsWebhookUrl'] ) : '';
-
-		if ( '' !== $url ) {
-			return $this->sanitize_https_url( $url );
-		}
-
-		return $this->sanitize_https_url( home_url( '/wp-json/overseek/v1/artwork-events' ) );
+		return $fallback;
 	}
 
 	private function sanitize_https_url( string $url ): string {
@@ -465,7 +475,7 @@ class CK_OWS_Artwork_Events extends CK_OWS_Base {
 			if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( self::RETRY_HOOK, $args, 'ck-ows-artwork' ) ) {
 				return true;
 			}
-			return 0 !== as_schedule_single_action( $timestamp, self::RETRY_HOOK, $args, 'ck-ows-artwork', true );
+			return 0 !== as_schedule_single_action( $timestamp, self::RETRY_HOOK, $args, 'ck-ows-artwork', false );
 		}
 		return wp_next_scheduled( self::RETRY_HOOK, $args ) || wp_schedule_single_event( $timestamp, self::RETRY_HOOK, $args );
 	}

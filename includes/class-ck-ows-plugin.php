@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
  * Main plugin class.
  */
 class CK_OWS_Plugin {
-	private const TRACKING_SCHEDULE_CHECK_KEY = 'ck_ows_tracking_schedule_check';
+	private const SCHEDULE_HEALTH_CHECK_KEY = 'ck_ows_schedule_health_check';
 	private const ACTION_SCHEDULER_CLEANUP_HOOK = 'ck_ows_action_scheduler_cleanup';
 	private const ACTION_SCHEDULER_CLEANUP_CONTINUATION_HOOK = 'ck_ows_action_scheduler_cleanup_continuation';
 
@@ -54,7 +54,6 @@ class CK_OWS_Plugin {
 		add_action( 'init', array( $this, 'register_account_endpoints' ), 1 );
 		add_action( 'init', array( $this, 'register_shortcodes' ), 1 );
 		add_action( 'init', array( $this, 'maybe_ensure_tracking_schedule' ), 2 );
-		add_action( 'init', array( $this, 'maybe_ensure_action_scheduler_cleanup_schedule' ), 3 );
 		add_action( 'wp', array( $this, 'boot_customer_modules' ), 1 );
 
 		add_filter( 'cron_schedules', array( $this, 'register_tracking_interval_schedule' ) );
@@ -104,8 +103,9 @@ class CK_OWS_Plugin {
 	public function enqueue_frontend_assets(): void {
 		$is_account_page = function_exists( 'is_account_page' ) && is_account_page();
 		$is_thankyou_page = function_exists( 'is_order_received_page' ) && is_order_received_page();
-		$is_flatsome     = $is_account_page && function_exists( 'wp_get_theme' ) && 'flatsome' === strtolower( (string) wp_get_theme()->get_template() );
-		$needs_popup_css = $is_account_page && $is_flatsome && function_exists( 'is_user_logged_in' ) && ! is_user_logged_in();
+		$is_logged_in    = function_exists( 'is_user_logged_in' ) && is_user_logged_in();
+		$is_flatsome     = $is_account_page && ! $is_logged_in && function_exists( 'wp_get_theme' ) && 'flatsome' === strtolower( (string) wp_get_theme()->get_template() );
+		$needs_popup_css = $is_account_page && $is_flatsome;
 
 		if ( ! $is_account_page && ! $needs_popup_css && ! $is_thankyou_page ) {
 			return;
@@ -350,15 +350,23 @@ class CK_OWS_Plugin {
 	}
 
 	public function maybe_ensure_tracking_schedule(): void {
-		if ( false !== get_transient( self::TRACKING_SCHEDULE_CHECK_KEY ) ) {
+		if ( false !== get_transient( self::SCHEDULE_HEALTH_CHECK_KEY ) ) {
 			return;
 		}
 
 		CK_OWS_Tracking::instance()->ensure_schedule();
+		CK_OWS_Action_Scheduler_Cleanup::instance()->ensure_schedule();
+
+		$tracking_ready = 'yes' !== CK_OWS_Settings::get( 'tracking_sync_enabled', 'yes' ) || wp_next_scheduled( 'ck_ows_tracking_sync_event' );
+		$cleanup_ready  = wp_next_scheduled( self::ACTION_SCHEDULER_CLEANUP_HOOK );
+
+		if ( $tracking_ready && $cleanup_ready ) {
+			set_transient( self::SCHEDULE_HEALTH_CHECK_KEY, '1', HOUR_IN_SECONDS );
+		}
 	}
 
 	public function maybe_ensure_action_scheduler_cleanup_schedule(): void {
-		CK_OWS_Action_Scheduler_Cleanup::instance()->ensure_schedule();
+		$this->maybe_ensure_tracking_schedule();
 	}
 
 	public function cleanup_action_scheduler_history(): void {

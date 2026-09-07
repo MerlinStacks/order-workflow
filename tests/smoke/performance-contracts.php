@@ -47,6 +47,11 @@ $files = array(
 	'registration' => $root . '/includes/class-ck-ows-registration-guard.php',
 	'timeline'     => $root . '/includes/class-ck-ows-order-timeline.php',
 	'plugin'       => $root . '/includes/class-ck-ows-plugin.php',
+	'statuses'     => $root . '/includes/class-ck-ows-statuses.php',
+	'orders'       => $root . '/includes/class-ck-ows-account-order-cards.php',
+	'invoices'     => $root . '/includes/class-ck-ows-account-invoices.php',
+	'track_events' => $root . '/includes/class-ck-ows-tracking-email-events.php',
+	'art_events'   => $root . '/includes/class-ck-ows-artwork-events.php',
 );
 
 $sources = array();
@@ -77,6 +82,12 @@ if (empty($failures)) {
 	$refresh_worker = performance_method_body($sources['tracking'], 'refresh_single_order');
 	require_contract($refresh_worker, 'REFRESH_INTERVAL', 'worker-level tracking refresh throttle', $failures);
 
+	$tracking_sync = performance_method_body($sources['tracking'], 'sync_tracking_data');
+	require_contract($tracking_sync, "'key'     => '_wc_shipment_tracking_items'", 'tracking sweep metadata filter', $failures);
+	require_contract($tracking_sync, "'compare' => 'EXISTS'", 'tracking sweep metadata existence check', $failures);
+	require_contract($tracking_sync, "version_compare( WC_VERSION, '8.2', '>=' )", 'WooCommerce 8.2 metadata query compatibility guard', $failures);
+	require_contract($render_tracking, 'refresh_schedule_attempted', 'request-local tracking schedule deduplication', $failures);
+
 	$manual_sync = performance_method_body($sources['settings'], 'run_tracking_sync_now');
 	require_contract($manual_sync, 'queue_tracking_sync()', 'background manual tracking sync', $failures);
 
@@ -99,6 +110,35 @@ if (empty($failures)) {
 	$timeline = performance_method_body($sources['timeline'], 'capture_stage_timestamp');
 	require_contract($timeline, 'save_meta_data()', 'meta-only timeline persistence', $failures);
 
+	$status_transition = performance_method_body($sources['statuses'], 'track_webhook_blocked_status_transition');
+	require_contract($status_transition, '$external_safe_status !== $this->get_saved_external_safe_status( $order )', 'unchanged external status write guard', $failures);
+
+	foreach (array('orders', 'invoices') as $account_query) {
+		require_contract($sources[$account_query], "'limit'       => \$limit + 1", $account_query . ' lookahead pagination', $failures);
+		require_contract($sources[$account_query], "'offset'      => ( \$current_page - 1 ) * \$limit", $account_query . ' stable page offset', $failures);
+		if (false !== strpos($sources[$account_query], "'paginate'    => true")) {
+			$failures[] = ucfirst($account_query) . ' must not request a total-count pagination query';
+		}
+	}
+
+	$tracking_webhook = performance_method_body($sources['track_events'], 'resolve_tracking_events_webhook_url');
+	require_contract($tracking_webhook, 'get_transient( $cache_key )', 'tracking webhook discovery cache read', $failures);
+	require_contract($tracking_webhook, 'WEBHOOK_CACHE_TTL', 'tracking webhook successful discovery cache', $failures);
+	require_contract($tracking_webhook, 'WEBHOOK_FAILURE_TTL', 'tracking webhook failure cache', $failures);
+
+	$artwork_webhook = performance_method_body($sources['art_events'], 'resolve_artwork_events_webhook_url');
+	require_contract($artwork_webhook, 'get_transient( $cache_key )', 'artwork webhook discovery cache read', $failures);
+	require_contract($artwork_webhook, 'WEBHOOK_CACHE_TTL', 'artwork webhook successful discovery cache', $failures);
+	require_contract($artwork_webhook, 'WEBHOOK_FAILURE_TTL', 'artwork webhook failure cache', $failures);
+
+	$single_dead_letter = performance_method_body($sources['settings'], 'retry_dead_letter');
+	require_contract($single_dead_letter, 'queue_dead_letter_retry(', 'Action Scheduler-backed single dead-letter retry', $failures);
+	$all_dead_letters = performance_method_body($sources['settings'], 'retry_all_dead_letters');
+	require_contract($all_dead_letters, 'queue_dead_letter_retry(', 'Action Scheduler-backed bulk dead-letter retry', $failures);
+	require_contract($all_dead_letters, '$scheduled_at += 3', 'staggered bulk dead-letter retries', $failures);
+	require_contract($sources['track_events'], "'ck-ows-tracking-events', false", 'payload-specific tracking event scheduling', $failures);
+	require_contract($sources['art_events'], "'ck-ows-artwork', false", 'payload-specific artwork event scheduling', $failures);
+
 	$constructor = performance_method_body($sources['plugin'], '__construct');
 	require_contract($constructor, 'register_autoloader()', 'constrained plugin autoloader', $failures);
 	require_contract($constructor, 'CK_OWS_Statuses::instance()', 'eager status registration', $failures);
@@ -115,6 +155,13 @@ if (empty($failures)) {
 
 	$admin_boot = performance_method_body($sources['plugin'], 'boot_order_admin_modules');
 	require_contract($admin_boot, "'woocommerce_page_wc-orders'", 'HPOS admin screen loading guard', $failures);
+
+	$schedule_health = performance_method_body($sources['plugin'], 'maybe_ensure_tracking_schedule');
+	require_contract($schedule_health, 'SCHEDULE_HEALTH_CHECK_KEY', 'shared recurring schedule health cache', $failures);
+	require_contract($schedule_health, 'CK_OWS_Action_Scheduler_Cleanup::instance()->ensure_schedule()', 'combined cleanup schedule assurance', $failures);
+
+	$frontend_assets = performance_method_body($sources['plugin'], 'enqueue_frontend_assets');
+	require_contract($frontend_assets, '$is_account_page && ! $is_logged_in', 'logged-out-only theme resolution', $failures);
 }
 
 if (! empty($failures)) {
