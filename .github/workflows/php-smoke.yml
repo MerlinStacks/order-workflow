@@ -71,7 +71,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "20"
 
       - name: Install test tooling
         run: npm install --no-audit --no-fund
