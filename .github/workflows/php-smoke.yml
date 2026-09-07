@@ -40,23 +40,35 @@ jobs:
 
   woocommerce-compatibility:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wordpress
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     strategy:
       fail-fast: false
-      max-parallel: 2
       matrix:
         environment:
           - name: supported-floor
-            wordpress: https://wordpress.org/wordpress-7.0.zip
-            woocommerce: https://downloads.wordpress.org/plugin/woocommerce.8.0.0.zip
+            wordpress: "7.0"
+            woocommerce: "8.0.0"
             php: "8.0"
           - name: woocommerce-11.1
-            wordpress: https://wordpress.org/wordpress-7.0.zip
-            woocommerce: https://downloads.wordpress.org/plugin/woocommerce.11.1.0.zip
+            wordpress: "7.0"
+            woocommerce: "11.1.0"
             php: "8.0"
           - name: latest
-            wordpress: https://wordpress.org/latest.zip
-            woocommerce: https://downloads.wordpress.org/plugin/woocommerce.zip
+            wordpress: latest
+            woocommerce: latest
             php: "8.3"
         hpos:
           - "no"
@@ -68,46 +80,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - name: Setup PHP and WP-CLI
+        uses: shivammathur/setup-php@v2
         with:
-          node-version: "20"
+          php-version: ${{ matrix.environment.php }}
+          extensions: mysqli
+          tools: wp-cli
 
-      - name: Install test tooling
-        run: npm install --no-audit --no-fund
-
-      - name: Configure test environment
+      - name: Install WordPress and plugins
         env:
-          WP_CORE: ${{ matrix.environment.wordpress }}
-          WC_PLUGIN: ${{ matrix.environment.woocommerce }}
-          PHP_VERSION: ${{ matrix.environment.php }}
-        run: node -e "require('fs').writeFileSync('.wp-env.override.json', JSON.stringify({core:process.env.WP_CORE,phpVersion:process.env.PHP_VERSION,plugins:['.',process.env.WC_PLUGIN]}, null, 2))"
-
-      - name: Start WordPress
+          WP_VERSION: ${{ matrix.environment.wordpress }}
+          WC_VERSION: ${{ matrix.environment.woocommerce }}
         run: |
-          for attempt in 1 2 3; do
-            if npx wp-env start; then
-              exit 0
-            fi
+          WP_PATH="${RUNNER_TEMP}/wordpress"
+          wp core download --path="$WP_PATH" --version="$WP_VERSION" --force
+          wp config create --path="$WP_PATH" --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
+          wp core install --path="$WP_PATH" --url=http://localhost --title="CK OWS Tests" --admin_user=admin --admin_password=password --admin_email=admin@example.com
+          ln -s "$GITHUB_WORKSPACE" "$WP_PATH/wp-content/plugins/ck-order-workflow-suite"
+          if [ "$WC_VERSION" = "latest" ]; then
+            wp plugin install woocommerce --activate --path="$WP_PATH"
+          else
+            wp plugin install woocommerce --version="$WC_VERSION" --activate --path="$WP_PATH"
+          fi
+          wp plugin activate ck-order-workflow-suite --path="$WP_PATH"
 
-            npx wp-env stop || true
-            if [ "$attempt" -lt 3 ]; then
-              sleep 10
-            fi
-          done
-
-          exit 1
-
-      - name: Activate plugins and select order storage
+      - name: Select order storage
         run: |
-          npx wp-env run cli wp plugin activate --all
-          npx wp-env run cli wp option update woocommerce_custom_orders_table_data_sync_enabled no
-          npx wp-env run cli wp option update woocommerce_custom_orders_table_enabled ${{ matrix.hpos }}
+          WP_PATH="${RUNNER_TEMP}/wordpress"
+          wp option update woocommerce_custom_orders_table_data_sync_enabled no --path="$WP_PATH"
+          wp option update woocommerce_custom_orders_table_enabled ${{ matrix.hpos }} --path="$WP_PATH"
 
       - name: Run WooCommerce compatibility checks
-        run: npm run test:integration
-
-      - name: Stop WordPress
-        if: always()
-        continue-on-error: true
-        run: npx wp-env stop
+        run: |
+          WP_PATH="${RUNNER_TEMP}/wordpress"
+          wp eval-file "$GITHUB_WORKSPACE/tests/integration/woocommerce-compatibility.php" --path="$WP_PATH"
+          wp eval-file "$GITHUB_WORKSPACE/tests/integration/uninstall-compatibility.php" --path="$WP_PATH"
