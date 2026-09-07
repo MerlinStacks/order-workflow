@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -40,8 +40,10 @@ jobs:
 
   woocommerce-compatibility:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         environment:
           - name: supported-floor
@@ -64,12 +66,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install test tooling
         run: npm install --no-audit --no-fund
@@ -82,11 +84,23 @@ jobs:
         run: node -e "require('fs').writeFileSync('.wp-env.override.json', JSON.stringify({core:process.env.WP_CORE,phpVersion:process.env.PHP_VERSION,plugins:['.',process.env.WC_PLUGIN]}, null, 2))"
 
       - name: Start WordPress
-        run: npx wp-env start
+        run: |
+          for attempt in 1 2 3; do
+            if npx wp-env start; then
+              exit 0
+            fi
+
+            npx wp-env stop || true
+            if [ "$attempt" -lt 3 ]; then
+              sleep 10
+            fi
+          done
+
+          exit 1
 
       - name: Activate plugins and select order storage
         run: |
-          npx wp-env run cli wp plugin activate woocommerce ck-order-workflow-suite
+          npx wp-env run cli wp plugin activate --all
           npx wp-env run cli wp option update woocommerce_custom_orders_table_data_sync_enabled no
           npx wp-env run cli wp option update woocommerce_custom_orders_table_enabled ${{ matrix.hpos }}
 
@@ -95,4 +109,5 @@ jobs:
 
       - name: Stop WordPress
         if: always()
+        continue-on-error: true
         run: npx wp-env stop
