@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- WordPress 6.4+
+- WordPress 7.0+
 - PHP 8.0+
 - WooCommerce 8.0+
 

@@ -37,3 +37,62 @@ jobs:
 
       - name: Run bootstrap loading tests
         run: php tests/smoke/bootstrap-loading.php
+
+  woocommerce-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - name: supported-floor
+            wordpress: https://wordpress.org/wordpress-7.0.zip
+            woocommerce: https://downloads.wordpress.org/plugin/woocommerce.8.0.0.zip
+            php: "8.0"
+          - name: woocommerce-11.1
+            wordpress: https://wordpress.org/wordpress-7.0.zip
+            woocommerce: https://downloads.wordpress.org/plugin/woocommerce.11.1.0.zip
+            php: "8.0"
+          - name: latest
+            wordpress: https://wordpress.org/latest.zip
+            woocommerce: https://downloads.wordpress.org/plugin/woocommerce.zip
+            php: "8.3"
+        hpos:
+          - "no"
+          - "yes"
+
+    name: WooCommerce (${{ matrix.environment.name }}, HPOS ${{ matrix.hpos }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install test tooling
+        run: npm install --no-audit --no-fund
+
+      - name: Configure test environment
+        env:
+          WP_CORE: ${{ matrix.environment.wordpress }}
+          WC_PLUGIN: ${{ matrix.environment.woocommerce }}
+          PHP_VERSION: ${{ matrix.environment.php }}
+        run: node -e "require('fs').writeFileSync('.wp-env.override.json', JSON.stringify({core:process.env.WP_CORE,phpVersion:process.env.PHP_VERSION,plugins:['.',process.env.WC_PLUGIN]}, null, 2))"
+
+      - name: Start WordPress
+        run: npx wp-env start
+
+      - name: Activate plugins and select order storage
+        run: |
+          npx wp-env run cli wp plugin activate woocommerce ck-order-workflow-suite
+          npx wp-env run cli wp option update woocommerce_custom_orders_table_data_sync_enabled no
+          npx wp-env run cli wp option update woocommerce_custom_orders_table_enabled ${{ matrix.hpos }}
+
+      - name: Run WooCommerce compatibility checks
+        run: npm run test:integration
+
+      - name: Stop WordPress
+        if: always()
+        run: npx wp-env stop

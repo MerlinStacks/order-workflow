@@ -12,6 +12,8 @@ defined( 'ABSPATH' ) || exit;
  */
 class CK_OWS_Plugin {
 	private const TRACKING_SCHEDULE_CHECK_KEY = 'ck_ows_tracking_schedule_check';
+	private const ACTION_SCHEDULER_CLEANUP_HOOK = 'ck_ows_action_scheduler_cleanup';
+	private const ACTION_SCHEDULER_CLEANUP_CONTINUATION_HOOK = 'ck_ows_action_scheduler_cleanup_continuation';
 
 	/**
 	 * Singleton instance.
@@ -52,12 +54,15 @@ class CK_OWS_Plugin {
 		add_action( 'init', array( $this, 'register_account_endpoints' ), 1 );
 		add_action( 'init', array( $this, 'register_shortcodes' ), 1 );
 		add_action( 'init', array( $this, 'maybe_ensure_tracking_schedule' ), 2 );
+		add_action( 'init', array( $this, 'maybe_ensure_action_scheduler_cleanup_schedule' ), 3 );
 		add_action( 'wp', array( $this, 'boot_customer_modules' ), 1 );
 
 		add_filter( 'cron_schedules', array( $this, 'register_tracking_interval_schedule' ) );
 		add_action( 'ck_ows_tracking_sync_event', array( $this, 'sync_tracking_data' ) );
 		add_action( 'ck_ows_tracking_sync_continuation', array( $this, 'continue_tracking_sync' ), 10, 3 );
-		add_action( 'ck_ows_tracking_refresh_order', array( $this, 'refresh_tracking_order' ), 10, 2 );
+		add_action( 'ck_ows_tracking_refresh_order', array( $this, 'refresh_tracking_order' ), 10, 3 );
+		add_action( self::ACTION_SCHEDULER_CLEANUP_HOOK, array( $this, 'cleanup_action_scheduler_history' ) );
+		add_action( self::ACTION_SCHEDULER_CLEANUP_CONTINUATION_HOOK, array( $this, 'cleanup_action_scheduler_history' ) );
 
 		add_action( 'rest_api_init', array( $this, 'register_artwork_event_routes' ) );
 		add_action( 'ck_ows_artwork_event_retry', array( $this, 'retry_artwork_event_delivery' ), 10, 1 );
@@ -352,6 +357,14 @@ class CK_OWS_Plugin {
 		CK_OWS_Tracking::instance()->ensure_schedule();
 	}
 
+	public function maybe_ensure_action_scheduler_cleanup_schedule(): void {
+		CK_OWS_Action_Scheduler_Cleanup::instance()->ensure_schedule();
+	}
+
+	public function cleanup_action_scheduler_history(): void {
+		CK_OWS_Action_Scheduler_Cleanup::instance()->cleanup();
+	}
+
 	public function sync_tracking_data(): void {
 		CK_OWS_Tracking::instance()->sync_tracking_data();
 	}
@@ -360,8 +373,8 @@ class CK_OWS_Plugin {
 		CK_OWS_Tracking::instance()->sync_tracking_data( $offset, $run_started_at, $allow_disabled );
 	}
 
-	public function refresh_tracking_order( int $order_id, bool $allow_disabled = false ): void {
-		CK_OWS_Tracking::instance()->refresh_single_order( $order_id, $allow_disabled );
+	public function refresh_tracking_order( int $order_id, bool $allow_disabled = false, bool $force_refresh = false ): void {
+		CK_OWS_Tracking::instance()->refresh_single_order( $order_id, $allow_disabled, $force_refresh );
 	}
 
 	public function register_artwork_event_routes(): void {

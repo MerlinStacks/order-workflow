@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.13 - 2026-09-07
+
+- Purge completed CK Order Workflow Suite Action Scheduler records after 24 hours in bounded, plugin-scoped batches.
+- Reduce tracking queue volume by throttling refreshes to hourly and avoiding refresh jobs for already delivered parcels.
+- Prevent unusable tracking payloads from bypassing the refresh interval on every order-page view.
+
+## 0.1.12 - 2026-09-03
+
+### Added
+
+- Added automated compatibility tests against real WordPress and WooCommerce installations in both legacy and HPOS order storage modes.
+
+### Changed
+
+- Raised the minimum WordPress version to 7.0 and declared compatibility through WooCommerce 11.1.
+
+### Fixed
+
+- Corrected uninstall cleanup to remove plugin order metadata from the HPOS `wc_orders_meta` table.
+- Added cleanup for saved tracking-number and artwork-webhook diagnostic results.
+
 ## 0.1.11 - 2026-06-18
 
 ### Changed

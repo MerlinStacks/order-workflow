@@ -74,6 +74,9 @@ if (empty($failures)) {
 	require_contract($refresh_tracking, 'MAX_PARCELS_PER_ORDER', 'bounded parcel requests per worker', $failures);
 	require_contract($refresh_tracking, 'save_meta_data()', 'meta-only tracking persistence', $failures);
 
+	$refresh_worker = performance_method_body($sources['tracking'], 'refresh_single_order');
+	require_contract($refresh_worker, 'REFRESH_INTERVAL', 'worker-level tracking refresh throttle', $failures);
+
 	$manual_sync = performance_method_body($sources['settings'], 'run_tracking_sync_now');
 	require_contract($manual_sync, 'queue_tracking_sync()', 'background manual tracking sync', $failures);
 

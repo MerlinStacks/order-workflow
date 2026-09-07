@@ -1,0 +1,16 @@
+{
+  "name": "ck-order-workflow-suite",
+  "version": "0.1.13",
+  "private": true,
+  "description": "Development tooling for CK WooCommerce Order Workflow Suite.",
+  "scripts": {
+    "env:start": "wp-env start",
+    "env:stop": "wp-env stop",
+    "test:compatibility": "wp-env run cli wp eval-file wp-content/plugins/ck-order-workflow-suite/tests/integration/woocommerce-compatibility.php",
+    "test:uninstall": "wp-env run cli wp eval-file wp-content/plugins/ck-order-workflow-suite/tests/integration/uninstall-compatibility.php",
+    "test:integration": "npm run test:compatibility && npm run test:uninstall"
+  },
+  "devDependencies": {
+    "@wordpress/env": "11.14.0"
+  }
+}

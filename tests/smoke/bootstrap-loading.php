@@ -78,7 +78,7 @@ $registered_hook_names = array_map(
 	$ck_ows_registered_hooks
 );
 
-foreach (array('wp', 'rest_api_init', 'woocommerce_order_status_changed', 'ck_ows_tracking_sync_event', 'woocommerce_process_registration_errors', 'woocommerce_get_query_vars') as $required_hook) {
+foreach (array('wp', 'rest_api_init', 'woocommerce_order_status_changed', 'ck_ows_tracking_sync_event', 'ck_ows_action_scheduler_cleanup', 'woocommerce_process_registration_errors', 'woocommerce_get_query_vars') as $required_hook) {
 	if (! in_array($required_hook, $registered_hook_names, true)) {
 		$failures[] = 'Missing lazy bootstrap hook: ' . $required_hook;
 	}

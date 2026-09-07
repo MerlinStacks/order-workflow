@@ -25,6 +25,7 @@ $statuses_file        = $root . '/includes/class-ck-ows-statuses.php';
 $artwork_file         = $root . '/includes/class-ck-ows-artwork-events.php';
 $proof_file           = $root . '/includes/class-ck-ows-artwork-proof.php';
 $plugin_file          = $root . '/includes/class-ck-ows-plugin.php';
+$cleanup_file         = $root . '/includes/class-ck-ows-action-scheduler-cleanup.php';
 $uninstall_file       = $root . '/uninstall.php';
 
 $tracking_source = file_get_contents($tracking_events_file);
@@ -35,6 +36,7 @@ $statuses_source = file_get_contents($statuses_file);
 $artwork_source = file_get_contents($artwork_file);
 $proof_source = file_get_contents($proof_file);
 $plugin_source = file_get_contents($plugin_file);
+$cleanup_source = file_get_contents($cleanup_file);
 $uninstall_source = file_get_contents($uninstall_file);
 
 if (! is_string($tracking_source) || '' === $tracking_source) {
@@ -65,6 +67,10 @@ if (! is_string($plugin_source) || '' === $plugin_source) {
 	$failures[] = '[FAIL] Could not read plugin bootstrap source';
 }
 
+if (! is_string($cleanup_source) || '' === $cleanup_source) {
+	$failures[] = '[FAIL] Could not read Action Scheduler cleanup source';
+}
+
 if (empty($failures)) {
 	assert_contains($plugin_source, "add_action( 'ck_ows_tracking_event_retry'", 'lazy retry hook registration', $failures);
 	assert_contains($tracking_source, 'schedule_retry(', 'retry scheduler usage', $failures);
@@ -72,6 +78,15 @@ if (empty($failures)) {
 	assert_contains($tracking_source, 'schedule_delivery(', 'queued tracking webhook delivery', $failures);
 	assert_contains($tracking_core_source, 'ORDER_REFRESH_HOOK', 'background order tracking refresh', $failures);
 	assert_contains($tracking_core_source, 'CONTINUATION_HOOK', 'bounded tracking continuation', $failures);
+	assert_contains($plugin_source, "ck_ows_action_scheduler_cleanup", 'plugin-scoped action history cleanup hook', $failures);
+	assert_contains($cleanup_source, "ActionScheduler_Store::STATUS_COMPLETE", 'completed-only action history cleanup', $failures);
+	assert_contains($cleanup_source, "'group'            => \$group", 'group-scoped action history cleanup', $failures);
+	assert_contains($cleanup_source, 'RETENTION_PERIOD   = DAY_IN_SECONDS', '24-hour action history retention', $failures);
+	assert_contains($cleanup_source, 'BATCH_SIZE         = 250', 'bounded action history cleanup', $failures);
+	if (false !== strpos($cleanup_source, 'action_scheduler_retention_period')) {
+		$failures[] = '[FAIL] Plugin cleanup must not alter global Action Scheduler retention';
+	}
+	assert_contains($tracking_core_source, 'should_skip_sync_for_delivered_order( $order, $tracking_numbers )', 'delivered-order queue suppression', $failures);
 	assert_contains($tracking_source, "'ck_ows_last_webhook_delivery'", 'last webhook status tracking', $failures);
 	assert_contains($tracking_core_source, 'isset( $first[\'items\'][0] )', 'AusPost tracking_results items parser', $failures);
 	assert_contains($tracking_core_source, 'isset( $body[\'items\'][0] )', 'AusPost top-level items parser', $failures);
@@ -110,6 +125,9 @@ if (empty($failures)) {
 	assert_contains($uninstall_source, "keep_data_on_uninstall", 'uninstall keep-data toggle', $failures);
 	assert_contains($uninstall_source, "delete_option( 'ckrg_block_log' )", 'registration guard cleanup on uninstall', $failures);
 	assert_contains($uninstall_source, "delete_option( 'ck_ows_tracking_event_dead_letters' )", 'dead-letter cleanup on uninstall', $failures);
+	assert_contains($uninstall_source, "delete_option( 'ck_ows_last_tracking_number_test' )", 'tracking diagnostic cleanup on uninstall', $failures);
+	assert_contains($uninstall_source, "delete_option( 'ck_ows_last_artwork_webhook_test' )", 'artwork diagnostic cleanup on uninstall', $failures);
+	assert_contains($uninstall_source, "'wc_orders_meta'", 'HPOS order metadata table cleanup on uninstall', $failures);
 	assert_contains($uninstall_source, "esc_like( '_ck_ows_' )", 'literal uninstall metadata prefix', $failures);
 }
 

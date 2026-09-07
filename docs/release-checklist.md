@@ -69,5 +69,8 @@
 ## Final QA
 
 - Run PHP lint on all plugin files.
+- Run the standalone smoke tests in `tests/smoke/`.
+- Run `npm install`, `npm run env:start`, and `npm run test:integration` to exercise the plugin against a real WordPress and WooCommerce installation.
+- Confirm CI passes the supported-floor, WooCommerce 11.1, and latest-version compatibility jobs with both legacy and HPOS order storage.
 - Validate key flows for both admin and customer roles.
 - Capture screenshots for internal handoff.

@@ -20,7 +20,7 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 	private const META_LAST_EVENT_HASH    = '_ck_ows_live_tracking_last_event_hash';
 	private const BATCH_SIZE              = 20;
 	private const MAX_PARCELS_PER_ORDER   = 3;
-	private const REFRESH_INTERVAL        = 15 * MINUTE_IN_SECONDS;
+	private const REFRESH_INTERVAL        = HOUR_IN_SECONDS;
 	private const REQUEST_TIMEOUT         = 10;
 
 	protected function __construct() {
@@ -88,7 +88,12 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 			);
 
 			foreach ( $orders as $index => $order ) {
-				if ( ! $order instanceof WC_Order || empty( $this->extract_auspost_tracking_numbers( $order ) ) ) {
+				if ( ! $order instanceof WC_Order ) {
+					continue;
+				}
+
+				$tracking_numbers = $this->extract_auspost_tracking_numbers( $order );
+				if ( empty( $tracking_numbers ) || $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers ) ) {
 					continue;
 				}
 
@@ -336,8 +341,9 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 			&& ! empty( $tracking_numbers )
 			&& ! $this->should_skip_sync_for_delivered_order( $order, $tracking_numbers );
 
-		if ( $can_refresh && ( $force_refresh || $is_refresh_due || ! $this->is_tracking_payload_usable( $tracking ) ) ) {
-			$this->schedule_unique_action( self::ORDER_REFRESH_HOOK, array( $order->get_id(), false ), time() + 1, $order );
+		if ( $can_refresh && ( $force_refresh || $is_refresh_due ) ) {
+			$args = $force_refresh ? array( $order->get_id(), false, true ) : array( $order->get_id(), false );
+			$this->schedule_unique_action( self::ORDER_REFRESH_HOOK, $args, time() + 1, $order );
 		}
 
 		if ( is_array( $tracking ) && $this->is_stale_tracking_payload( $order, $tracking_numbers ) ) {
@@ -489,13 +495,18 @@ class CK_OWS_Tracking extends CK_OWS_Base {
 		wp_add_inline_script( 'ck-ows-tracking-inline', $script );
 	}
 
-	public function refresh_single_order( int $order_id, bool $allow_disabled = false ): void {
+	public function refresh_single_order( int $order_id, bool $allow_disabled = false, bool $force_refresh = false ): void {
 		if ( ! $allow_disabled && ! $this->is_tracking_sync_enabled() ) {
 			return;
 		}
 
 		$order = wc_get_order( $order_id );
 		if ( ! $order instanceof WC_Order || ! $this->is_order_eligible_for_tracking( $order ) ) {
+			return;
+		}
+
+		$last_sync_ts = (int) $order->get_meta( self::META_LAST_SYNC_TS, true );
+		if ( ! $allow_disabled && ! $force_refresh && $last_sync_ts > 0 && ( time() - $last_sync_ts ) < self::REFRESH_INTERVAL ) {
 			return;
 		}
 

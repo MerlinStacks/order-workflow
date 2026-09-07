@@ -1,12 +1,14 @@
 === CK WooCommerce Order Workflow Suite ===
 Contributors: ck
-Requires at least: 6.4
-Tested up to: 6.6
+Requires at least: 7.0
+Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.1.11
+Stable tag: 0.1.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce
+WC requires at least: 8.0
+WC tested up to: 11.1
 
 Custom WooCommerce order workflow plugin for statuses, artwork approvals, account UX, and tracking.
 
