@@ -8,7 +8,7 @@
  * Exercises classic checkout item/fee creation, not payment or Store API checkout.
  */
 
-declare(strict_types=1);
+// Do not declare strict_types here: WP-CLI eval-file prepends an evaluation wrapper.
 
 $failures = array();
 $assertions = 0;

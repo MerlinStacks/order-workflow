@@ -5,7 +5,7 @@
  * Run with: wp eval-file tests/integration/uninstall-compatibility.php
  */
 
-declare(strict_types=1);
+// Do not declare strict_types here: WP-CLI eval-file prepends an evaluation wrapper.
 
 $failures      = array();
 $order_id      = 0;
