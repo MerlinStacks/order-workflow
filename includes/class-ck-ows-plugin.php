@@ -43,6 +43,7 @@ class CK_OWS_Plugin {
 		$this->register_autoloader();
 		$this->register_hooks();
 		CK_OWS_Statuses::instance();
+		CK_OWS_Gift_Wrap::instance();
 
 		if ( is_admin() && ( ! function_exists( 'wp_doing_ajax' ) || ! wp_doing_ajax() ) ) {
 			$this->boot_admin_request_module();

@@ -1,0 +1,40 @@
+.ck-ows-gift-wrap {
+  box-sizing: border-box;
+  width: 100%;
+  flex: 0 0 100%;
+  clear: both;
+  margin: 0 0 1.25rem;
+  padding: 1.1rem;
+  border: 1px solid #d9d4c8;
+  border-radius: 12px;
+  background: #fcfaf5;
+  color: #292720;
+  text-align: left;
+}
+.ck-ows-gift-wrap.is-selected { border-color: #9b7520; }
+.ck-ows-gift-wrap .ck-ows-gift-wrap__choice {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin: 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+.ck-ows-gift-wrap input[type="checkbox"] { flex: 0 0 20px; width: 20px; height: 20px; margin: 0; accent-color: #805c11; }
+.ck-ows-gift-wrap input:focus-visible, .ck-ows-gift-wrap textarea:focus-visible { outline: 2px solid #805c11; outline-offset: 3px; }
+.ck-ows-gift-wrap__icon { display: block; flex: 0 0 40px; width: 40px; height: 40px; }
+.ck-ows-gift-wrap__heading { flex: 1; min-width: 0; }
+.ck-ows-gift-wrap__heading strong, .ck-ows-gift-wrap__heading span { display: block; }
+.ck-ows-gift-wrap__heading strong { font-size: 1rem; }
+.ck-ows-gift-wrap__heading span { font-size: .8rem; font-weight: 400; color: #625d51; }
+.ck-ows-gift-wrap .ck-ows-gift-wrap__description { margin: .8rem 0 0; font-size: .82rem; line-height: 1.55; color: #625d51; }
+.ck-ows-gift-wrap__message { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e4dfd3; }
+.ck-ows-gift-wrap__message[hidden] { display: none !important; }
+.ck-ows-gift-wrap__message label { display: block; margin-bottom: .45rem; font-weight: 600; }
+.ck-ows-gift-wrap__message label span { font-weight: 400; }
+.ck-ows-gift-wrap .ck-ows-gift-wrap__message textarea { box-sizing: border-box; width: 100%; min-height: 100px; margin: 0 0 .4rem; padding: .75rem; border: 1px solid #a9a294; border-radius: 8px; background: #fff; color: #292720; font-size: 16px; line-height: 1.5; resize: vertical; }
+.ck-ows-gift-wrap__message small { display: block; color: #625d51; font-size: .78rem; line-height: 1.5; }
+@media (max-width: 480px) {
+  .ck-ows-gift-wrap { padding: .85rem; }
+  .ck-ows-gift-wrap .ck-ows-gift-wrap__choice { gap: .55rem; }
+}

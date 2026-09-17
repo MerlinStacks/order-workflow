@@ -38,6 +38,9 @@ jobs:
       - name: Run bootstrap loading tests
         run: php tests/smoke/bootstrap-loading.php
 
+      - name: Run gift wrapping behavior tests
+        run: php tests/smoke/gift-wrap.php
+
   woocommerce-compatibility:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -112,6 +115,9 @@ jobs:
 
       - name: Run WooCommerce compatibility checks
         run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/woocommerce-compatibility.php" --path="${RUNNER_TEMP}/wordpress"
+
+      - name: Run gift wrapping integration checks
+        run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/gift-wrap.php" --path="${RUNNER_TEMP}/wordpress"
 
       - name: Run uninstall compatibility checks
         run: wp eval-file "$GITHUB_WORKSPACE/tests/integration/uninstall-compatibility.php" --path="${RUNNER_TEMP}/wordpress"

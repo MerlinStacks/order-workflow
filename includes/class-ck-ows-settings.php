@@ -273,6 +273,19 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		$this->register_field( 'registration_blocked_domains', __( 'Blocked email domains', 'ck-order-workflow-suite' ), 'textarea', 'ck_ows_registration_guard_section' );
 
 		add_settings_section(
+			'ck_ows_gift_wrap_section',
+			esc_html__( 'Gift Wrapping', 'ck-order-workflow-suite' ),
+			static function (): void {
+				echo '<p>' . esc_html__( 'Offer gift wrapping for products with the selected product tag.', 'ck-order-workflow-suite' ) . '</p>';
+			},
+			'ck-ows-settings'
+		);
+
+		$this->register_field( 'gift_wrap_enabled', __( 'Enable gift wrapping', 'ck-order-workflow-suite' ), 'checkbox', 'ck_ows_gift_wrap_section' );
+		$this->register_field( 'gift_wrap_tag', __( 'Product tag slug', 'ck-order-workflow-suite' ), 'text', 'ck_ows_gift_wrap_section' );
+		$this->register_field( 'gift_wrap_price', __( 'Price per unit (including tax)', 'ck-order-workflow-suite' ), 'decimal', 'ck_ows_gift_wrap_section' );
+
+		add_settings_section(
 			'ck_ows_operations_section',
 			esc_html__( 'Operations & Safety', 'ck-order-workflow-suite' ),
 			static function (): void {
@@ -347,6 +360,10 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		$current['readytoship_key_description'] = isset( $input['readytoship_key_description'] ) ? sanitize_text_field( (string) $input['readytoship_key_description'] ) : '';
 		$current['artwork_events_webhook_url'] = isset( $input['artwork_events_webhook_url'] ) ? $this->sanitize_https_webhook_url( (string) $input['artwork_events_webhook_url'] ) : '';
 		$current['artwork_events_auth_token'] = $this->sanitize_sensitive_setting( $input, $current, 'artwork_events_auth_token' );
+		$current['gift_wrap_enabled'] = is_scalar( $input['gift_wrap_enabled'] ?? null ) && $this->is_enabled_input( $input, 'gift_wrap_enabled' ) ? 'yes' : 'no';
+		$current['gift_wrap_tag'] = is_scalar( $input['gift_wrap_tag'] ?? null ) ? sanitize_title( (string) $input['gift_wrap_tag'] ) : '';
+		$gift_wrap_price = is_scalar( $input['gift_wrap_price'] ?? null ) && ! is_bool( $input['gift_wrap_price'] ) ? trim( (string) $input['gift_wrap_price'] ) : '';
+		$current['gift_wrap_price'] = preg_match( '/^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/D', $gift_wrap_price ) && is_finite( (float) $gift_wrap_price ) ? $gift_wrap_price : '0';
 
 		if ( $previous_tracking_enabled !== $current['tracking_sync_enabled'] || $previous_tracking_interval !== (int) $current['tracking_sync_interval_hours'] ) {
 			wp_clear_scheduled_hook( 'ck_ows_tracking_sync_event' );
@@ -384,6 +401,7 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-email-preferences" aria-controls="ck-ows-panel-email-preferences" aria-selected="false" tabindex="-1" data-target="email-preferences">' . esc_html__( 'Email Preferences', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-account-tabs" aria-controls="ck-ows-panel-account-tabs" aria-selected="false" tabindex="-1" data-target="account-tabs">' . esc_html__( 'My Account Tabs', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-registration-guard" aria-controls="ck-ows-panel-registration-guard" aria-selected="false" tabindex="-1" data-target="registration-guard">' . esc_html__( 'Registration Guard', 'ck-order-workflow-suite' ) . '</button>';
+		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-gift-wrap" aria-controls="ck-ows-panel-gift-wrap" aria-selected="false" tabindex="-1" data-target="gift-wrap">' . esc_html__( 'Gift Wrapping', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-operations" aria-controls="ck-ows-panel-operations" aria-selected="false" tabindex="-1" data-target="operations">' . esc_html__( 'Operations', 'ck-order-workflow-suite' ) . '</button>';
 		echo '<button type="button" class="nav-tab ck-ows-tab" role="tab" id="ck-ows-tab-tools" aria-controls="ck-ows-panel-tools" aria-selected="false" tabindex="-1" data-target="tools">' . esc_html__( 'Tools', 'ck-order-workflow-suite' ) . '</button>';
 		echo '</h2>';
@@ -440,6 +458,13 @@ class CK_OWS_Settings extends CK_OWS_Base {
 		echo '<p>' . esc_html__( 'Control anti-bot registration rules for the WooCommerce My Account registration form.', 'ck-order-workflow-suite' ) . '</p>';
 		echo '<table class="form-table" role="presentation">';
 		do_settings_fields( 'ck-ows-settings', 'ck_ows_registration_guard_section' );
+		echo '</table>';
+		echo '</div>';
+
+		echo '<div id="ck-ows-panel-gift-wrap" class="ck-ows-panel" role="tabpanel" aria-labelledby="ck-ows-tab-gift-wrap" hidden>';
+		echo '<p>' . esc_html__( 'Offer gift wrapping for products with the selected product tag. Wrapping uses the standard WooCommerce tax class and a fixed tax-inclusive price per unit. It is charged as a separate fee that is not discounted by coupons. Customers may optionally add the same gift message to all wrapped units.', 'ck-order-workflow-suite' ) . '</p>';
+		echo '<table class="form-table" role="presentation">';
+		do_settings_fields( 'ck-ows-settings', 'ck_ows_gift_wrap_section' );
 		echo '</table>';
 		echo '</div>';
 
@@ -941,6 +966,10 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			$default = 3;
 		} elseif ( 'tracking_email_events_retry_backoff_minutes' === $key ) {
 			$default = 5;
+		} elseif ( 'gift_wrap_enabled' === $key ) {
+			$default = 'no';
+		} elseif ( 'gift_wrap_price' === $key ) {
+			$default = '0';
 		}
 
 		$value = 0 === strpos( $key, 'show_account_' ) ? self::get( $key, 'yes' ) : self::get( $key, $default );
@@ -963,6 +992,12 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			}
 
 			echo '<label for="' . esc_attr( $id ) . '"><input type="checkbox" id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" value="1" ' . checked( 'yes', (string) $value, false ) . '> ' . esc_html__( 'Enabled', 'ck-order-workflow-suite' ) . '</label>';
+			return;
+		}
+
+		if ( 'decimal' === $type ) {
+			echo '<input type="number" id="' . esc_attr( $id ) . '" min="0" step="any" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="small-text">';
+			echo '<p class="description">' . esc_html__( 'Fixed tax-inclusive price for each wrapped unit, using the standard WooCommerce tax class. Enter a decimal amount of 0 or greater.', 'ck-order-workflow-suite' ) . '</p>';
 			return;
 		}
 
@@ -1017,6 +1052,10 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			echo '<p class="description">' . esc_html__( 'Saved values are hidden. Leave unchanged to keep the existing value.', 'ck-order-workflow-suite' ) . '</p>';
 		} else {
 			echo '<input type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( (string) $value ) . '" class="regular-text" autocomplete="off">';
+		}
+
+		if ( 'gift_wrap_tag' === $key ) {
+			echo '<p class="description">' . esc_html__( 'Enter one WooCommerce product tag slug, for example gift-wrap. Do not enter a comma-separated list.', 'ck-order-workflow-suite' ) . '</p>';
 		}
 
 		if ( 'tracking_email_events_webhook_url' === $key ) {
@@ -1814,6 +1853,9 @@ class CK_OWS_Settings extends CK_OWS_Base {
 			'show_account_email_preferences_tab',
 			'show_account_logout_tab',
 			'registration_blocked_domains',
+			'gift_wrap_enabled',
+			'gift_wrap_tag',
+			'gift_wrap_price',
 			'keep_data_on_uninstall',
 			'use_new_invoice_plugin',
 			'readytoship_consumer_key_suffix',

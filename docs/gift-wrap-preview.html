@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gift wrapping · Product page preview</title>
+  <link rel="stylesheet" href="../assets/css/gift-wrap.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #292720; font: 16px/1.6 system-ui, sans-serif; }
+    header { border-bottom: 1px solid #ebe7df; padding: 18px 6%; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+    header strong { font-size: 21px; letter-spacing: -.7px; }
+    header span { color: #746d60; font-size: 12px; text-align: right; }
+    main { max-width: 1140px; margin: 36px auto; padding: 0 24px; }
+    .breadcrumb { font-size: 12px; color: #746d60; margin-bottom: 28px; }
+    .product { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
+    .photo { display: grid; place-items: center; min-height: 470px; background: #f5f2eb; border-radius: 16px; }
+    .photo svg { width: 85%; height: auto; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 11px; color: #806526; font-weight: 700; }
+    h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.2; letter-spacing: -1px; margin: 8px 0 14px; }
+    .product-price { font-size: 24px; font-weight: 650; margin: 0; }
+    .tax-note, .description { color: #746d60; }
+    .tax-note { font-size: 12px; }
+    .description { font-size: 14px; margin: 22px 0; }
+    .buy { display: flex; gap: 12px; }
+    .quantity { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .quantity input { width: 65px; padding: 12px 8px; font: inherit; font-size: 16px; border: 1px solid #c5beb0; border-radius: 6px; }
+    button { cursor: pointer; padding: 13px 20px; border: 0; border-radius: 6px; background: #28261f; color: white; font: inherit; font-weight: 600; flex: 1; }
+    button:focus-visible { outline: 3px solid #9b7520; outline-offset: 3px; }
+    .preview-note { margin: 32px 0; padding: 16px 20px; border: 1px dashed #ccc3b1; border-radius: 8px; color: #746d60; font-size: 13px; }
+    #demo-result { margin-top: 16px; padding: 16px; border: 1px solid #d9d4c8; border-radius: 8px; background: #fcfaf5; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #demo-result:empty { display: none; }
+    @media (max-width: 760px) {
+      main { margin-top: 20px; padding: 0 16px; }
+      .product { grid-template-columns: 1fr; gap: 24px; }
+      .photo { min-height: 240px; }
+      .photo svg { max-width: 290px; }
+      .breadcrumb { margin-bottom: 16px; }
+      header { padding: 14px 16px; }
+      .buy { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <header><strong>CUSTOMKINGS</strong><span>DESIGN PREVIEW<br>Not a live shop</span></header>
+  <main>
+    <nav class="breadcrumb" aria-label="Breadcrumb">Home / Gifts / Keepsake box</nav>
+    <div class="product">
+      <div class="photo">
+        <svg viewBox="0 0 400 380" role="img" aria-label="Illustration of a black gift box with gold ribbon">
+          <defs><linearGradient id="box" x2="1" y2="1"><stop stop-color="#393631"/><stop offset="1" stop-color="#191816"/></linearGradient></defs>
+          <ellipse cx="202" cy="310" rx="141" ry="20" fill="#e3ded2"/>
+          <path d="M73 151 203 103 331 151 201 204Z" fill="#45413a"/>
+          <path d="M73 151 201 204 201 308 73 253Z" fill="url(#box)"/>
+          <path d="M201 204 331 151 331 253 201 308Z" fill="#22211d"/>
+          <path d="m123 133 26-10 128 53-27 11Z" fill="#d7b867"/>
+          <path d="m250 187 27-11v104l-27 12Z" fill="#b18d3e"/>
+          <path d="m253 122 27 11-130 53-26-11Z" fill="#c7a452"/>
+          <path d="m124 175 26 11v104l-26-11Z" fill="#d7b867"/>
+          <path d="M204 151c-89-7-78-74-33-49 20 11 33 49 33 49Zm0 0c82-11 69-69 31-46-16 10-31 46-31 46Z" fill="none" stroke="#d7b867" stroke-width="12"/>
+        </svg>
+      </div>
+      <section aria-labelledby="product-title">
+        <div class="eyebrow">A little something, just for them</div>
+        <h1 id="product-title">Keepsake Box</h1>
+        <p class="product-price">$39.95</p>
+        <div class="tax-note">Including tax</div>
+        <p class="description">An example product to show how the new gift-wrapping option fits above the add-to-cart button.</p>
+        <form id="preview-form">
+          <div class="ck-ows-gift-wrap">
+            <label class="ck-ows-gift-wrap__choice" for="gift-wrap">
+              <input type="checkbox" name="ck_ows_gift_wrap" value="yes" id="gift-wrap" aria-controls="gift-message-panel">
+              <svg class="ck-ows-gift-wrap__icon" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false"><rect x="7" y="17" width="26" height="18" rx="2" fill="#292720"/><rect x="5" y="12" width="30" height="7" rx="2" fill="#45413a"/><path d="M20 12v23M7 24h26" stroke="#d7b867" stroke-width="3"/><path d="M20 12C8 12 9 2 15 5c3 2 5 7 5 7Zm0 0c12 0 11-10 5-7-3 2-5 7-5 7Z" stroke="#b18d3e" stroke-width="2" stroke-linejoin="round"/></svg>
+              <span class="ck-ows-gift-wrap__heading"><strong>Make it a gift</strong><span>Add gift wrapping</span></span>
+            </label>
+            <p class="ck-ows-gift-wrap__description">Beautifully wrapped in black paper, finished with gold satin ribbon.</p>
+            <div class="ck-ows-gift-wrap__message" id="gift-message-panel">
+              <label for="gift-message">Gift tag message <span>(optional)</span></label>
+              <textarea id="gift-message" name="ck_ows_gift_message" rows="3" maxlength="200" aria-describedby="message-hint" placeholder="A little note to make their day…"></textarea>
+              <small id="message-hint">Handwritten with care. Please use text only, no emojis. Up to 200 characters.</small>
+            </div>
+          </div>
+          <div class="buy">
+            <label class="quantity" for="quantity">Qty <input type="number" id="quantity" min="1" max="99" step="1" value="1" required></label>
+            <button type="submit">Preview add to cart</button>
+          </div>
+        </form>
+        <div id="demo-result" role="status" aria-live="polite"></div>
+      </section>
+    </div>
+    <aside class="preview-note"><strong>Try it:</strong> select gift wrapping to reveal the message field. Set quantity to 3 and click “Preview add to cart” to see the example item details and $16.50 wrapping charge. Resize the window to see the mobile layout.<br>This mock uses the actual feature’s CSS and toggle script. Product, prices and surrounding page styling are illustrative; your theme may look different. No order is placed.</aside>
+  </main>
+  <script src="../assets/js/gift-wrap.js"></script>
+  <script>
+    document.getElementById('preview-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const quantity = Number(document.getElementById('quantity').value);
+      const wrapped = document.getElementById('gift-wrap').checked;
+      const message = document.getElementById('gift-message').value.trim();
+      const output = document.getElementById('demo-result');
+      if (wrapped && /[\u{1F000}-\u{1FAFF}\u2600-\u27BF\uFE0F\u20E3]/u.test(message)) {
+        output.textContent = 'Please remove emojis so we can handwrite your gift message.';
+        return;
+      }
+      const lines = [`Example cart item: Keepsake Box × ${quantity}`];
+      if (wrapped) {
+        lines.push('Gift wrapping: $5.50 per item (incl. tax)');
+        if (message) lines.push(`Gift tag message: ${message}`);
+        lines.push(`\nSeparate wrapping charge: $${(5.5 * quantity).toFixed(2)} incl. tax`);
+      } else {
+        lines.push('No gift wrapping selected.');
+      }
+      output.textContent = lines.join('\n');
+    });
+  </script>
+</body>
+</html>
