@@ -32,6 +32,11 @@ try {
 	update_option( 'ck_ows_last_tracking_number_test', array( 'ok' => true ) );
 	update_option( 'ck_ows_last_artwork_webhook_test', array( 'ok' => true ) );
 	set_transient( 'ck_ows_uninstall_test', 'remove-me', HOUR_IN_SECONDS );
+	set_transient( 'ck_ows_uninstall_no_expiry', 'remove-me' );
+	set_transient( 'ck_unrelated_uninstall_test', 'keep-me', HOUR_IN_SECONDS );
+	// Prime both individual and autoloaded option caches before uninstall.
+	$assert( 'remove-me' === get_transient( 'ck_ows_uninstall_test' ), 'Expiring transient fixture was not created.' );
+	$assert( 'remove-me' === get_transient( 'ck_ows_uninstall_no_expiry' ), 'Non-expiring transient fixture was not created.' );
 	wp_schedule_single_event( time() + HOUR_IN_SECONDS, $cron_hook );
 
 	$attachment_id = wp_insert_attachment(
@@ -57,6 +62,9 @@ try {
 	$assert( false === get_option( 'ck_ows_last_tracking_number_test', false ), 'Tracking diagnostic option was not removed.' );
 	$assert( false === get_option( 'ck_ows_last_artwork_webhook_test', false ), 'Artwork diagnostic option was not removed.' );
 	$assert( false === get_transient( 'ck_ows_uninstall_test' ), 'Plugin transient was not removed.' );
+	$assert( false === get_option( '_transient_timeout_ck_ows_uninstall_test' ), 'Plugin transient timeout was not removed.' );
+	$assert( false === get_transient( 'ck_ows_uninstall_no_expiry' ), 'Non-expiring plugin transient was not removed.' );
+	$assert( 'keep-me' === get_transient( 'ck_unrelated_uninstall_test' ), 'Unrelated transient was incorrectly removed.' );
 	$assert( false === wp_next_scheduled( $cron_hook ), 'Plugin cron event was not removed.' );
 	if ( $attachment_id > 0 ) {
 		$assert( null === get_post( $attachment_id ), 'Plugin-owned artwork attachment was not removed.' );
@@ -87,6 +95,9 @@ try {
 } catch ( Throwable $throwable ) {
 	$failures[] = 'Uninstall compatibility threw: ' . $throwable->getMessage();
 } finally {
+	delete_transient( 'ck_ows_uninstall_test' );
+	delete_transient( 'ck_ows_uninstall_no_expiry' );
+	delete_transient( 'ck_unrelated_uninstall_test' );
 	if ( $order_id > 0 ) {
 		$cleanup_order = wc_get_order( $order_id );
 		if ( $cleanup_order instanceof WC_Order ) {

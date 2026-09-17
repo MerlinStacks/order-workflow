@@ -59,7 +59,13 @@ global $wpdb;
 $wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key IN ('_ck_ows_last_login_ts', '_ck_ows_last_password_change_ts')" );
 $transient_prefix = $wpdb->esc_like( '_transient_ck_ows_' ) . '%';
 $transient_timeout_prefix = $wpdb->esc_like( '_transient_timeout_ck_ows_' ) . '%';
-$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $transient_prefix, $transient_timeout_prefix ) );
+// Direct SQL deletion leaves values in the options/alloptions caches. Delete each
+// matching option through WordPress so subsequent reads cannot return stale data.
+// Include timeout rows to clean up orphaned expiration records as well.
+$transient_options = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $transient_prefix, $transient_timeout_prefix ) );
+foreach ( $transient_options as $option_name ) {
+    delete_option( $option_name );
+}
 
 if ( isset( $wpdb->postmeta ) ) {
     $meta_prefix = $wpdb->esc_like( '_ck_ows_' ) . '%';
