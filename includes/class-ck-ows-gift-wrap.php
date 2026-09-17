@@ -11,7 +11,8 @@ class CK_OWS_Gift_Wrap extends CK_OWS_Base {
 
 	protected function __construct() {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		add_action( 'woocommerce_before_add_to_cart_button', array( $this, 'render_option' ) );
+		// Render after quantity and other options, immediately before the cart button.
+		add_action( 'woocommerce_after_add_to_cart_quantity', array( $this, 'render_option' ), PHP_INT_MAX );
 		add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'validate' ), 10, 3 );
 		add_filter( 'woocommerce_add_cart_item_data', array( $this, 'add_cart_data' ), 10, 3 );
 		add_filter( 'woocommerce_get_item_data', array( $this, 'display_cart_data' ), 10, 2 );

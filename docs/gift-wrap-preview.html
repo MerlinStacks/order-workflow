@@ -67,6 +67,7 @@
         <div class="tax-note">Including tax</div>
         <p class="description">An example product to show how the new gift-wrapping option fits above the add-to-cart button.</p>
         <form id="preview-form">
+          <label class="quantity" for="quantity" style="margin-bottom: 16px">Qty <input type="number" id="quantity" min="1" max="99" step="1" value="1" required></label>
           <div class="ck-ows-gift-wrap">
             <label class="ck-ows-gift-wrap__choice" for="gift-wrap">
               <input type="checkbox" name="ck_ows_gift_wrap" value="yes" id="gift-wrap" aria-controls="gift-message-panel">
@@ -81,7 +82,6 @@
             </div>
           </div>
           <div class="buy">
-            <label class="quantity" for="quantity">Qty <input type="number" id="quantity" min="1" max="99" step="1" value="1" required></label>
             <button type="submit">Preview add to cart</button>
           </div>
         </form>
